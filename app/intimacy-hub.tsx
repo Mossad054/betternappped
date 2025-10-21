@@ -1,0 +1,692 @@
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Modal } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
+import { ArrowLeft, Heart, Calendar, Clock, Star, CheckCircle, X, Plus } from 'lucide-react-native';
+import { useTheme } from '@/contexts/ThemeContext';
+import { getIntimacyPlans, IntimacyPlan } from '@/constants/mockData';
+
+export default function IntimacyHub() {
+  const insets = useSafeAreaInsets();
+  const router = useRouter();
+  const { theme } = useTheme();
+  const [selectedPlan, setSelectedPlan] = useState<IntimacyPlan | null>(null);
+  const [planModalVisible, setPlanModalVisible] = useState(false);
+  const [activePlan, setActivePlan] = useState<IntimacyPlan | null>(null);
+  const [completedActivities, setCompletedActivities] = useState<string[]>([]);
+
+  const intimacyPlans = getIntimacyPlans();
+
+  const handleStartPlan = (plan: IntimacyPlan) => {
+    setActivePlan(plan);
+    setCompletedActivities([]);
+  };
+
+  const handleCompleteActivity = (activityId: string) => {
+    setCompletedActivities(prev => 
+      prev.includes(activityId) 
+        ? prev.filter(id => id !== activityId)
+        : [...prev, activityId]
+    );
+  };
+
+  const getPlanProgress = (plan: IntimacyPlan) => {
+    if (!activePlan || activePlan.id !== plan.id) return 0;
+    return Math.round((completedActivities.length / plan.activities.length) * 100);
+  };
+
+  const getLevelColor = (level: string) => {
+    switch (level) {
+      case 'Beginner': return theme.colors.primary;
+      case 'Intermediate': return theme.colors.warning;
+      case 'Advanced': return theme.colors.error;
+      default: return theme.colors.textSecondary;
+    }
+  };
+
+  return (
+    <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
+      <View style={[styles.header, { paddingTop: insets.top + 16, backgroundColor: theme.colors.card, borderBottomColor: theme.colors.border }]}>
+        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+          <ArrowLeft size={24} color={theme.colors.text} />
+        </TouchableOpacity>
+        <Text style={[styles.headerTitle, { color: theme.colors.text }]}>Intimacy Growth Hub</Text>
+        <View style={styles.placeholder} />
+      </View>
+
+      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+        <View style={[styles.introCard, { backgroundColor: theme.colors.card }]}>
+          <Heart size={48} color={theme.colors.primary} />
+          <Text style={[styles.introTitle, { color: theme.colors.text }]}>
+            Welcome to Your Intimacy Growth Hub 💞
+          </Text>
+          <Text style={[styles.introText, { color: theme.colors.textSecondary }]}>
+            Let&apos;s understand your current state and help you strengthen your emotional and physical connection.
+          </Text>
+        </View>
+
+        <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Available Plans</Text>
+        {intimacyPlans.map((plan) => (
+          <TouchableOpacity
+            key={plan.id}
+            style={[styles.planCard, { backgroundColor: theme.colors.card }]}
+            onPress={() => {
+              setSelectedPlan(plan);
+              setPlanModalVisible(true);
+            }}
+          >
+            <View style={styles.planHeader}>
+              <View style={styles.planInfo}>
+                <Text style={[styles.planTitle, { color: theme.colors.text }]}>{plan.title}</Text>
+                <Text style={[styles.planDescription, { color: theme.colors.textSecondary }]}>
+                  {plan.description}
+                </Text>
+              </View>
+              <View style={[styles.levelBadge, { backgroundColor: getLevelColor(plan.level) }]}>
+                <Text style={styles.levelText}>{plan.level}</Text>
+              </View>
+            </View>
+
+            <View style={styles.planMeta}>
+              <View style={styles.metaItem}>
+                <Clock size={16} color={theme.colors.textSecondary} />
+                <Text style={[styles.metaText, { color: theme.colors.textSecondary }]}>
+                  {plan.duration} days
+                </Text>
+              </View>
+              <View style={styles.metaItem}>
+                <Calendar size={16} color={theme.colors.textSecondary} />
+                <Text style={[styles.metaText, { color: theme.colors.textSecondary }]}>
+                  {plan.scheduleType}
+                </Text>
+              </View>
+              <View style={styles.metaItem}>
+                <Star size={16} color={theme.colors.textSecondary} />
+                <Text style={[styles.metaText, { color: theme.colors.textSecondary }]}>
+                  {plan.activities.length} activities
+                </Text>
+              </View>
+            </View>
+
+            {activePlan && activePlan.id === plan.id && (
+              <View style={styles.progressSection}>
+                <View style={styles.progressHeader}>
+                  <Text style={[styles.progressTitle, { color: theme.colors.text }]}>Progress</Text>
+                  <Text style={[styles.progressPercentage, { color: theme.colors.primary }]}>
+                    {getPlanProgress(plan)}%
+                  </Text>
+                </View>
+                <View style={[styles.progressBar, { backgroundColor: theme.colors.border }]}>
+                  <View 
+                    style={[
+                      styles.progressFill, 
+                      { 
+                        width: `${getPlanProgress(plan)}%`, 
+                        backgroundColor: theme.colors.primary 
+                      }
+                    ]} 
+                  />
+                </View>
+              </View>
+            )}
+          </TouchableOpacity>
+        ))}
+
+        {activePlan && (
+          <View style={[styles.activePlanCard, { backgroundColor: theme.colors.card }]}>
+            <Text style={[styles.activePlanTitle, { color: theme.colors.text }]}>
+              Current Plan: {activePlan.title}
+            </Text>
+            <Text style={[styles.activePlanDescription, { color: theme.colors.textSecondary }]}>
+              {activePlan.description}
+            </Text>
+            
+            <View style={styles.activitiesList}>
+              {activePlan.activities.map((activity) => (
+                <TouchableOpacity
+                  key={activity.id}
+                  style={[
+                    styles.activityItem,
+                    { backgroundColor: theme.colors.secondary },
+                    completedActivities.includes(activity.id) && styles.completedActivity
+                  ]}
+                  onPress={() => handleCompleteActivity(activity.id)}
+                >
+                  <View style={styles.activityHeader}>
+                    <Text style={styles.activityEmoji}>{activity.emoji}</Text>
+                    <View style={styles.activityInfo}>
+                      <Text style={[styles.activityName, { color: theme.colors.text }]}>
+                        {activity.name}
+                      </Text>
+                      <Text style={[styles.activityDuration, { color: theme.colors.textSecondary }]}>
+                        {activity.duration} minutes
+                      </Text>
+                    </View>
+                    {completedActivities.includes(activity.id) && (
+                      <CheckCircle size={20} color={theme.colors.primary} />
+                    )}
+                  </View>
+                  <Text style={[styles.activityDescription, { color: theme.colors.textSecondary }]}>
+                    {activity.description}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+        )}
+      </ScrollView>
+
+      {/* Plan Detail Modal */}
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={planModalVisible}
+        onRequestClose={() => setPlanModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { backgroundColor: theme.colors.card }]}>
+            <View style={styles.modalHeader}>
+              <View style={styles.modalTitleContainer}>
+                <Heart size={24} color={theme.colors.primary} />
+                <Text style={[styles.modalTitle, { color: theme.colors.text }]}>
+                  {selectedPlan?.title}
+                </Text>
+              </View>
+              <TouchableOpacity
+                onPress={() => setPlanModalVisible(false)}
+                style={styles.closeButton}
+              >
+                <X size={24} color={theme.colors.textSecondary} />
+              </TouchableOpacity>
+            </View>
+
+            {selectedPlan && (
+              <ScrollView style={styles.modalBody} showsVerticalScrollIndicator={false}>
+                <Text style={[styles.modalDescription, { color: theme.colors.text }]}>
+                  {selectedPlan.description}
+                </Text>
+
+                <View style={styles.planDetails}>
+                  <View style={styles.detailItem}>
+                    <Clock size={16} color={theme.colors.textSecondary} />
+                    <Text style={[styles.detailLabel, { color: theme.colors.textSecondary }]}>Duration</Text>
+                    <Text style={[styles.detailValue, { color: theme.colors.text }]}>
+                      {selectedPlan.duration} days
+                    </Text>
+                  </View>
+                  <View style={styles.detailItem}>
+                    <Calendar size={16} color={theme.colors.textSecondary} />
+                    <Text style={[styles.detailLabel, { color: theme.colors.textSecondary }]}>Schedule</Text>
+                    <Text style={[styles.detailValue, { color: theme.colors.text }]}>
+                      {selectedPlan.scheduleType}
+                    </Text>
+                  </View>
+                  <View style={styles.detailItem}>
+                    <Star size={16} color={theme.colors.textSecondary} />
+                    <Text style={[styles.detailLabel, { color: theme.colors.textSecondary }]}>Level</Text>
+                    <Text style={[styles.detailValue, { color: getLevelColor(selectedPlan.level) }]}>
+                      {selectedPlan.level}
+                    </Text>
+                  </View>
+                </View>
+
+                <View style={styles.activitiesSection}>
+                  <Text style={[styles.activitiesTitle, { color: theme.colors.text }]}>Activities</Text>
+                  {selectedPlan.activities.map((activity, index) => (
+                    <View key={activity.id} style={styles.activityDetail}>
+                      <View style={styles.activityDetailHeader}>
+                        <Text style={styles.activityDetailEmoji}>{activity.emoji}</Text>
+                        <View style={styles.activityDetailInfo}>
+                          <Text style={[styles.activityDetailName, { color: theme.colors.text }]}>
+                            {activity.name}
+                          </Text>
+                          <Text style={[styles.activityDetailDuration, { color: theme.colors.textSecondary }]}>
+                            {activity.duration} minutes
+                          </Text>
+                        </View>
+                      </View>
+                      <Text style={[styles.activityDetailDescription, { color: theme.colors.textSecondary }]}>
+                        {activity.description}
+                      </Text>
+                      <View style={styles.activityTips}>
+                        <Text style={[styles.tipsTitle, { color: theme.colors.text }]}>Tips:</Text>
+                        {activity.tips.map((tip, tipIndex) => (
+                          <Text key={tipIndex} style={[styles.tipText, { color: theme.colors.textSecondary }]}>
+                            • {tip}
+                          </Text>
+                        ))}
+                      </View>
+                    </View>
+                  ))}
+                </View>
+
+                <View style={styles.expectedOutcomes}>
+                  <Text style={[styles.outcomesTitle, { color: theme.colors.text }]}>Expected Outcomes</Text>
+                  {selectedPlan.expectedOutcomes.map((outcome, index) => (
+                    <View key={index} style={styles.outcomeItem}>
+                      <CheckCircle size={16} color={theme.colors.primary} />
+                      <Text style={[styles.outcomeText, { color: theme.colors.textSecondary }]}>
+                        {outcome}
+                      </Text>
+                    </View>
+                  ))}
+                </View>
+              </ScrollView>
+            )}
+
+            <View style={styles.modalFooter}>
+              <TouchableOpacity
+                style={[styles.startPlanButton, { backgroundColor: theme.colors.primary }]}
+                onPress={() => {
+                  if (selectedPlan) {
+                    handleStartPlan(selectedPlan);
+                    setPlanModalVisible(false);
+                  }
+                }}
+              >
+                <Plus size={20} color="#FFFFFF" />
+                <Text style={styles.startPlanText}>Start This Plan</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingBottom: 16,
+    borderBottomWidth: 1,
+  },
+  backButton: {
+    padding: 8,
+    marginLeft: -8,
+  },
+  headerTitle: {
+    flex: 1,
+    fontSize: 18,
+    fontWeight: '600' as const,
+    textAlign: 'center',
+  },
+  placeholder: {
+    width: 40,
+  },
+  content: {
+    flex: 1,
+    paddingHorizontal: 20,
+  },
+  introCard: {
+    padding: 24,
+    borderRadius: 16,
+    alignItems: 'center',
+    marginTop: 20,
+    marginBottom: 24,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  introTitle: {
+    fontSize: 22,
+    fontWeight: 'bold' as const,
+    marginTop: 16,
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  introText: {
+    fontSize: 15,
+    lineHeight: 22,
+    textAlign: 'center',
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: '600' as const,
+    marginBottom: 16,
+    marginTop: 8,
+  },
+  card: {
+    padding: 20,
+    borderRadius: 12,
+    marginBottom: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  cardText: {
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  // Plan card styles
+  planCard: {
+    padding: 20,
+    borderRadius: 16,
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  planHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 16,
+  },
+  planInfo: {
+    flex: 1,
+    marginRight: 12,
+  },
+  planTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#1F2937',
+    marginBottom: 8,
+  },
+  planDescription: {
+    fontSize: 14,
+    color: '#6B7280',
+    lineHeight: 20,
+  },
+  levelBadge: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+  },
+  levelText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#FFFFFF',
+  },
+  planMeta: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 16,
+  },
+  metaItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  metaText: {
+    fontSize: 12,
+    color: '#6B7280',
+    marginLeft: 4,
+  },
+  progressSection: {
+    marginTop: 16,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#E5E7EB',
+  },
+  progressHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  progressTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#1F2937',
+  },
+  progressPercentage: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#10B981',
+  },
+  progressBar: {
+    height: 6,
+    backgroundColor: '#E5E7EB',
+    borderRadius: 3,
+    overflow: 'hidden',
+  },
+  progressFill: {
+    height: '100%',
+    backgroundColor: '#10B981',
+    borderRadius: 3,
+  },
+  // Active plan styles
+  activePlanCard: {
+    padding: 20,
+    borderRadius: 16,
+    marginBottom: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  activePlanTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#1F2937',
+    marginBottom: 8,
+  },
+  activePlanDescription: {
+    fontSize: 14,
+    color: '#6B7280',
+    marginBottom: 20,
+  },
+  activitiesList: {
+    gap: 12,
+  },
+  activityItem: {
+    padding: 16,
+    borderRadius: 12,
+    backgroundColor: '#F9FAFB',
+  },
+  completedActivity: {
+    backgroundColor: '#F0FDF4',
+    borderWidth: 1,
+    borderColor: '#BBF7D0',
+  },
+  activityHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  activityEmoji: {
+    fontSize: 24,
+    marginRight: 12,
+  },
+  activityInfo: {
+    flex: 1,
+  },
+  activityName: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1F2937',
+    marginBottom: 4,
+  },
+  activityDuration: {
+    fontSize: 12,
+    color: '#6B7280',
+  },
+  activityDescription: {
+    fontSize: 14,
+    color: '#6B7280',
+    lineHeight: 20,
+  },
+  // Modal styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    maxHeight: '80%',
+    paddingTop: 20,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingBottom: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E7EB',
+  },
+  modalTitleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: '600',
+    color: '#1F2937',
+    marginLeft: 12,
+  },
+  closeButton: {
+    padding: 4,
+  },
+  modalBody: {
+    padding: 20,
+  },
+  modalDescription: {
+    fontSize: 16,
+    color: '#1F2937',
+    lineHeight: 24,
+    marginBottom: 20,
+  },
+  planDetails: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 20,
+  },
+  detailItem: {
+    flex: 1,
+    alignItems: 'center',
+    padding: 12,
+    backgroundColor: '#F9FAFB',
+    borderRadius: 8,
+    marginHorizontal: 4,
+  },
+  detailLabel: {
+    fontSize: 12,
+    color: '#6B7280',
+    marginTop: 4,
+    marginBottom: 2,
+  },
+  detailValue: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#1F2937',
+  },
+  activitiesSection: {
+    marginBottom: 20,
+  },
+  activitiesTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1F2937',
+    marginBottom: 12,
+  },
+  activityDetail: {
+    backgroundColor: '#F9FAFB',
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 12,
+  },
+  activityDetailHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  activityDetailEmoji: {
+    fontSize: 24,
+    marginRight: 12,
+  },
+  activityDetailInfo: {
+    flex: 1,
+  },
+  activityDetailName: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1F2937',
+    marginBottom: 4,
+  },
+  activityDetailDuration: {
+    fontSize: 12,
+    color: '#6B7280',
+  },
+  activityDetailDescription: {
+    fontSize: 14,
+    color: '#6B7280',
+    lineHeight: 20,
+    marginBottom: 12,
+  },
+  activityTips: {
+    marginTop: 8,
+  },
+  tipsTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#1F2937',
+    marginBottom: 8,
+  },
+  tipText: {
+    fontSize: 13,
+    color: '#6B7280',
+    lineHeight: 18,
+    marginBottom: 4,
+  },
+  expectedOutcomes: {
+    marginBottom: 20,
+  },
+  outcomesTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1F2937',
+    marginBottom: 12,
+  },
+  outcomeItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  outcomeText: {
+    flex: 1,
+    fontSize: 14,
+    color: '#6B7280',
+    marginLeft: 8,
+  },
+  modalFooter: {
+    padding: 20,
+    borderTopWidth: 1,
+    borderTopColor: '#E5E7EB',
+  },
+  startPlanButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 16,
+    borderRadius: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  startPlanText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#FFFFFF',
+    marginLeft: 8,
+  },
+});
