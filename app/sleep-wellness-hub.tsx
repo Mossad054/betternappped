@@ -188,6 +188,7 @@ export default function SleepWellnessHub() {
 
   const handleStartExperiment = (experimentId: string) => {
     console.log('Starting experiment:', experimentId);
+    router.push('/experiments-hub');
   };
 
   const handleOpenTutorial = (tutorialId: string) => {
@@ -348,6 +349,15 @@ export default function SleepWellnessHub() {
               )}
             </View>
           ))}
+
+          <TouchableOpacity
+            style={styles.viewAllExperimentsButton}
+            onPress={() => router.push('/experiments-hub')}
+          >
+            <FlaskConical size={20} color={'#34B27B'} />
+            <Text style={styles.viewAllExperimentsText}>View All Experiments</Text>
+            <ChevronRight size={20} color={'#34B27B'} />
+          </TouchableOpacity>
         </View>
 
         <View style={styles.card}>
@@ -1155,6 +1165,24 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600' as const,
     color: '#FFFFFF',
+  },
+  viewAllExperimentsButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    backgroundColor: '#F0FDF4',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#34B27B',
+    marginTop: 16,
+    gap: 8,
+  },
+  viewAllExperimentsText: {
+    fontSize: 16,
+    fontWeight: '600' as const,
+    color: '#34B27B',
   },
 });
 

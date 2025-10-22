@@ -4,7 +4,7 @@ export type HabitCategory = 'MentalClarity' | 'Health' | 'Sleep' | 'Mood' | 'Int
 
 export type ExperimentStatus = 'active' | 'completed' | 'paused';
 
-export type ExperimentOutcome = 'mood' | 'sleep' | 'anxiety' | 'clarity' | 'energy' | 'productivity';
+export type ExperimentOutcome = 'Mood' | 'Sleep Quality' | 'Mental Clarity' | 'Anxiety / Calmness' | 'Focus' | 'Productivity';
 
 export interface ActiveHabit {
   id: string;

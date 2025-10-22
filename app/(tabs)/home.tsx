@@ -10,6 +10,9 @@ import {
   Dimensions,
   PanResponder,
   Modal,
+  TextInput,
+  Switch,
+  Alert,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -23,13 +26,22 @@ import {
   Plus,
   Sparkles,
   FlaskConical,
+  X,
+  ChevronDown,
+  ChevronUp,
+  Clock,
+  Target,
+  Save,
 } from 'lucide-react-native';
 import { 
   getActiveHabits, 
   getSuggestedHabits,
   getMoodData,
   getSleepData,
+  getHabitLibraryData,
   type ActiveHabit,
+  type HabitLibraryItem,
+  type HabitCategory,
 } from '@/constants/mockData';
 import HabitCard from '@/components/HabitCard';
 
@@ -43,11 +55,29 @@ export default function HomeScreen() {
   const suggestedHabits = getSuggestedHabits();
   const [currentSuggestedIndex, setCurrentSuggestedIndex] = useState<number>(0);
   const [moreHabitsModalVisible, setMoreHabitsModalVisible] = useState(false);
+  const [habitLibraryModalVisible, setHabitLibraryModalVisible] = useState(false);
+  const [createHabitModalVisible, setCreateHabitModalVisible] = useState(false);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  
+  // Debug logging
+  console.log('Modal states:', { habitLibraryModalVisible, createHabitModalVisible });
+  console.log('Active habits count:', activeHabits.length);
+  const [expandedCategories, setExpandedCategories] = useState<Set<HabitCategory>>(new Set(['Intimacy', 'Health', 'Mood']));
+  const [customHabitForm, setCustomHabitForm] = useState({
+    name: '',
+    description: '',
+    category: 'Health' as HabitCategory,
+    frequency: 'Daily',
+    reminderEnabled: false,
+    reminderTime: '09:00',
+    streakGoal: 30,
+  });
   
   const moodData = getMoodData('week');
   const sleepData = getSleepData('week');
   const todayMood = moodData[moodData.length - 1];
   const todaySleep = sleepData[sleepData.length - 1];
+  const habitLibrary = getHabitLibraryData();
   
   const getGreeting = () => {
     const hour = new Date().getHours();
@@ -78,6 +108,123 @@ export default function HomeScreen() {
 
   const handleDeleteHabit = (id: string) => {
     setActiveHabits(prev => prev.filter(h => h.id !== id));
+  };
+
+  const handleAddHabitFromLibrary = (habit: HabitLibraryItem) => {
+    try {
+      // Check if habit already exists
+      const existingHabit = activeHabits.find(h => h.name === habit.name);
+      if (existingHabit) {
+        Alert.alert('Already Added', `${habit.name} is already in your active habits!`);
+        return;
+      }
+
+      const newHabit: ActiveHabit = {
+        id: `active-${Date.now()}`,
+        name: habit.name,
+        description: habit.description,
+        category: habit.category,
+        currentDay: 1,
+        totalDays: 30,
+        streak: 0,
+        progressPercentage: 0,
+        completedToday: false,
+        feedback: 'neutral',
+        reminderEnabled: false,
+      };
+      
+      setActiveHabits(prev => {
+        const updatedHabits = [...prev, newHabit];
+        console.log('Added habit:', newHabit);
+        console.log('Updated active habits:', updatedHabits);
+        return updatedHabits;
+      });
+      
+      setHabitLibraryModalVisible(false);
+      setSuccessMessage(`✅ ${habit.name} has been added to your active habits!`);
+      setTimeout(() => setSuccessMessage(null), 3000);
+      Alert.alert('✅ Success', `${habit.name} has been added to your active habits!`, [
+        { text: 'OK', style: 'default' }
+      ]);
+    } catch (error) {
+      console.error('Error adding habit:', error);
+      Alert.alert('❌ Error', 'Failed to add habit. Please try again.');
+    }
+  };
+
+  const handleCreateCustomHabit = () => {
+    try {
+      // Validation
+      if (!customHabitForm.name.trim()) {
+        Alert.alert('❌ Validation Error', 'Please enter a habit name');
+        return;
+      }
+      
+      if (customHabitForm.name.trim().length < 3) {
+        Alert.alert('❌ Validation Error', 'Habit name must be at least 3 characters long');
+        return;
+      }
+
+      // Check if habit already exists
+      const existingHabit = activeHabits.find(h => h.name.toLowerCase() === customHabitForm.name.trim().toLowerCase());
+      if (existingHabit) {
+        Alert.alert('Already Exists', `${customHabitForm.name} is already in your active habits!`);
+        return;
+      }
+      
+      const newHabit: ActiveHabit = {
+        id: `custom-${Date.now()}`,
+        name: customHabitForm.name.trim(),
+        description: customHabitForm.description.trim() || 'Custom habit',
+        category: customHabitForm.category,
+        currentDay: 1,
+        totalDays: customHabitForm.streakGoal,
+        streak: 0,
+        progressPercentage: 0,
+        completedToday: false,
+        feedback: 'neutral',
+        reminderEnabled: customHabitForm.reminderEnabled,
+      };
+      
+      setActiveHabits(prev => {
+        const updatedHabits = [...prev, newHabit];
+        console.log('Created custom habit:', newHabit);
+        console.log('Updated active habits:', updatedHabits);
+        return updatedHabits;
+      });
+      
+      setCreateHabitModalVisible(false);
+      setSuccessMessage(`✅ ${customHabitForm.name} has been created and added to your active habits!`);
+      setTimeout(() => setSuccessMessage(null), 3000);
+      setCustomHabitForm({
+        name: '',
+        description: '',
+        category: 'Health',
+        frequency: 'Daily',
+        reminderEnabled: false,
+        reminderTime: '09:00',
+        streakGoal: 30,
+      });
+      
+      Alert.alert('✅ Success', `${customHabitForm.name} has been created and added to your active habits!`, [
+        { text: 'OK', style: 'default' }
+      ]);
+    } catch (error) {
+      console.error('Error creating custom habit:', error);
+      Alert.alert('❌ Error', 'Failed to create habit. Please try again.');
+    }
+  };
+
+  const toggleCategory = (category: HabitCategory) => {
+    setExpandedCategories(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(category)) {
+        newSet.delete(category);
+      } else {
+        newSet.add(category);
+      }
+      return newSet;
+    });
   };
 
   const pan = useRef(new Animated.ValueXY()).current;
@@ -306,7 +453,10 @@ export default function HomeScreen() {
         <View style={styles.habitActionCards}>
           <TouchableOpacity 
             style={[styles.actionCard, { backgroundColor: theme.colors.card }]}
-            onPress={() => router.push('/habit-library')}
+            onPress={() => {
+              console.log('Opening habit library modal');
+              setHabitLibraryModalVisible(true);
+            }}
           >
             <Library size={24} color={theme.colors.primary} />
             <Text style={[styles.actionCardTitle, { color: theme.colors.text }]}>Browse Habit Library</Text>
@@ -317,7 +467,10 @@ export default function HomeScreen() {
 
           <TouchableOpacity 
             style={[styles.actionCard, { backgroundColor: theme.colors.card }]}
-            onPress={() => router.push('/habit-library')}
+            onPress={() => {
+              console.log('Opening create habit modal');
+              setCreateHabitModalVisible(true);
+            }}
           >
             <Plus size={24} color={theme.colors.primary} />
             <Text style={[styles.actionCardTitle, { color: theme.colors.text }]}>Create Custom Habit</Text>
@@ -325,6 +478,24 @@ export default function HomeScreen() {
               Design your own habit
             </Text>
           </TouchableOpacity>
+        </View>
+
+        {/* Success Message */}
+        {successMessage && (
+          <View style={[styles.card, { backgroundColor: '#10B981', marginBottom: 16 }]}>
+            <Text style={[styles.cardTitle, { color: '#FFFFFF' }]}>{successMessage}</Text>
+          </View>
+        )}
+
+        {/* Debug Info */}
+        <View style={[styles.card, { backgroundColor: theme.colors.card, marginBottom: 16 }]}>
+          <Text style={[styles.cardTitle, { color: theme.colors.text }]}>Debug Info</Text>
+          <Text style={[styles.sectionSubtitle, { color: theme.colors.textSecondary }]}>
+            Modal States: Library={habitLibraryModalVisible ? 'Open' : 'Closed'}, Create={createHabitModalVisible ? 'Open' : 'Closed'}
+          </Text>
+          <Text style={[styles.sectionSubtitle, { color: theme.colors.textSecondary }]}>
+            Active Habits: {activeHabits.length}
+          </Text>
         </View>
 
         <TouchableOpacity 
@@ -479,14 +650,12 @@ export default function HomeScreen() {
                       feedback: 'neutral',
                       reminderEnabled: false,
                       quote: habit.quote,
-                      benefit: habit.benefit,
-                      frequency: habit.frequency,
                     };
                     setActiveHabits(prev => [...prev, newHabit]);
                     setMoreHabitsModalVisible(false);
                   }}
                 >
-                  <Text style={styles.habitGridEmoji}>{habit.emoji}</Text>
+                  <Text style={styles.habitGridEmoji}>📚</Text>
                   <Text style={[styles.habitGridName, { color: theme.colors.text }]}>{habit.name}</Text>
                   <Text style={[styles.habitGridDescription, { color: theme.colors.textSecondary }]}>
                     {habit.description}
@@ -498,6 +667,175 @@ export default function HomeScreen() {
                 </TouchableOpacity>
               ))}
             </View>
+          </ScrollView>
+        </View>
+      </Modal>
+
+      {/* Habit Library Modal */}
+      <Modal
+        visible={habitLibraryModalVisible}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => {
+          console.log('Closing habit library modal');
+          setHabitLibraryModalVisible(false);
+        }}
+      >
+        <View style={[styles.modalContainer, { backgroundColor: theme.colors.background }]}>
+          <View style={[styles.modalHeader, { backgroundColor: theme.colors.card, borderBottomColor: theme.colors.border }]}>
+            <TouchableOpacity onPress={() => {
+              console.log('Closing habit library modal from header');
+              setHabitLibraryModalVisible(false);
+            }}>
+              <X size={24} color={theme.colors.textSecondary} />
+            </TouchableOpacity>
+            <Text style={[styles.modalTitle, { color: theme.colors.text }]}>Habit Library</Text>
+            <View style={styles.modalPlaceholder} />
+          </View>
+          
+          <ScrollView style={styles.modalContent} showsVerticalScrollIndicator={false}>
+            {Object.entries(habitLibrary).map(([category, habits]) => (
+              <View key={category} style={styles.categorySection}>
+                <TouchableOpacity 
+                  onPress={() => toggleCategory(category as HabitCategory)} 
+                  style={[styles.categoryHeader, { backgroundColor: theme.colors.card }]}
+                >
+                  <Text style={[styles.categoryTitle, { color: theme.colors.text }]}>{category}</Text>
+                  {expandedCategories.has(category as HabitCategory) ? (
+                    <ChevronUp size={20} color={theme.colors.textSecondary} />
+                  ) : (
+                    <ChevronDown size={20} color={theme.colors.textSecondary} />
+                  )}
+                </TouchableOpacity>
+
+                {expandedCategories.has(category as HabitCategory) && (
+                  <View style={styles.habitsGrid}>
+                    {habits.map(habit => (
+                      <TouchableOpacity
+                        key={habit.id}
+                        style={[styles.habitGridCard, { backgroundColor: theme.colors.card }]}
+                        onPress={() => handleAddHabitFromLibrary(habit)}
+                      >
+                        <Text style={styles.habitGridEmoji}>{habit.emoji}</Text>
+                        <Text style={[styles.habitGridName, { color: theme.colors.text }]}>{habit.name}</Text>
+                        <Text style={[styles.habitGridDescription, { color: theme.colors.textSecondary }]}>
+                          {habit.description}
+                        </Text>
+                        <View style={[styles.addHabitButton, { backgroundColor: theme.colors.primary }]}>
+                          <Plus size={16} color="#FFFFFF" />
+                          <Text style={styles.addHabitButtonText}>Add to Active</Text>
+                        </View>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                )}
+              </View>
+            ))}
+          </ScrollView>
+        </View>
+      </Modal>
+
+      {/* Create Custom Habit Modal */}
+      <Modal
+        visible={createHabitModalVisible}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => {
+          console.log('Closing create habit modal');
+          setCreateHabitModalVisible(false);
+        }}
+      >
+        <View style={[styles.modalContainer, { backgroundColor: theme.colors.background }]}>
+          <View style={[styles.modalHeader, { backgroundColor: theme.colors.card, borderBottomColor: theme.colors.border }]}>
+            <TouchableOpacity onPress={() => {
+              console.log('Closing create habit modal from header');
+              setCreateHabitModalVisible(false);
+            }}>
+              <X size={24} color={theme.colors.textSecondary} />
+            </TouchableOpacity>
+            <Text style={[styles.modalTitle, { color: theme.colors.text }]}>Create Custom Habit</Text>
+            <View style={styles.modalPlaceholder} />
+          </View>
+          
+          <ScrollView style={styles.modalContent} showsVerticalScrollIndicator={false}>
+            <View style={styles.formSection}>
+              <Text style={[styles.formLabel, { color: theme.colors.text }]}>Habit Name</Text>
+              <TextInput
+                style={[styles.formInput, { backgroundColor: theme.colors.card, color: theme.colors.text, borderColor: theme.colors.border }]}
+                value={customHabitForm.name}
+                onChangeText={(text) => setCustomHabitForm(prev => ({ ...prev, name: text }))}
+                placeholder="e.g., Read a book"
+                placeholderTextColor={theme.colors.textSecondary}
+              />
+            </View>
+
+            <View style={styles.formSection}>
+              <Text style={[styles.formLabel, { color: theme.colors.text }]}>Description</Text>
+              <TextInput
+                style={[styles.formInput, { backgroundColor: theme.colors.card, color: theme.colors.text, borderColor: theme.colors.border }]}
+                value={customHabitForm.description}
+                onChangeText={(text) => setCustomHabitForm(prev => ({ ...prev, description: text }))}
+                placeholder="Describe your habit..."
+                placeholderTextColor={theme.colors.textSecondary}
+                multiline
+                numberOfLines={3}
+              />
+            </View>
+
+            <View style={styles.formSection}>
+              <Text style={[styles.formLabel, { color: theme.colors.text }]}>Category</Text>
+              <View style={styles.categoryButtons}>
+                {(['Health', 'MentalClarity', 'Sleep', 'Mood', 'Intimacy', 'Anxiety'] as HabitCategory[]).map(category => (
+                  <TouchableOpacity
+                    key={category}
+                    style={[
+                      styles.categoryButton,
+                      { backgroundColor: customHabitForm.category === category ? theme.colors.primary : theme.colors.card, borderColor: theme.colors.border },
+                    ]}
+                    onPress={() => setCustomHabitForm(prev => ({ ...prev, category }))}
+                  >
+                    <Text style={[
+                      styles.categoryButtonText,
+                      { color: customHabitForm.category === category ? '#FFFFFF' : theme.colors.text }
+                    ]}>
+                      {category}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+
+            <View style={styles.formSection}>
+              <Text style={[styles.formLabel, { color: theme.colors.text }]}>Streak Goal (Days)</Text>
+              <TextInput
+                style={[styles.formInput, { backgroundColor: theme.colors.card, color: theme.colors.text, borderColor: theme.colors.border }]}
+                value={customHabitForm.streakGoal.toString()}
+                onChangeText={(text) => setCustomHabitForm(prev => ({ ...prev, streakGoal: parseInt(text) || 30 }))}
+                placeholder="30"
+                placeholderTextColor={theme.colors.textSecondary}
+                keyboardType="numeric"
+              />
+            </View>
+
+            <View style={styles.formSection}>
+              <View style={styles.reminderRow}>
+                <Text style={[styles.formLabel, { color: theme.colors.text }]}>Enable Reminder</Text>
+                <Switch
+                  value={customHabitForm.reminderEnabled}
+                  onValueChange={(value) => setCustomHabitForm(prev => ({ ...prev, reminderEnabled: value }))}
+                  trackColor={{ false: theme.colors.textSecondary, true: theme.colors.primary }}
+                  thumbColor={theme.colors.background}
+                />
+              </View>
+            </View>
+
+            <TouchableOpacity
+              style={[styles.saveButton, { backgroundColor: theme.colors.primary }]}
+              onPress={handleCreateCustomHabit}
+            >
+              <Save size={20} color="#FFFFFF" />
+              <Text style={styles.saveButtonText}>Create & Add to Active Habits</Text>
+            </TouchableOpacity>
           </ScrollView>
         </View>
       </Modal>
@@ -520,7 +858,6 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     padding: 24,
     borderRadius: 20,
-    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
     backgroundColor: '#667eea',
   },
   greeting: {
@@ -1051,6 +1388,70 @@ const styles = StyleSheet.create({
   addHabitButtonText: {
     color: '#FFFFFF',
     fontSize: 12,
+    fontWeight: '600' as const,
+  },
+  categorySection: {
+    marginBottom: 16,
+  },
+  categoryHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 8,
+  },
+  categoryTitle: {
+    fontSize: 16,
+    fontWeight: '600' as const,
+  },
+  formSection: {
+    marginBottom: 20,
+  },
+  formLabel: {
+    fontSize: 14,
+    fontWeight: '600' as const,
+    marginBottom: 8,
+  },
+  formInput: {
+    borderWidth: 1,
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 16,
+  },
+  categoryButtons: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  categoryButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 20,
+    borderWidth: 1,
+  },
+  categoryButtonText: {
+    fontSize: 12,
+    fontWeight: '500' as const,
+  },
+  reminderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  saveButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 16,
+    paddingHorizontal: 24,
+    borderRadius: 12,
+    gap: 8,
+    marginTop: 20,
+  },
+  saveButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
     fontWeight: '600' as const,
   },
 });
