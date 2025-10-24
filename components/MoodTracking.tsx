@@ -1,8 +1,16 @@
 import React from 'react';
 import { View, Text, StyleSheet, useWindowDimensions } from 'react-native';
 import Svg, { Polyline, Circle, Line, Path, G, Text as SvgText } from 'react-native-svg';
-import { MoodData, getMoodStreak, TimeRange } from '@/constants/mockData';
+import { TimeRange } from '@/constants/mockData';
 import { useTheme } from '@/contexts/ThemeContext';
+
+interface MoodData {
+  id: string;
+  date: string;
+  score: number;
+  emoji: string;
+  notes?: string;
+}
 
 interface MoodTrackingProps {
   data: MoodData[];
@@ -12,6 +20,36 @@ interface MoodTrackingProps {
 export default function MoodTracking({ data, timeRange }: MoodTrackingProps) {
   const { width } = useWindowDimensions();
   const { theme } = useTheme();
+  
+  // Calculate streak from live data
+  const getMoodStreak = (moodData: MoodData[]) => {
+    if (!moodData || moodData.length === 0) return { type: 'neutral', days: 0 };
+    
+    const sortedData = moodData.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    let streak = 0;
+    let currentType: 'good' | 'neutral' | 'bad' = 'neutral';
+    
+    for (const mood of sortedData) {
+      const score = mood.score;
+      let moodType: 'good' | 'neutral' | 'bad';
+      
+      if (score >= 4) moodType = 'good';
+      else if (score === 3) moodType = 'neutral';
+      else moodType = 'bad';
+      
+      if (streak === 0) {
+        currentType = moodType;
+        streak = 1;
+      } else if (moodType === currentType) {
+        streak++;
+      } else {
+        break;
+      }
+    }
+    
+    return { type: currentType, days: streak };
+  };
+  
   const streak = getMoodStreak(data);
   
   const getStreakColor = (type: 'good' | 'neutral' | 'bad') => {

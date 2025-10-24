@@ -5,6 +5,7 @@ import React, { useEffect } from "react";
 import { StyleSheet } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { ThemeProvider } from "@/contexts/ThemeContext";
+import { AuthProvider } from "@/contexts/AuthContext";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -19,6 +20,9 @@ function RootLayoutNav() {
       <Stack.Screen name="mental-clarity-test" options={{ presentation: "modal" }} />
       <Stack.Screen name="sleep-wellness-hub" options={{ presentation: "card" }} />
       <Stack.Screen name="intimacy-hub" options={{ presentation: "card" }} />
+      <Stack.Screen name="auth/login" options={{ headerShown: false }} />
+      <Stack.Screen name="auth/signup" options={{ headerShown: false }} />
+      <Stack.Screen name="auth/forgot-password" options={{ headerShown: false }} />
       <Stack.Screen name="experiments-hub" options={{ presentation: "card" }} />
     </Stack>
   );
@@ -31,11 +35,13 @@ export default function RootLayout() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <ThemeProvider>
-        <GestureHandlerRootView style={styles.container}>
-          <RootLayoutNav />
-        </GestureHandlerRootView>
-      </ThemeProvider>
+      <AuthProvider>
+        <ThemeProvider>
+          <GestureHandlerRootView style={styles.container}>
+            <RootLayoutNav />
+          </GestureHandlerRootView>
+        </ThemeProvider>
+      </AuthProvider>
     </QueryClientProvider>
   );
 }

@@ -1,29 +1,86 @@
-import React, { useState, useMemo } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import React, { useState, useMemo, useEffect } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { ChevronLeft, ChevronRight, Calendar as CalendarIcon } from 'lucide-react-native';
-import { getCalendarData, getDailyDetailData } from '@/constants/mockData';
+import { AnalyticsService } from '@/services/analytics.service';
 import DayDetailModal from '@/components/DayDetailModal';
 import FloatingAddButton from '@/components/FloatingAddButton';
 
 export default function CalendarScreen() {
   const insets = useSafeAreaInsets();
   const { theme } = useTheme();
+  const { user } = useAuth();
   const [currentDate, setCurrentDate] = useState<Date>(new Date());
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [modalVisible, setModalVisible] = useState<boolean>(false);
+  const [calendarData, setCalendarData] = useState<any>({});
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
 
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth() + 1;
 
-  const calendarData = useMemo(() => {
-    return getCalendarData(year, month);
-  }, [year, month]);
+  // Load calendar data when component mounts or month changes
+  useEffect(() => {
+    if (user) {
+      loadCalendarData();
+    }
+  }, [user, year, month]);
+
+  const loadCalendarData = async () => {
+    if (!user) return;
+    
+    setLoading(true);
+    setError(null);
+    
+    try {
+      const startDate = new Date(year, month - 1, 1).toISOString().split('T')[0];
+      const endDate = new Date(year, month, 0).toISOString().split('T')[0];
+      
+      const { data, error } = await AnalyticsService.getCalendarData(user.id, startDate, endDate);
+      
+      if (error) throw new Error('Failed to load calendar data');
+      
+      // Transform data into calendar format
+      const transformedData: any = {};
+      data?.forEach((day: any) => {
+        transformedData[day.date] = {
+          color: day.mood ? getMoodColor(day.mood.score) : '#E5E7EB',
+          mood: day.mood,
+          sleep: day.sleep,
+          activities: day.activities,
+          habits: day.habits,
+          experiments: day.experiments
+        };
+      });
+      
+      setCalendarData(transformedData);
+    } catch (err) {
+      console.error('Error loading calendar data:', err);
+      setError(err instanceof Error ? err.message : 'Failed to load calendar data');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await loadCalendarData();
+    setRefreshing(false);
+  };
+
+  const getMoodColor = (score: number) => {
+    if (score >= 4) return '#10B981'; // Green
+    if (score >= 3) return '#F59E0B'; // Yellow
+    return '#EF4444'; // Red
+  };
 
   const selectedDayData = useMemo(() => {
-    return selectedDate ? getDailyDetailData(selectedDate) : null;
-  }, [selectedDate]);
+    return selectedDate ? calendarData[selectedDate] : null;
+  }, [selectedDate, calendarData]);
 
   const monthNames = [
     'January', 'February', 'March', 'April', 'May', 'June',
@@ -125,6 +182,24 @@ export default function CalendarScreen() {
 
   const moodStats = getMoodStats();
 
+  if (loading && !refreshing) {
+    return (
+      <View style={[styles.container, { backgroundColor: theme.colors.background, justifyContent: 'center', alignItems: 'center' }]}>
+        <ActivityIndicator size="large" color={theme.colors.primary} />
+        <Text style={[styles.loadingText, { color: theme.colors.text }]}>Loading calendar...</Text>
+      </View>
+    );
+  }
+
+  if (error) {
+    return (
+      <View style={[styles.container, { backgroundColor: theme.colors.background, justifyContent: 'center', alignItems: 'center', padding: 20 }]}>
+        <Text style={[styles.errorText, { color: theme.colors.error }]}>Error: {error}</Text>
+        <Text style={[styles.retryText, { color: theme.colors.textSecondary }]}>Pull down to refresh</Text>
+      </View>
+    );
+  }
+
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
       <View style={[styles.header, { paddingTop: insets.top + 16, backgroundColor: theme.colors.card }]}>
@@ -154,7 +229,17 @@ export default function CalendarScreen() {
         </View>
       </View>
 
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView 
+        style={styles.content} 
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={theme.colors.primary}
+          />
+        }
+      >
         {/* Month Stats */}
         <View style={[styles.statsContainer, { backgroundColor: theme.colors.card }]}>
           <Text style={[styles.statsTitle, { color: theme.colors.text }]}>This Month Overview</Text>
@@ -552,5 +637,19 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#6B7280',
     lineHeight: 18,
+  },
+  loadingText: {
+    marginTop: 16,
+    fontSize: 16,
+    textAlign: 'center',
+  },
+  errorText: {
+    fontSize: 16,
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  retryText: {
+    fontSize: 14,
+    textAlign: 'center',
   },
 });

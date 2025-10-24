@@ -8,9 +8,16 @@ import {
   TextInput,
   Alert,
   Platform,
+  ActivityIndicator,
 } from 'react-native';
 
 import { Stack, router } from 'expo-router';
+import { useAuth } from '@/contexts/AuthContext';
+import { MoodsService } from '@/services/moods.service';
+import { ActivitiesService } from '@/services/activities.service';
+import { SleepService } from '@/services/sleep.service';
+import { ProductivityService } from '@/services/productivity.service';
+import { IntimacyService } from '@/services/intimacy.service';
 import {
   X,
   Calendar,
@@ -177,6 +184,8 @@ const productivityFactors = [
 const wakingFeelings = ['Refreshed', 'Tired', 'Foggy', 'Energized', 'Groggy', 'Alert'];
 
 export default function AddEntryScreen() {
+  const { user } = useAuth();
+  const [saving, setSaving] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [showDatePicker, setShowDatePicker] = useState<boolean>(false);
 
@@ -291,33 +300,113 @@ export default function AddEntryScreen() {
     );
   };
 
-  const handleSaveEntry = () => {
+  const handleSaveEntry = async () => {
+    if (!user) {
+      Alert.alert('Error', 'You must be logged in to save entries');
+      return;
+    }
+
     const selectedMoods = moods.filter(m => m.selected);
     if (selectedMoods.length === 0) {
       Alert.alert('Missing Information', 'Please select at least one mood.');
       return;
     }
 
-    console.log('Saving entry:', {
-      date: selectedDate.toISOString().split('T')[0],
-      moods: selectedMoods,
-      emotionTriggers,
-      activities: activityCategories,
-      productivity: {
-        rating: productivityRating,
-        focusedHours,
-        factors: selectedFactors,
-        otherFactor,
-      },
-      intimacy: intimacyData,
-      sleep: sleepData,
-    });
+    setSaving(true);
+    const date = selectedDate.toISOString().split('T')[0];
 
-    Alert.alert(
-      'Entry Saved!',
-      'Your daily entry has been saved successfully.',
-      [{ text: 'OK', onPress: () => router.back() }]
-    );
+    try {
+      // Save mood data
+      const moodScore = Math.round(selectedMoods.reduce((sum, mood) => sum + mood.id, 0) / selectedMoods.length);
+      const moodEmoji = selectedMoods[0].emoji; // Use first selected mood emoji
+      
+      const { error: moodError } = await MoodsService.create({
+        date,
+        moods: selectedMoods.map(m => ({ id: m.id, label: m.label, emoji: m.emoji })),
+        triggers: emotionTriggers.reduce((acc, trigger) => {
+          if (trigger.hasTrigger === 'yes' && trigger.triggerText) {
+            acc[trigger.emotion] = trigger.triggerText;
+          }
+          return acc;
+        }, {} as any),
+        score: moodScore,
+        emoji: moodEmoji,
+        notes: emotionTriggers.filter(t => t.hasTrigger === 'yes' && t.triggerText).map(t => `${t.emotion}: ${t.triggerText}`).join(', ')
+      }, user.id);
+
+      if (moodError) throw new Error('Failed to save mood data');
+
+      // Save activities
+      const selectedActivities = activityCategories.flatMap(category => 
+        category.items.filter(item => item.selected).map(item => ({
+          date,
+          category: category.name,
+          name: item.name,
+          duration: undefined,
+          emoji: category.emoji,
+          follow_up_answer: item.followUpAnswer
+        }))
+      );
+
+      if (selectedActivities.length > 0) {
+        const { error: activitiesError } = await ActivitiesService.createMany(selectedActivities, user.id);
+        if (activitiesError) throw new Error('Failed to save activities');
+      }
+
+      // Save sleep data
+      const sleepHours = (sleepData.wakeTime.getTime() - sleepData.bedtime.getTime()) / (1000 * 60 * 60);
+      const { error: sleepError } = await SleepService.create({
+        date,
+        bedtime: sleepData.bedtime.toTimeString().split(' ')[0],
+        wake_time: sleepData.wakeTime.toTimeString().split(' ')[0],
+        hours: Math.max(0, sleepHours),
+        quality: sleepData.quality,
+        waking_feeling: sleepData.wakingFeeling
+      }, user.id);
+
+      if (sleepError) throw new Error('Failed to save sleep data');
+
+      // Save productivity data
+      const { error: productivityError } = await ProductivityService.create({
+        date,
+        rating: productivityRating,
+        focused_hours: focusedHours ? parseFloat(focusedHours) : undefined,
+        factors: selectedFactors,
+        other_factor: otherFactor
+      }, user.id);
+
+      if (productivityError) throw new Error('Failed to save productivity data');
+
+      // Save intimacy data if provided
+      if (intimacyData.location || intimacyData.moodBefore !== 3 || intimacyData.moodAfter !== 3) {
+        const { error: intimacyError } = await IntimacyService.create({
+          date,
+          type: intimacyData.type,
+          orgasm: intimacyData.orgasm,
+          location: intimacyData.location || undefined,
+          toy_used: intimacyData.toyUsed,
+          time_to_sleep: intimacyData.timeToSleep,
+          mood_before: intimacyData.moodBefore,
+          mood_after: intimacyData.moodAfter
+        }, user.id);
+
+        if (intimacyError) throw new Error('Failed to save intimacy data');
+      }
+
+      Alert.alert(
+        'Entry Saved!',
+        'Your daily entry has been saved successfully.',
+        [{ text: 'OK', onPress: () => router.back() }]
+      );
+    } catch (error) {
+      console.error('Error saving entry:', error);
+      Alert.alert(
+        'Error',
+        error instanceof Error ? error.message : 'Failed to save entry. Please try again.'
+      );
+    } finally {
+      setSaving(false);
+    }
   };
 
   const formatDate = (date: Date) => {
@@ -937,9 +1026,17 @@ export default function AddEntryScreen() {
 
         {/* Save Button */}
         <View style={styles.saveContainer}>
-          <TouchableOpacity style={styles.saveButton} onPress={handleSaveEntry}>
+        <TouchableOpacity 
+          style={[styles.saveButton, saving && styles.savingButton]} 
+          onPress={handleSaveEntry}
+          disabled={saving}
+        >
+          {saving ? (
+            <ActivityIndicator color="#FFFFFF" size="small" />
+          ) : (
             <Text style={styles.saveButtonText}>Save Entry</Text>
-          </TouchableOpacity>
+          )}
+        </TouchableOpacity>
         </View>
       </ScrollView>
 
@@ -1577,5 +1674,8 @@ const styles = StyleSheet.create({
     fontSize: 18,
     color: '#FFFFFF',
     fontWeight: '600',
+  },
+  savingButton: {
+    opacity: 0.7,
   },
 });

@@ -1,18 +1,76 @@
-import React from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { ArrowLeft, FlaskConical, Plus, CheckCircle, Play, RotateCcw } from 'lucide-react-native';
 import { useTheme } from '@/contexts/ThemeContext';
-import { getExperiments, type Experiment } from '@/constants/mockData';
+import { useAuth } from '@/contexts/AuthContext';
+import { ExperimentsService } from '@/services/experiments.service';
+import { type Experiment } from '@/constants/mockData';
 
 export default function ExperimentsHub() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { theme } = useTheme();
-  const experiments = getExperiments();
+  const { user } = useAuth();
+  const [experiments, setExperiments] = useState<Experiment[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
+
+  // Load experiments on component mount
+  useEffect(() => {
+    if (user) {
+      loadExperiments();
+    }
+  }, [user]);
+
+  const loadExperiments = async () => {
+    if (!user) return;
+    
+    setLoading(true);
+    setError(null);
+    
+    try {
+      const { data, error } = await ExperimentsService.getAll(user.id);
+      
+      if (error) throw new Error('Failed to load experiments');
+      
+      setExperiments(data || []);
+    } catch (err) {
+      console.error('Error loading experiments:', err);
+      setError(err instanceof Error ? err.message : 'Failed to load experiments');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await loadExperiments();
+    setRefreshing(false);
+  };
+
   const activeExperiments = experiments.filter(exp => exp.status === 'active');
   const completedExperiments = experiments.filter(exp => exp.status === 'completed');
+
+  if (loading && !refreshing) {
+    return (
+      <View style={[styles.container, { backgroundColor: theme.colors.background, justifyContent: 'center', alignItems: 'center' }]}>
+        <ActivityIndicator size="large" color={theme.colors.primary} />
+        <Text style={[styles.loadingText, { color: theme.colors.text }]}>Loading experiments...</Text>
+      </View>
+    );
+  }
+
+  if (error) {
+    return (
+      <View style={[styles.container, { backgroundColor: theme.colors.background, justifyContent: 'center', alignItems: 'center', padding: 20 }]}>
+        <Text style={[styles.errorText, { color: theme.colors.error }]}>Error: {error}</Text>
+        <Text style={[styles.retryText, { color: theme.colors.textSecondary }]}>Pull down to refresh</Text>
+      </View>
+    );
+  }
 
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
@@ -24,7 +82,17 @@ export default function ExperimentsHub() {
         <View style={styles.placeholder} />
       </View>
 
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView 
+        style={styles.content} 
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={theme.colors.primary}
+          />
+        }
+      >
         <View style={[styles.introCard, { backgroundColor: theme.colors.card }]}>
           <FlaskConical size={48} color={theme.colors.primary} />
           <Text style={[styles.introTitle, { color: theme.colors.text }]}>
@@ -326,5 +394,19 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600' as const,
     color: '#FFFFFF',
+  },
+  loadingText: {
+    marginTop: 16,
+    fontSize: 16,
+    textAlign: 'center',
+  },
+  errorText: {
+    fontSize: 16,
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  retryText: {
+    fontSize: 14,
+    textAlign: 'center',
   },
 });

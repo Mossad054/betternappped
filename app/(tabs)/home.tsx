@@ -1,5 +1,6 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { 
   StyleSheet, 
   ScrollView, 
@@ -13,6 +14,8 @@ import {
   TextInput,
   Switch,
   Alert,
+  ActivityIndicator,
+  RefreshControl,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -34,24 +37,46 @@ import {
   Save,
 } from 'lucide-react-native';
 import { 
-  getActiveHabits, 
   getSuggestedHabits,
-  getMoodData,
-  getSleepData,
   getHabitLibraryData,
-  type ActiveHabit,
   type HabitLibraryItem,
   type HabitCategory,
 } from '@/constants/mockData';
 import HabitCard from '@/components/HabitCard';
+import { HabitsService } from '@/services/habits.service';
+import { MoodsService } from '@/services/moods.service';
+import { SleepService } from '@/services/sleep.service';
+import { AnalyticsService } from '@/services/analytics.service';
+import { useRealtimeHabits, useRealtimeMoods, useRealtimeSleep } from '@/hooks/useRealtimeData';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
+
+interface ActiveHabit {
+  id: string;
+  name: string;
+  description: string;
+  category: HabitCategory;
+  quote: string;
+  emoji: string;
+  streak: number;
+  streakGoal: number;
+  completedToday: boolean;
+  feedback?: string;
+  currentDay?: number;
+  totalDays?: number;
+}
 
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { theme } = useTheme();
-  const [activeHabits, setActiveHabits] = useState<ActiveHabit[]>(getActiveHabits());
+  const { user } = useAuth();
+  const [activeHabits, setActiveHabits] = useState<any[]>([]);
+  const [moodData, setMoodData] = useState<any[]>([]);
+  const [sleepData, setSleepData] = useState<any[]>([]);
+  const [aiRecommendations, setAiRecommendations] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const suggestedHabits = getSuggestedHabits();
   const [currentSuggestedIndex, setCurrentSuggestedIndex] = useState<number>(0);
   const [moreHabitsModalVisible, setMoreHabitsModalVisible] = useState(false);
@@ -73,11 +98,69 @@ export default function HomeScreen() {
     streakGoal: 30,
   });
   
-  const moodData = getMoodData('week');
-  const sleepData = getSleepData('week');
-  const todayMood = moodData[moodData.length - 1];
-  const todaySleep = sleepData[sleepData.length - 1];
   const habitLibrary = getHabitLibraryData();
+  
+  // Load data on component mount
+  useEffect(() => {
+    if (user) {
+      loadData();
+    }
+  }, [user]);
+
+  // Set up real-time subscriptions
+  useRealtimeHabits(user?.id || '', () => {
+    if (user) loadData();
+  });
+  
+  useRealtimeMoods(user?.id || '', () => {
+    if (user) loadData();
+  });
+  
+  useRealtimeSleep(user?.id || '', () => {
+    if (user) loadData();
+  });
+
+  const loadData = async () => {
+    if (!user) return;
+    
+    setLoading(true);
+    setError(null);
+    
+    try {
+      const [habitsResult, moodResult, sleepResult, recommendationsResult] = await Promise.all([
+        HabitsService.getAll(user.id),
+        MoodsService.getByDateRange(
+          user.id,
+          new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+          new Date().toISOString().split('T')[0]
+        ),
+        SleepService.getByDateRange(
+          user.id,
+          new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+          new Date().toISOString().split('T')[0]
+        ),
+        AnalyticsService.generateAIRecommendations(user.id)
+      ]);
+
+      if (habitsResult.error) throw new Error('Failed to load habits');
+      if (moodResult.error) throw new Error('Failed to load mood data');
+      if (sleepResult.error) throw new Error('Failed to load sleep data');
+      if (recommendationsResult.error) throw new Error('Failed to load recommendations');
+
+      setActiveHabits(habitsResult.data || []);
+      setMoodData(moodResult.data || []);
+      setSleepData(sleepResult.data || []);
+      setAiRecommendations(recommendationsResult.data || []);
+    } catch (err) {
+      console.error('Error loading data:', err);
+      setError(err instanceof Error ? err.message : 'Failed to load data');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const todayMood = moodData[moodData.length - 1] || { score: 3, emoji: '😐' };
+  const todaySleep = sleepData[sleepData.length - 1] || { hours: 7, emoji: '😴' };
   
   const getGreeting = () => {
     const hour = new Date().getHours();
@@ -86,12 +169,39 @@ export default function HomeScreen() {
     return 'Good evening';
   };
 
-  const handleToggleComplete = (id: string) => {
-    setActiveHabits(prev =>
-      prev.map(h =>
-        h.id === id ? { ...h, completedToday: !h.completedToday, streak: h.completedToday ? h.streak : h.streak + 1 } : h
-      )
-    );
+  const handleToggleComplete = async (id: string) => {
+    if (!user) return;
+    
+    try {
+      const habit = activeHabits.find(h => h.id === id);
+      if (!habit) return;
+
+      const today = new Date().toISOString().split('T')[0];
+      const { error } = await HabitsService.logHabit(
+        id,
+        {
+          date: today,
+          completed: !habit.completedToday,
+          feedback: 'good'
+        },
+        user.id
+      );
+
+      if (error) {
+        Alert.alert('Error', 'Failed to update habit');
+        return;
+      }
+
+      // Update local state
+      setActiveHabits(prev =>
+        prev.map(h =>
+          h.id === id ? { ...h, completedToday: !h.completedToday, streak: h.completedToday ? h.streak : h.streak + 1 } : h
+        )
+      );
+    } catch (err) {
+      console.error('Error updating habit:', err);
+      Alert.alert('Error', 'Failed to update habit');
+    }
   };
 
   const handleFeedback = (id: string, feedback: 'good' | 'neutral' | 'bad') => {
@@ -106,11 +216,27 @@ export default function HomeScreen() {
     );
   };
 
-  const handleDeleteHabit = (id: string) => {
-    setActiveHabits(prev => prev.filter(h => h.id !== id));
+  const handleDeleteHabit = async (id: string) => {
+    if (!user) return;
+    
+    try {
+      const { error } = await HabitsService.delete(id, user.id);
+      
+      if (error) {
+        Alert.alert('Error', 'Failed to delete habit');
+        return;
+      }
+
+      setActiveHabits(prev => prev.filter(h => h.id !== id));
+    } catch (err) {
+      console.error('Error deleting habit:', err);
+      Alert.alert('Error', 'Failed to delete habit');
+    }
   };
 
-  const handleAddHabitFromLibrary = (habit: HabitLibraryItem) => {
+  const handleAddHabitFromLibrary = async (habit: HabitLibraryItem) => {
+    if (!user) return;
+    
     try {
       // Check if habit already exists
       const existingHabit = activeHabits.find(h => h.name === habit.name);
@@ -119,40 +245,38 @@ export default function HomeScreen() {
         return;
       }
 
-      const newHabit: ActiveHabit = {
-        id: `active-${Date.now()}`,
+      const { data, error } = await HabitsService.create({
         name: habit.name,
         description: habit.description,
         category: habit.category,
-        currentDay: 1,
-        totalDays: 30,
+        total_days: 30,
         streak: 0,
-        progressPercentage: 0,
-        completedToday: false,
-        feedback: 'neutral',
-        reminderEnabled: false,
-      };
-      
-      setActiveHabits(prev => {
-        const updatedHabits = [...prev, newHabit];
-        console.log('Added habit:', newHabit);
-        console.log('Updated active habits:', updatedHabits);
-        return updatedHabits;
-      });
-      
-      setHabitLibraryModalVisible(false);
-      setSuccessMessage(`✅ ${habit.name} has been added to your active habits!`);
-      setTimeout(() => setSuccessMessage(null), 3000);
-      Alert.alert('✅ Success', `${habit.name} has been added to your active habits!`, [
-        { text: 'OK', style: 'default' }
-      ]);
+        reminder_enabled: false
+      }, user.id);
+
+      if (error) {
+        Alert.alert('Error', 'Failed to add habit');
+        return;
+      }
+
+      if (data) {
+        setActiveHabits(prev => [...prev, data]);
+        setHabitLibraryModalVisible(false);
+        setSuccessMessage(`✅ ${habit.name} has been added to your active habits!`);
+        setTimeout(() => setSuccessMessage(null), 3000);
+        Alert.alert('✅ Success', `${habit.name} has been added to your active habits!`, [
+          { text: 'OK', style: 'default' }
+        ]);
+      }
     } catch (error) {
       console.error('Error adding habit:', error);
       Alert.alert('❌ Error', 'Failed to add habit. Please try again.');
     }
   };
 
-  const handleCreateCustomHabit = () => {
+  const handleCreateCustomHabit = async () => {
+    if (!user) return;
+    
     try {
       // Validation
       if (!customHabitForm.name.trim()) {
@@ -172,43 +296,40 @@ export default function HomeScreen() {
         return;
       }
       
-      const newHabit: ActiveHabit = {
-        id: `custom-${Date.now()}`,
+      const { data, error } = await HabitsService.create({
         name: customHabitForm.name.trim(),
         description: customHabitForm.description.trim() || 'Custom habit',
         category: customHabitForm.category,
-        currentDay: 1,
-        totalDays: customHabitForm.streakGoal,
+        total_days: customHabitForm.streakGoal,
         streak: 0,
-        progressPercentage: 0,
-        completedToday: false,
-        feedback: 'neutral',
-        reminderEnabled: customHabitForm.reminderEnabled,
-      };
-      
-      setActiveHabits(prev => {
-        const updatedHabits = [...prev, newHabit];
-        console.log('Created custom habit:', newHabit);
-        console.log('Updated active habits:', updatedHabits);
-        return updatedHabits;
-      });
-      
-      setCreateHabitModalVisible(false);
-      setSuccessMessage(`✅ ${customHabitForm.name} has been created and added to your active habits!`);
-      setTimeout(() => setSuccessMessage(null), 3000);
-      setCustomHabitForm({
-        name: '',
-        description: '',
-        category: 'Health',
-        frequency: 'Daily',
-        reminderEnabled: false,
-        reminderTime: '09:00',
-        streakGoal: 30,
-      });
-      
-      Alert.alert('✅ Success', `${customHabitForm.name} has been created and added to your active habits!`, [
-        { text: 'OK', style: 'default' }
-      ]);
+        reminder_enabled: customHabitForm.reminderEnabled,
+        reminder_time: customHabitForm.reminderEnabled ? customHabitForm.reminderTime : undefined
+      }, user.id);
+
+      if (error) {
+        Alert.alert('Error', 'Failed to create habit');
+        return;
+      }
+
+      if (data) {
+        setActiveHabits(prev => [...prev, data]);
+        setCreateHabitModalVisible(false);
+        setSuccessMessage(`✅ ${customHabitForm.name} has been created and added to your active habits!`);
+        setTimeout(() => setSuccessMessage(null), 3000);
+        setCustomHabitForm({
+          name: '',
+          description: '',
+          category: 'Health',
+          frequency: 'Daily',
+          reminderEnabled: false,
+          reminderTime: '09:00',
+          streakGoal: 30,
+        });
+        
+        Alert.alert('✅ Success', `${customHabitForm.name} has been created and added to your active habits!`, [
+          { text: 'OK', style: 'default' }
+        ]);
+      }
     } catch (error) {
       console.error('Error creating custom habit:', error);
       Alert.alert('❌ Error', 'Failed to create habit. Please try again.');
@@ -276,12 +397,42 @@ export default function HomeScreen() {
 
   const currentSuggested = suggestedHabits[currentSuggestedIndex];
 
+  if (loading) {
+    return (
+      <View style={[styles.container, { backgroundColor: theme.colors.background, justifyContent: 'center', alignItems: 'center' }]}>
+        <ActivityIndicator size="large" color={theme.colors.primary} />
+        <Text style={[styles.loadingText, { color: theme.colors.text }]}>Loading your data...</Text>
+      </View>
+    );
+  }
+
+  if (error) {
+    return (
+      <View style={[styles.container, { backgroundColor: theme.colors.background, justifyContent: 'center', alignItems: 'center', padding: 20 }]}>
+        <Text style={[styles.errorText, { color: theme.colors.error }]}>Error: {error}</Text>
+        <TouchableOpacity 
+          style={[styles.retryButton, { backgroundColor: theme.colors.primary }]}
+          onPress={loadData}
+        >
+          <Text style={styles.retryButtonText}>Retry</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={[styles.content, { paddingTop: insets.top + 20 }]}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={loading}
+            onRefresh={loadData}
+            tintColor={theme.colors.primary}
+          />
+        }
       >
         <View style={[styles.welcomeCard, { backgroundColor: theme.colors.primary }]}>
           <Text style={styles.greeting}>{getGreeting()}, Michael 🌤️</Text>
@@ -567,21 +718,21 @@ export default function HomeScreen() {
             <Text style={[styles.cardTitle, { color: theme.colors.text }]}>AI Recommendations</Text>
           </View>
           <View style={styles.recommendationsList}>
-            <View style={[styles.recommendationItem, { backgroundColor: theme.colors.secondary }]}>
-              <Text style={[styles.recommendationText, { color: theme.colors.text }]}>
-                💡 You feel calmer after journaling — keep it up!
-              </Text>
-            </View>
-            <View style={[styles.recommendationItem, { backgroundColor: theme.colors.secondary }]}>
-              <Text style={[styles.recommendationText, { color: theme.colors.text }]}>
-                🚶 Try a 10-min walk before bed for improved sleep.
-              </Text>
-            </View>
-            <View style={[styles.recommendationItem, { backgroundColor: theme.colors.secondary }]}>
-              <Text style={[styles.recommendationText, { color: theme.colors.text }]}>
-                🧘 Meditation in the morning boosts your clarity by 20%.
-              </Text>
-            </View>
+            {aiRecommendations.length > 0 ? (
+              aiRecommendations.slice(0, 3).map((rec, index) => (
+                <View key={rec.id || index} style={[styles.recommendationItem, { backgroundColor: theme.colors.secondary }]}>
+                  <Text style={[styles.recommendationText, { color: theme.colors.text }]}>
+                    {rec.description}
+                  </Text>
+                </View>
+              ))
+            ) : (
+              <View style={[styles.recommendationItem, { backgroundColor: theme.colors.secondary }]}>
+                <Text style={[styles.recommendationText, { color: theme.colors.text }]}>
+                  💡 Start logging your daily activities to get personalized recommendations!
+                </Text>
+              </View>
+            )}
           </View>
           <TouchableOpacity style={styles.seeMoreButton}>
             <Text style={[styles.seeMoreText, { color: theme.colors.primary }]}>See More</Text>
@@ -1450,6 +1601,26 @@ const styles = StyleSheet.create({
     marginTop: 20,
   },
   saveButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600' as const,
+  },
+  loadingText: {
+    marginTop: 16,
+    fontSize: 16,
+    textAlign: 'center',
+  },
+  errorText: {
+    fontSize: 16,
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  retryButton: {
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 8,
+  },
+  retryButtonText: {
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '600' as const,

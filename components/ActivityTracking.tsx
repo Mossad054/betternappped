@@ -1,8 +1,20 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, useWindowDimensions, TouchableOpacity, Modal, ScrollView } from 'react-native';
-import { ActivityData, TimeRange } from '@/constants/mockData';
+import { TimeRange } from '@/constants/mockData';
 import { useTheme } from '@/contexts/ThemeContext';
 import { CheckCircle, XCircle, X, TrendingUp, TrendingDown, Calendar, BarChart3 } from 'lucide-react-native';
+
+interface ActivityData {
+  id: string;
+  date: string;
+  category: string;
+  name: string;
+  duration?: number;
+  emoji?: string;
+  follow_up_answer?: string;
+  count?: number;
+  impact?: number;
+}
 
 interface ActivityTrackingProps {
   data: ActivityData[];

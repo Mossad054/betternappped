@@ -19,14 +19,71 @@ import { ThemeSettings } from '@/components/settings/ThemeSettings';
 import { HelpSettings } from '@/components/settings/HelpSettings';
 import { LanguageSettings } from '@/components/settings/LanguageSettings';
 import { SecuritySettings } from '@/components/settings/SecuritySettings';
+import { useAuth } from '@/contexts/AuthContext';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
-type SettingSection = 'notifications' | 'account' | 'privacy' | 'theme' | 'help' | 'language' | 'security' | null;
+type SettingSection = 'notifications' | 'account' | 'privacy' | 'theme' | 'help' | 'language' | 'security' | 'developer' | null;
 
 export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
   const { theme } = useTheme();
+  const { user, signOut } = useAuth();
   const [activeSection, setActiveSection] = useState<SettingSection>(null);
+  const [useMockData, setUseMockData] = useState(false);
   
+  // Load mock data preference on mount
+  React.useEffect(() => {
+    loadMockDataPreference();
+  }, []);
+
+  const loadMockDataPreference = async () => {
+    try {
+      const value = await AsyncStorage.getItem('useMockData');
+      setUseMockData(value === 'true');
+    } catch (error) {
+      console.error('Error loading mock data preference:', error);
+    }
+  };
+
+  const toggleMockData = async () => {
+    const newValue = !useMockData;
+    setUseMockData(newValue);
+    try {
+      await AsyncStorage.setItem('useMockData', newValue.toString());
+    } catch (error) {
+      console.error('Error saving mock data preference:', error);
+    }
+  };
+
+  const handleSignOut = async () => {
+    Alert.alert(
+      'Sign Out',
+      'Are you sure you want to sign out of your account?',
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'Sign Out',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              const { error } = await signOut();
+              if (error) {
+                Alert.alert('Sign Out Failed', 'There was an error signing out. Please try again.');
+              } else {
+                Alert.alert('Signed Out', 'You have been successfully signed out.');
+              }
+            } catch (error) {
+              Alert.alert('Network Error', 'Please check your connection and try again.');
+            }
+          },
+        },
+      ]
+    );
+  };
+
   const settingSections = [
     {
       id: 'notifications' as const,
@@ -76,6 +133,13 @@ export default function SettingsScreen() {
       subtitle: 'PIN lock and security settings',
       icon: Lock,
       color: theme.colors.error
+    },
+    {
+      id: 'developer' as const,
+      title: 'Developer',
+      subtitle: 'Testing and development options',
+      icon: HelpCircle,
+      color: theme.colors.warning
     }
   ];
 
@@ -117,6 +181,56 @@ export default function SettingsScreen() {
         return <LanguageSettings onBack={() => setActiveSection(null)} />;
       case 'security':
         return <SecuritySettings onBack={() => setActiveSection(null)} />;
+      case 'developer':
+        return (
+          <View style={styles.sectionContent}>
+            <View style={styles.sectionHeader}>
+              <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Developer Settings</Text>
+              <Text style={[styles.sectionSubtitle, { color: theme.colors.textSecondary }]}>
+                Testing and development options
+              </Text>
+            </View>
+            
+            <View style={[styles.settingItem, { backgroundColor: theme.colors.card }]}>
+              <View style={styles.settingInfo}>
+                <Text style={[styles.settingTitle, { color: theme.colors.text }]}>Use Mock Data</Text>
+                <Text style={[styles.settingDescription, { color: theme.colors.textSecondary }]}>
+                  Toggle between mock data and live Supabase data for testing
+                </Text>
+              </View>
+              <TouchableOpacity
+                style={[
+                  styles.toggle,
+                  { backgroundColor: useMockData ? theme.colors.primary : theme.colors.border }
+                ]}
+                onPress={toggleMockData}
+              >
+                <View style={[
+                  styles.toggleThumb,
+                  { 
+                    backgroundColor: '#FFFFFF',
+                    transform: [{ translateX: useMockData ? 20 : 2 }]
+                  }
+                ]} />
+              </TouchableOpacity>
+            </View>
+
+            <View style={[styles.settingItem, { backgroundColor: theme.colors.card }]}>
+              <View style={styles.settingInfo}>
+                <Text style={[styles.settingTitle, { color: theme.colors.text }]}>Sign Out</Text>
+                <Text style={[styles.settingDescription, { color: theme.colors.textSecondary }]}>
+                  Sign out of your account
+                </Text>
+              </View>
+              <TouchableOpacity
+                style={[styles.signOutButton, { backgroundColor: theme.colors.error }]}
+                onPress={handleSignOut}
+              >
+                <Text style={[styles.signOutText, { color: '#FFFFFF' }]}>Sign Out</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        );
       default:
         return null;
     }
@@ -198,5 +312,49 @@ const styles = StyleSheet.create({
   settingSubtitle: {
     fontSize: 14,
     color: '#6B7280',
+  },
+  toggle: {
+    width: 44,
+    height: 24,
+    borderRadius: 12,
+    justifyContent: 'center',
+    paddingHorizontal: 2,
+  },
+  toggleThumb: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+  },
+  signOutButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  signOutText: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  sectionContent: {
+    padding: 20,
+  },
+  sectionHeader: {
+    marginBottom: 20,
+  },
+  sectionTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    marginBottom: 8,
+  },
+  sectionSubtitle: {
+    fontSize: 16,
+    color: '#6B7280',
+  },
+  settingInfo: {
+    flex: 1,
+  },
+  settingDescription: {
+    fontSize: 14,
+    color: '#6B7280',
+    marginTop: 4,
   },
 });

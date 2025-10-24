@@ -1,8 +1,18 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Modal } from 'react-native';
 import Svg, { Circle } from 'react-native-svg';
-import { HabitData, getHabitCompletionRate, TimeRange } from '@/constants/mockData';
+import { TimeRange } from '@/constants/mockData';
 import { useTheme } from '@/contexts/ThemeContext';
+
+interface HabitData {
+  id: string;
+  date: string;
+  completed: boolean;
+  feedback?: string;
+  name?: string;
+  category?: string;
+  streak?: number;
+}
 
 interface HabitTrackingProps {
   data: HabitData[];
@@ -10,10 +20,18 @@ interface HabitTrackingProps {
 }
 
 export default function HabitTracking({ data, timeRange }: HabitTrackingProps) {
-  const completionRate = getHabitCompletionRate(data);
   const { theme } = useTheme();
   const [selectedDay, setSelectedDay] = useState<HabitData | null>(null);
   const [modalVisible, setModalVisible] = useState(false);
+  
+  // Calculate completion rate from live data
+  const getHabitCompletionRate = (habitData: HabitData[]) => {
+    if (!habitData || habitData.length === 0) return 0;
+    const completed = habitData.filter(item => item.completed).length;
+    return Math.round((completed / habitData.length) * 100);
+  };
+  
+  const completionRate = getHabitCompletionRate(data);
   
   const getCurrentStreak = () => {
     let streak = 0;

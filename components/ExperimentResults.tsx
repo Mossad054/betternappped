@@ -1,8 +1,24 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { ExperimentData } from '@/constants/mockData';
 import { RotateCcw, CheckCircle } from 'lucide-react-native';
 import { useTheme } from '@/contexts/ThemeContext';
+
+interface ExperimentData {
+  id: string;
+  name: string;
+  description?: string;
+  start_date: string;
+  end_date?: string;
+  status: string;
+  target_metric?: string;
+  hypothesis?: string;
+  isActive?: boolean;
+  emoji?: string;
+  title?: string;
+  currentDay?: number;
+  totalDays?: number;
+  category?: string;
+}
 
 interface ExperimentResultsProps {
   data: ExperimentData[];
@@ -10,8 +26,8 @@ interface ExperimentResultsProps {
 
 export default function ExperimentResults({ data }: ExperimentResultsProps) {
   const { theme } = useTheme();
-  const activeExperiments = data.filter(exp => exp.isActive);
-  const completedExperiments = data.filter(exp => !exp.isActive);
+  const activeExperiments = data.filter(exp => exp.status === 'active');
+  const completedExperiments = data.filter(exp => exp.status === 'completed');
 
   const getCategoryColor = (category: string) => {
     switch (category) {

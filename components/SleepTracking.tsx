@@ -1,8 +1,18 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, useWindowDimensions, TouchableOpacity, Modal } from 'react-native';
 import Svg, { Rect } from 'react-native-svg';
-import { SleepData, TimeRange } from '@/constants/mockData';
+import { TimeRange } from '@/constants/mockData';
 import { useTheme } from '@/contexts/ThemeContext';
+
+interface SleepData {
+  id: string;
+  date: string;
+  bedtime: string;
+  wake_time: string;
+  hours: number;
+  quality: number;
+  waking_feeling?: string;
+}
 
 interface SleepTrackingProps {
   data: SleepData[];
