@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { SleepService } from '@/services/sleep.service';
 import {
   View,
   Text,
@@ -7,8 +8,9 @@ import {
   TouchableOpacity,
   Dimensions,
   Modal,
+  ActivityIndicator,
 } from 'react-native';
-import { Stack, router } from 'expo-router';
+import { Stack, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '@/contexts/ThemeContext';
 import {
@@ -26,6 +28,13 @@ import {
   X,
   CheckCircle,
   Star,
+  Calendar,
+  Plus,
+  ChevronDown,
+  ChevronUp,
+  AlertTriangle,
+  RotateCcw,
+  Bell,
 } from 'lucide-react-native';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -68,6 +77,18 @@ interface Recommendation {
   text: string;
   confidence: string;
 }
+
+// Utility function for safe array operations
+const safeArrayFilter = <T,>(array: T[] | null | undefined, predicate: (value: T) => boolean): T[] => {
+  if (!array || !Array.isArray(array)) return [];
+  return array.filter(predicate);
+};
+
+// Utility function for safe array access
+const safeArrayGet = <T,>(array: T[] | null | undefined, index: number): T | undefined => {
+  if (!array || !Array.isArray(array) || index < 0 || index >= array.length) return undefined;
+  return array[index];
+};
 
 const mockPlaylists: Playlist[] = [
   { id: '1', title: 'Calming Music', duration: '45 min', cover: '🎵', recommended: true },
@@ -139,48 +160,431 @@ const mockAchievements: Achievement[] = [
   { id: '4', title: '30-Night Champion', emoji: '🏆', progress: 18, total: 30, unlocked: false },
 ];
 
-const mockRecommendations: Recommendation[] = [
-  {
-    id: '1',
-    text: 'Try dimming your lights 30 minutes earlier.',
-    confidence: 'Based on last 2 weeks of data',
-  },
-  {
-    id: '2',
-    text: 'Avoid caffeine after 3PM for deeper sleep.',
-    confidence: 'Based on activity patterns',
-  },
-  {
-    id: '3',
-    text: 'Meditation sessions improve your REM score by 10%.',
-    confidence: 'Based on last month',
-  },
-];
+  // Get AI recommendations based on sleep data
+  const getRecommendations = (
+    stats: SleepStats | null,
+    logs: any[] | null | undefined
+  ): Recommendation[] => {
+    if (!stats || !logs || !Array.isArray(logs) || logs.length === 0) {
+      return [
+        {
+          id: '1',
+          text: 'Start tracking your sleep to get personalized recommendations.',
+          confidence: 'Get started with sleep tracking',
+        },
+      ];
+    }  const recommendations: Recommendation[] = [];
+
+  // Analyze sleep duration trends
+  const recentAvg = stats.avgDuration7Days || 0;
+  if (recentAvg < 7) {
+    recommendations.push({
+      id: 'duration',
+      text: `Try getting to bed ${recentAvg < 6 ? '1-2 hours' : '30-60 minutes'} earlier to reach the recommended 7-9 hours.`,
+      confidence: `Based on your average of ${recentAvg}h in the last week`,
+    });
+  }
+
+  // Analyze consistency patterns
+  if (stats.consistencyScore < 70) {
+    recommendations.push({
+      id: 'consistency',
+      text: 'Set a consistent bedtime alarm to help regulate your sleep schedule.',
+      confidence: `Based on your ${stats.consistencyScore}% consistency score`,
+    });
+  }
+
+  // Analyze quality improvements
+  if (stats.avgQuality === 'Poor' || stats.avgQuality === 'Fair') {
+    recommendations.push({
+      id: 'quality',
+      text: 'Consider creating a relaxing bedtime routine with meditation or reading.',
+      confidence: `Based on your ${stats.avgQuality.toLowerCase()} sleep quality rating`,
+    });
+  }
+
+  // Analyze wake time consistency
+  if (stats.wakeUpConsistency === 'Low') {
+    recommendations.push({
+      id: 'wake',
+      text: 'Try setting your alarm for the same time every day, including weekends.',
+      confidence: 'Based on irregular wake-up times',
+    });
+  }
+
+  // Analyze weekend patterns
+  const validLogs = logs ? logs.filter(log => log && log.date && log.hours) : [];
+  const weekdayLogs = validLogs.filter(log => {
+    if (!log || !log.date) return false;
+    const date = new Date(log.date);
+    return date.getDay() !== 0 && date.getDay() !== 6;
+  });
+  const weekendLogs = validLogs.filter(log => {
+    if (!log || !log.date) return false;
+    const date = new Date(log.date);
+    return date.getDay() === 0 || date.getDay() === 6;
+  });
+
+  if (weekdayLogs.length > 0 && weekendLogs.length > 0) {
+    const avgWeekday = weekdayLogs.reduce((sum, log) => sum + Number(log.hours), 0) / weekdayLogs.length;
+    const avgWeekend = weekendLogs.reduce((sum, log) => sum + Number(log.hours), 0) / weekendLogs.length;
+
+    if (Math.abs(avgWeekend - avgWeekday) > 2) {
+      recommendations.push({
+        id: 'weekend',
+        text: 'Try to reduce the sleep difference between weekdays and weekends.',
+        confidence: `Based on ${Math.abs(avgWeekend - avgWeekday).toFixed(1)}h weekend difference`,
+      });
+    }
+  }
+
+  // Add experimental recommendations if enough data
+  if (validLogs.length > 14) {
+    // Check for late night quality patterns
+    const lateNightLogs = validLogs.filter(log => {
+      if (!log.bedtime || !log.quality) return false;
+      const bedtime = new Date(`2000-01-01T${log.bedtime}`);
+      return bedtime.getHours() >= 23;
+    });
+
+    if (lateNightLogs.length > 0) {
+      const avgLateQuality = lateNightLogs.reduce((sum, log) => sum + Number(log.quality), 0) / lateNightLogs.length;
+      if (avgLateQuality < 3) {
+        recommendations.push({
+          id: 'late',
+          text: 'Late nights seem to affect your sleep quality. Try shifting your schedule earlier.',
+          confidence: 'Based on quality patterns with late bedtimes',
+        });
+      }
+    }
+  }
+
+  // If we have no specific recommendations, provide a general one
+  if (recommendations.length === 0) {
+    recommendations.push({
+      id: 'general',
+      text: 'Focus on maintaining a consistent sleep schedule to improve your sleep quality.',
+      confidence: 'General sleep hygiene recommendation',
+    });
+  }
+
+  return recommendations.slice(0, 3); // Return top 3 recommendations
+};
+
+interface SleepStats {
+  avgDuration7Days: number | null;
+  avgDuration30Days: number | null;
+  consistencyScore: number;
+  avgQuality: string;
+  wakeUpConsistency: string;
+  insights: string[];
+}
 
 export default function SleepWellnessHub() {
   const insets = useSafeAreaInsets();
+  const router = useRouter();
   const { theme } = useTheme();
   const [selectedAchievement, setSelectedAchievement] = useState<Achievement | null>(null);
   const [achievementModalVisible, setAchievementModalVisible] = useState(false);
   const [selectedRecommendation, setSelectedRecommendation] = useState<Recommendation | null>(null);
   const [recommendationModalVisible, setRecommendationModalVisible] = useState(false);
+  const [expandedTips, setExpandedTips] = useState<{ [key: string]: boolean }>({});
+  
+  // Add loading and error states
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  
+  // Add sleep data states with proper initialization
+  const [sleepStats, setSleepStats] = useState<SleepStats | null>(null);
+  const [sleepLogs, setSleepLogs] = useState<any[] | null>(null);
+  const [sleepTrends, setSleepTrends] = useState<any>(null);
 
 
-  const getSleepData = () => {
-    return {
-      avgDuration7Days: 7.2,
-      avgDuration30Days: 7.5,
-      consistencyScore: 82,
-      avgQuality: 'Good',
-      wakeUpConsistency: 'High',
-      insights: [
-        'You sleep 1h less on workdays.',
-        'Weekend recovery sleep improved your average score by 12%.',
-      ],
-    };
+  // Add data fetching
+  const fetchSleepData = async () => {
+    try {
+      setIsLoading(true);
+      setSleepLogs(null); // Reset to null while loading
+      setSleepStats(null);
+      setSleepTrends(null);
+      
+      // Get last 30 days of sleep logs
+      const date = new Date();
+      const endDate = date.toISOString().split('T')[0];
+      date.setDate(date.getDate() - 30);
+      const startDate = date.toISOString().split('T')[0];
+
+      const [logsResult, avgHoursResult, qualityTrendResult] = await Promise.all([
+        SleepService.getByDateRange('', startDate, endDate),
+        SleepService.getAverageHours('', 30),
+        SleepService.getQualityTrend('', 30)
+      ]);
+
+      if (logsResult.error) throw new Error('Failed to fetch sleep logs');
+      if (avgHoursResult.error) throw new Error('Failed to fetch average hours');
+      if (qualityTrendResult.error) throw new Error('Failed to fetch quality trend');
+
+      const logs = Array.isArray(logsResult?.data) ? logsResult.data : [];
+      setSleepLogs(logs);
+
+      // Calculate sleep stats
+      const validLogs = logs.filter(log => log && log.hours);
+      const last7Days = validLogs.slice(0, 7);
+      const avg7Days = last7Days.length > 0 
+        ? last7Days.reduce((sum, log) => sum + Number(log?.hours || 0), 0) / last7Days.length
+        : 0;
+      const avg30Days = avgHoursResult?.data || 0;
+
+      // Calculate consistency score based on bedtime variance
+      const bedtimes = logs
+        .filter(log => log && log.bedtime)
+        .map(log => new Date(`2000-01-01T${log.bedtime}`).getTime());
+      const avgBedtime = bedtimes.length ? bedtimes.reduce((sum, time) => sum + time, 0) / bedtimes.length : 0;
+      const variance = bedtimes.length ? bedtimes.reduce((sum, time) => sum + Math.pow(time - avgBedtime, 2), 0) / bedtimes.length : 0;
+      const consistencyScore = Math.min(100, Math.max(0, 100 - Math.sqrt(variance) / (30 * 60 * 1000) * 100));
+
+      // Calculate average quality
+      const qualityScores = qualityTrendResult.data || [];
+      const avgQualityScore = qualityScores.reduce((sum, score) => sum + score, 0) / qualityScores.length;
+      const qualityMap = {
+        1: 'Poor',
+        2: 'Fair',
+        3: 'Good',
+        4: 'Very Good',
+        5: 'Excellent'
+      };
+      const avgQuality = qualityMap[Math.round(avgQualityScore) as keyof typeof qualityMap] || 'Good';
+
+      // Analyze wake time consistency
+      const wakeTimes = logs
+        .filter(log => log && log.wake_time)
+        .map(log => new Date(`2000-01-01T${log.wake_time}`).getTime());
+      const wakeVariance = wakeTimes.length ? wakeTimes.reduce((sum, time) => {
+        const avgTime = wakeTimes.reduce((s, t) => s + t, 0) / wakeTimes.length;
+        return sum + Math.pow(time - avgTime, 2);
+      }, 0) / wakeTimes.length : 0;
+      const wakeConsistency = wakeVariance < 30 * 60 * 1000 ? 'High' : 
+                             wakeVariance < 60 * 60 * 1000 ? 'Medium' : 'Low';
+
+      // Generate insights
+      const insights = generateInsights(logs);
+
+      setSleepStats({
+        avgDuration7Days: Number(avg7Days.toFixed(1)),
+        avgDuration30Days: Number(avg30Days.toFixed(1)),
+        consistencyScore: Math.round(consistencyScore),
+        avgQuality,
+        wakeUpConsistency: wakeConsistency,
+        insights
+      });
+
+      setSleepTrends({
+        qualityTrend: qualityTrendResult.data,
+        hoursTrend: logs.map(log => log.hours)
+      });
+
+      setError(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load sleep data');
+      console.error('Error fetching sleep data:', err);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const sleepData = getSleepData();
+  // Sleep tips database
+  const sleepTipsDb = [
+    {
+      id: '1',
+      tip: 'Maintain a consistent schedule',
+      description: 'Go to bed and wake up at the same time every day, even on weekends.',
+      tags: ['consistency', 'schedule'],
+      conditions: (stats: SleepStats | null) => stats?.consistencyScore ? stats.consistencyScore < 70 : true
+    },
+    {
+      id: '2',
+      tip: 'Create a bedtime routine',
+      description: 'Develop a relaxing pre-sleep routine to signal your body it\'s time to wind down.',
+      tags: ['routine', 'relaxation'],
+      conditions: () => true
+    },
+    {
+      id: '3',
+      tip: 'Optimize your sleep environment',
+      description: 'Keep your bedroom cool, dark, and quiet. Use comfortable bedding.',
+      tags: ['environment', 'comfort'],
+      conditions: (stats: SleepStats | null) => stats?.avgQuality === 'Poor' || stats?.avgQuality === 'Fair'
+    },
+    {
+      id: '4',
+      tip: 'Limit screen time before bed',
+      description: 'Avoid screens 1 hour before bedtime to improve sleep quality.',
+      tags: ['electronics', 'evening'],
+      conditions: (stats: SleepStats | null) => stats?.avgQuality === 'Poor' || stats?.avgQuality === 'Fair'
+    },
+    {
+      id: '5',
+      tip: 'Watch caffeine intake',
+      description: 'Avoid caffeine in the afternoon and evening hours.',
+      tags: ['diet', 'evening'],
+      conditions: () => true
+    },
+    {
+      id: '6',
+      tip: 'Follow the 90-minute rule',
+      description: 'Plan your bedtime in multiples of 90 minutes to align with your sleep cycles.',
+      tags: ['timing', 'cycles'],
+      conditions: (stats: SleepStats | null) => stats?.avgDuration7Days ? stats.avgDuration7Days < 7 : false
+    },
+    {
+      id: '7',
+      tip: 'Exercise regularly but not before bed',
+      description: 'Regular exercise can improve sleep quality, but avoid vigorous exercise 2-3 hours before bedtime.',
+      tags: ['exercise', 'timing'],
+      conditions: (stats: SleepStats | null) => stats?.avgQuality === 'Poor' || stats?.avgQuality === 'Fair'
+    },
+    {
+      id: '8',
+      tip: 'Practice stress management',
+      description: 'Try meditation, deep breathing, or journaling to reduce stress before bed.',
+      tags: ['stress', 'relaxation'],
+      conditions: (stats: SleepStats | null) => stats?.consistencyScore ? stats.consistencyScore < 60 : false
+    },
+    {
+      id: '9',
+      tip: 'Mind your weekend sleep',
+      description: 'Try to keep weekend sleep times within 1 hour of weekday schedule.',
+      tags: ['consistency', 'schedule'],
+      conditions: (stats: SleepStats | null, logs: any[]) => {
+        if (!logs.length) return false;
+        if (!logs || !Array.isArray(logs) || logs.length === 0) {
+        return false;
+      }
+      const weekdayLogs = logs.filter(log => {
+        if (!log || !log.date) return false;
+        const date = new Date(log.date);
+        return date.getDay() !== 0 && date.getDay() !== 6;
+      });
+      const weekendLogs = logs.filter(log => {
+        if (!log || !log.date) return false;
+        const date = new Date(log.date);
+        return date.getDay() === 0 || date.getDay() === 6;
+      });
+      const avgWeekday = weekdayLogs.reduce((sum, log) => sum + Number(log.hours || 0), 0) / (weekdayLogs.length || 1);
+        const avgWeekend = weekendLogs.reduce((sum, log) => sum + Number(log.hours), 0) / weekendLogs.length;
+        return Math.abs(avgWeekend - avgWeekday) > 1;
+      }
+    },
+    {
+      id: '10',
+      tip: 'Create a sleep-friendly morning routine',
+      description: 'Morning light exposure and regular breakfast time help regulate your circadian rhythm.',
+      tags: ['routine', 'morning'],
+      conditions: (stats: SleepStats | null) => stats?.wakeUpConsistency === 'Low'
+    }
+  ];
+
+  // Get relevant sleep tips based on user's data
+  const getRelevantSleepTips = () => {
+    // Start with essential tips if no data
+    if (!sleepStats || !sleepLogs) {
+      return sleepTipsDb.filter(tip => tip.conditions(null));
+    }
+
+    // Filter tips based on user's sleep data
+    const relevantTips = sleepTipsDb.filter(tip => tip.conditions(sleepStats, sleepLogs || []));
+
+    // Always include at least 3 tips
+    while (relevantTips.length < 3) {
+      const randomTip = sleepTipsDb[Math.floor(Math.random() * sleepTipsDb.length)];
+      if (!relevantTips.find(tip => tip.id === randomTip.id)) {
+        relevantTips.push(randomTip);
+      }
+    }
+
+    // Sort tips by relevance (specific conditions first)
+    return relevantTips.sort((a, b) => {
+      const aSpecific = a.conditions === (() => true);
+      const bSpecific = b.conditions === (() => true);
+      return aSpecific === bSpecific ? 0 : aSpecific ? 1 : -1;
+    });
+  };
+
+  // Add insights generation
+  const generateInsights = (logs: any[] | null): string[] => {
+    const insights: string[] = [];
+    
+    if (!logs || !Array.isArray(logs) || logs.length === 0) {
+      return ['Start tracking your sleep to get personalized insights!'];
+    }
+
+    // Analyze weekday vs weekend sleep
+    const validLogs = logs.filter(log => log && log.date && log.hours);
+    if (validLogs.length === 0) {
+      return ['Start tracking your sleep to get personalized insights!'];
+    }
+
+    const weekdayLogs = validLogs.filter(log => {
+      const date = new Date(log.date);
+      return date.getDay() !== 0 && date.getDay() !== 6;
+    });
+    const weekendLogs = validLogs.filter(log => {
+      const date = new Date(log.date);
+      return date.getDay() === 0 || date.getDay() === 6;
+    });
+
+    if (weekdayLogs.length > 0 && weekendLogs.length > 0) {
+      const avgWeekdayHours = weekdayLogs.reduce((sum, log) => sum + Number(log.hours), 0) / weekdayLogs.length;
+      const avgWeekendHours = weekendLogs.reduce((sum, log) => sum + Number(log.hours), 0) / weekendLogs.length;
+
+      if (Math.abs(avgWeekendHours - avgWeekdayHours) >= 1) {
+        insights.push(`You sleep ${Math.abs(avgWeekendHours - avgWeekdayHours).toFixed(1)}h ${avgWeekendHours > avgWeekdayHours ? 'more' : 'less'} on weekends.`);
+      }
+    }
+
+    // Analyze quality trends
+    const validQualityLogs = validLogs.filter(log => log.quality !== undefined && log.quality !== null);
+    if (validQualityLogs.length >= 14) {
+      const recentQualities = validQualityLogs.slice(0, 7).map(log => Number(log.quality));
+      const prevQualities = validQualityLogs.slice(7, 14).map(log => Number(log.quality));
+
+      const avgRecentQuality = recentQualities.reduce((sum, q) => sum + q, 0) / recentQualities.length;
+      const avgPrevQuality = prevQualities.reduce((sum, q) => sum + q, 0) / prevQualities.length;
+
+      if (Math.abs(avgRecentQuality - avgPrevQuality) >= 0.5) {
+        const improvement = ((avgRecentQuality - avgPrevQuality) / (avgPrevQuality || 1) * 100).toFixed(0);
+        if (avgRecentQuality > avgPrevQuality) {
+          insights.push(`Your sleep quality improved by ${improvement}% this week.`);
+        } else {
+          insights.push(`Your sleep quality decreased by ${Math.abs(Number(improvement))}% this week.`);
+        }
+      }
+    }
+
+    // Add consistency insight
+    const validBedtimeLogs = validLogs.filter(log => log.bedtime);
+    const consistentDays = validBedtimeLogs.filter((log, index) => {
+      const prevLog = validBedtimeLogs[index - 1];
+      if (!prevLog) return true;
+      const bedtimeDiff = Math.abs(
+        new Date(`2000-01-01T${log.bedtime}`).getTime() - 
+        new Date(`2000-01-01T${prevLog.bedtime}`).getTime()
+      );
+      return bedtimeDiff <= 30 * 60 * 1000; // 30 minutes
+    }).length;
+
+    if (validBedtimeLogs.length > 0) {
+      const consistencyPercentage = (consistentDays / validBedtimeLogs.length * 100).toFixed(0);
+      insights.push(`You maintained a consistent bedtime ${consistencyPercentage}% of the time.`);
+    }
+
+    return insights;
+  };
+
+  // Use effect for data fetching
+  useEffect(() => {
+    fetchSleepData();
+  }, []);
 
   const handlePlayPlaylist = (playlistId: string) => {
     console.log('Playing playlist:', playlistId);
@@ -220,48 +624,208 @@ export default function SleepWellnessHub() {
         contentContainerStyle={[styles.content, { paddingTop: 20, paddingBottom: insets.bottom + 100 }]}
         showsVerticalScrollIndicator={false}
       >
+        {/* Hero Section */}
+        <View style={[styles.heroCard, { backgroundColor: theme.colors.primary }]}>
+          <Moon size={48} color="#FFFFFF" />
+          <Text style={[styles.heroTitle, { color: '#FFFFFF' }]}>Sleep Wellness Hub</Text>
+          <Text style={[styles.heroSubtitle, { color: '#E0E7FF' }]}>
+            Quality sleep is the foundation of wellness. Track your patterns and discover what helps you rest better.
+          </Text>
+        </View>
+
         <View style={[styles.card, { backgroundColor: theme.colors.card }]}>
           <View style={styles.cardHeader}>
             <Moon size={24} color={theme.colors.primary} />
-            <Text style={[styles.cardTitle, { color: theme.colors.text }]}>Sleep Tracking & Insights</Text>
+            <Text style={[styles.cardTitle, { color: theme.colors.text }]}>Your Sleep Stats</Text>
           </View>
 
-          <View style={styles.sleepMetricsGrid}>
-            <View style={styles.metricBox}>
-              <Text style={styles.metricLabel}>7-Day Average</Text>
-              <Text style={styles.metricValue}>{sleepData.avgDuration7Days}h</Text>
+          {isLoading ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="large" color={theme.colors.primary} />
+              <Text style={[styles.loadingText, { color: theme.colors.textSecondary }]}>
+                Loading your sleep stats...
+              </Text>
             </View>
-            <View style={styles.metricBox}>
-              <Text style={styles.metricLabel}>30-Day Average</Text>
-              <Text style={styles.metricValue}>{sleepData.avgDuration30Days}h</Text>
+          ) : error ? (
+            <View style={styles.errorContainer}>
+              <AlertTriangle size={24} color={theme.colors.error} />
+              <Text style={[styles.errorText, { color: theme.colors.error }]}>{error}</Text>
+              <TouchableOpacity style={styles.retryButton} onPress={fetchSleepData}>
+                <RotateCcw size={16} color={theme.colors.primary} />
+                <Text style={[styles.retryText, { color: theme.colors.primary }]}>Retry</Text>
+              </TouchableOpacity>
             </View>
-          </View>
-
-          <View style={styles.sleepMetricsGrid}>
-            <View style={styles.metricBox}>
-              <Text style={styles.metricLabel}>Consistency Score</Text>
-              <Text style={styles.metricValue}>{sleepData.consistencyScore}%</Text>
-            </View>
-            <View style={styles.metricBox}>
-              <Text style={styles.metricLabel}>Sleep Quality</Text>
-              <Text style={styles.metricValue}>{sleepData.avgQuality}</Text>
-            </View>
-          </View>
-
-          <View style={styles.insightsContainer}>
-            <Text style={styles.insightsTitle}>AI Insights</Text>
-            {sleepData.insights.map((insight, index) => (
-              <View key={index} style={styles.insightRow}>
-                <Sparkles size={16} color={'#34B27B'} />
-                <Text style={styles.insightText}>{insight}</Text>
+          ) : (
+            <>
+              <View style={styles.sleepMetricsGrid}>
+                <View style={[styles.metricBox, { backgroundColor: theme.colors.primary }]}>
+                  <Text style={[styles.metricLabel, { color: '#FFFFFF' }]}>7-Day Average</Text>
+                  <Text style={[styles.metricValue, { color: '#FFFFFF' }]}>
+                    {sleepStats?.avgDuration7Days?.toFixed(1) || '--'}h
+                  </Text>
+                </View>
+                <View style={[styles.metricBox, { backgroundColor: theme.colors.primary }]}>
+                  <Text style={[styles.metricLabel, { color: '#FFFFFF' }]}>30-Day Average</Text>
+                  <Text style={[styles.metricValue, { color: '#FFFFFF' }]}>
+                    {sleepStats?.avgDuration30Days?.toFixed(1) || '--'}h
+                  </Text>
+                </View>
               </View>
-            ))}
+
+              <View style={styles.sleepMetricsGrid}>
+                <View style={[styles.metricBox, { backgroundColor: theme.colors.primary }]}>
+                  <Text style={[styles.metricLabel, { color: '#FFFFFF' }]}>Consistency Score</Text>
+                  <Text style={[styles.metricValue, { color: '#FFFFFF' }]}>
+                    {sleepStats?.consistencyScore || '--'}%
+                  </Text>
+                </View>
+                <View style={[styles.metricBox, { backgroundColor: theme.colors.primary }]}>
+                  <Text style={[styles.metricLabel, { color: '#FFFFFF' }]}>Sleep Quality</Text>
+                  <Text style={[styles.metricValue, { color: '#FFFFFF' }]}>
+                    {sleepStats?.avgQuality || '--'}
+                  </Text>
+                </View>
+              </View>
+
+              <View style={styles.insightsContainer}>
+                <Text style={[styles.insightsTitle, { color: theme.colors.text }]}>AI Insights</Text>
+                {sleepStats?.insights.map((insight, index) => (
+                  <View key={index} style={styles.insightRow}>
+                    <Sparkles size={16} color={theme.colors.primary} />
+                    <Text style={[styles.insightText, { color: theme.colors.textSecondary }]}>
+                      {insight}
+                    </Text>
+                  </View>
+                ))}
+              </View>
+
+              <TouchableOpacity 
+                style={styles.viewReportButton}
+                onPress={() => router.push('/(tabs)/calendar')}
+              >
+                <Text style={[styles.viewReportText, { color: theme.colors.primary }]}>
+                  View Full Sleep Report
+                </Text>
+                <ChevronRight size={18} color={theme.colors.primary} />
+              </TouchableOpacity>
+            </>
+          )}
+        </View>
+
+        {/* Sleep Tips Section */}
+        <View style={[styles.card, { backgroundColor: theme.colors.card }]}>
+          <View style={styles.cardHeader}>
+            <BookOpen size={24} color={theme.colors.primary} />
+            <Text style={[styles.cardTitle, { color: theme.colors.text }]}>Sleep Tips</Text>
+          </View>
+          {getRelevantSleepTips().map((tip) => (
+            <TouchableOpacity
+              key={tip.id}
+              style={styles.tipItem}
+              onPress={() => setExpandedTips({ ...expandedTips, [tip.id]: !expandedTips[tip.id] })}
+            >
+              <View style={styles.tipHeader}>
+                <Text style={[styles.tipTitle, { color: theme.colors.text }]}>{tip.tip}</Text>
+                {expandedTips[tip.id] ? (
+                  <ChevronUp size={20} color={theme.colors.textSecondary} />
+                ) : (
+                  <ChevronDown size={20} color={theme.colors.textSecondary} />
+                )}
+              </View>
+              {expandedTips[tip.id] && (
+                <Text style={[styles.tipDescription, { color: theme.colors.textSecondary }]}>
+                  {tip.description}
+                </Text>
+              )}
+            </TouchableOpacity>
+          ))}
+        </View>
+
+        {/* Sleep Tracking Tools */}
+        <View style={[styles.card, { backgroundColor: theme.colors.card }]}>
+          <View style={styles.cardHeader}>
+            <Clock size={24} color={theme.colors.primary} />
+            <Text style={[styles.cardTitle, { color: theme.colors.text }]}>Sleep Tracking Tools</Text>
           </View>
 
-          <TouchableOpacity style={styles.viewReportButton}>
-            <Text style={styles.viewReportText}>View Full Sleep Report</Text>
-            <ChevronRight size={18} color={'#34B27B'} />
-          </TouchableOpacity>
+          {/* Quick Log Section */}
+          <View style={styles.quickLogSection}>
+            <Text style={[styles.quickLogTitle, { color: theme.colors.text }]}>Quick Log</Text>
+            <TouchableOpacity
+              style={[styles.toolButton, { backgroundColor: theme.colors.primary }]}
+              onPress={() => router.push('/(tabs)/add-entry?type=sleep')}
+            >
+              <Plus size={20} color="#FFFFFF" />
+              <Text style={styles.toolButtonText}>Log Last Night's Sleep</Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* History & Analysis */}
+          <View style={styles.trackingToolsSection}>
+            <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>History & Analysis</Text>
+            <TouchableOpacity
+              style={[styles.toolButton, { backgroundColor: theme.colors.secondary }]}
+              onPress={() => router.push('/(tabs)/calendar')}
+            >
+              <Calendar size={20} color={theme.colors.text} />
+              <Text style={[styles.toolButtonText, { color: theme.colors.text }]}>View Sleep Calendar</Text>
+            </TouchableOpacity>
+
+            {/* Sleep Stats Snapshot */}
+            {!isLoading && !error && sleepStats && (
+              <View style={styles.statsSnapshot}>
+                <View style={[styles.statCard, { backgroundColor: theme.colors.card }]}>
+                  <View style={styles.statHeader}>
+                    <Moon size={16} color={theme.colors.primary} />
+                    <Text style={[styles.statLabel, { color: theme.colors.textSecondary }]}>
+                      Recent Average
+                    </Text>
+                  </View>
+                  <Text style={[styles.statValue, { color: theme.colors.text }]}>
+                    {sleepStats.avgDuration7Days}h
+                  </Text>
+                </View>
+
+                <View style={[styles.statCard, { backgroundColor: theme.colors.card }]}>
+                  <View style={styles.statHeader}>
+                    <TrendingUp size={16} color={theme.colors.primary} />
+                    <Text style={[styles.statLabel, { color: theme.colors.textSecondary }]}>
+                      Quality
+                    </Text>
+                  </View>
+                  <Text style={[styles.statValue, { color: theme.colors.text }]}>
+                    {sleepStats.avgQuality}
+                  </Text>
+                </View>
+              </View>
+            )}
+          </View>
+
+          {/* Quick Actions */}
+          <View style={styles.quickActionsSection}>
+            <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Quick Actions</Text>
+            <View style={styles.quickActionsGrid}>
+              <TouchableOpacity
+                style={[styles.quickActionButton, { backgroundColor: theme.colors.primary + '20' }]}
+                onPress={() => router.push('/experiments-hub')}
+              >
+                <FlaskConical size={20} color={theme.colors.primary} />
+                <Text style={[styles.quickActionText, { color: theme.colors.text }]}>
+                  Start Sleep Experiment
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.quickActionButton, { backgroundColor: theme.colors.primary + '20' }]}
+                onPress={() => {/* TODO: Implement reminders */}}
+              >
+                <Bell size={20} color={theme.colors.primary} />
+                <Text style={[styles.quickActionText, { color: theme.colors.text }]}>
+                  Set Bedtime Reminder
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
         </View>
 
         <View style={styles.card}>
@@ -448,7 +1012,7 @@ export default function SleepWellnessHub() {
             <Text style={[styles.cardTitle, { color: theme.colors.text }]}>Smart Recommendations</Text>
           </View>
 
-          {mockRecommendations.map((rec) => (
+          {getRecommendations(sleepStats, sleepLogs).map((rec) => (
             <TouchableOpacity
               key={rec.id}
               style={[styles.recommendationCard, { backgroundColor: theme.colors.secondary }]}
@@ -1033,6 +1597,65 @@ const styles = StyleSheet.create({
     fontWeight: '600' as const,
     color: '#FFFFFF',
   },
+  // Hero section styles
+  heroCard: {
+    backgroundColor: '#3B82F6',
+    borderRadius: 16,
+    padding: 24,
+    marginBottom: 20,
+    alignItems: 'center',
+  },
+  heroTitle: {
+    fontSize: 24,
+    fontWeight: '700' as const,
+    color: '#FFFFFF',
+    marginTop: 12,
+    marginBottom: 8,
+  },
+  heroSubtitle: {
+    fontSize: 16,
+    color: '#E0E7FF',
+    textAlign: 'center',
+    lineHeight: 24,
+  },
+  // Sleep Tips styles
+  tipItem: {
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E7EB',
+  },
+  tipHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  tipTitle: {
+    fontSize: 15,
+    fontWeight: '600' as const,
+    flex: 1,
+  },
+  tipDescription: {
+    fontSize: 14,
+    marginTop: 8,
+    lineHeight: 20,
+  },
+  // Sleep Tracking Tools styles
+  toolButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    borderRadius: 12,
+    marginBottom: 12,
+    gap: 8,
+  },
+  toolButtonText: {
+    fontSize: 16,
+    fontWeight: '600' as const,
+    color: '#FFFFFF',
+  },
   // Modal styles
   modalOverlay: {
     flex: 1,
@@ -1166,6 +1789,41 @@ const styles = StyleSheet.create({
     fontWeight: '600' as const,
     color: '#FFFFFF',
   },
+  loadingContainer: {
+    padding: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 12,
+  },
+  loadingText: {
+    fontSize: 14,
+    color: '#6B7280',
+    textAlign: 'center',
+  },
+  errorContainer: {
+    padding: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 12,
+  },
+  errorText: {
+    fontSize: 14,
+    color: '#EF4444',
+    textAlign: 'center',
+  },
+  retryButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 8,
+    gap: 8,
+    borderRadius: 8,
+    backgroundColor: '#F3F4F6',
+  },
+  retryText: {
+    fontSize: 14,
+    fontWeight: '600' as const,
+    color: '#10B981',
+  },
   viewAllExperimentsButton: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1183,6 +1841,68 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600' as const,
     color: '#34B27B',
+  },
+  quickLogSection: {
+    marginBottom: 20,
+  },
+  quickLogTitle: {
+    fontSize: 16,
+    fontWeight: '600' as const,
+    marginBottom: 12,
+  },
+  trackingToolsSection: {
+    marginBottom: 20,
+  },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: '600' as const,
+    marginBottom: 12,
+  },
+  statsSnapshot: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 12,
+  },
+  statCard: {
+    flex: 1,
+    padding: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  statHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 4,
+  },
+  statLabel: {
+    fontSize: 12,
+    color: '#6B7280',
+  },
+  statValue: {
+    fontSize: 20,
+    fontWeight: '700' as const,
+  },
+  quickActionsSection: {
+    marginTop: 20,
+  },
+  quickActionsGrid: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  quickActionButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 12,
+    borderRadius: 12,
+    gap: 8,
+  },
+  quickActionText: {
+    fontSize: 14,
+    fontWeight: '600' as const,
   },
 });
 

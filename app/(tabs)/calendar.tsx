@@ -1,75 +1,72 @@
-import React, { useState, useMemo, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl } from 'react-native';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl, Modal, Alert } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
-import { ChevronLeft, ChevronRight, Calendar as CalendarIcon } from 'lucide-react-native';
+import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Plus, X } from 'lucide-react-native';
 import { AnalyticsService } from '@/services/analytics.service';
+import { useRealtimeMoods, useRealtimeActivities, useRealtimeSleep, useRealtimeHabits, useRealtimeExperiments } from '@/hooks/useRealtimeData';
 import DayDetailModal from '@/components/DayDetailModal';
-import FloatingAddButton from '@/components/FloatingAddButton';
+import type { DailyDetailData } from '@/services/analytics.service';
 
 export default function CalendarScreen() {
   const insets = useSafeAreaInsets();
+  const router = useRouter();
   const { theme } = useTheme();
   const { user } = useAuth();
   const [currentDate, setCurrentDate] = useState<Date>(new Date());
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [modalVisible, setModalVisible] = useState<boolean>(false);
+  const [confirmLogModalVisible, setConfirmLogModalVisible] = useState<boolean>(false);
   const [calendarData, setCalendarData] = useState<any>({});
+  const [selectedDayDetailData, setSelectedDayDetailData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [loadingDetail, setLoadingDetail] = useState(false);
+  const [lastFetchTime, setLastFetchTime] = useState<number>(0);
 
-  const year = currentDate.getFullYear();
-  const month = currentDate.getMonth() + 1;
+  const year = useMemo(() => currentDate.getFullYear(), [currentDate]);
+  const month = useMemo(() => currentDate.getMonth() + 1, [currentDate]);
 
-  // Load calendar data when component mounts or month changes
-  useEffect(() => {
-    if (user) {
-      loadCalendarData();
+  // Enhanced helper function - compute overall well-being score
+  const getWellBeingColor = (dayData: any) => {
+    if (!dayData.mood && !dayData.sleep && !dayData.mentalClarity) {
+      return theme.colors.surfaceVariant; // No data - neutral grey
     }
-  }, [user, year, month]);
 
-  const loadCalendarData = async () => {
-    if (!user) return;
-    
-    setLoading(true);
-    setError(null);
-    
-    try {
-      const startDate = new Date(year, month - 1, 1).toISOString().split('T')[0];
-      const endDate = new Date(year, month, 0).toISOString().split('T')[0];
-      
-      const { data, error } = await AnalyticsService.getCalendarData(user.id, startDate, endDate);
-      
-      if (error) throw new Error('Failed to load calendar data');
-      
-      // Transform data into calendar format
-      const transformedData: any = {};
-      data?.forEach((day: any) => {
-        transformedData[day.date] = {
-          color: day.mood ? getMoodColor(day.mood.score) : '#E5E7EB',
-          mood: day.mood,
-          sleep: day.sleep,
-          activities: day.activities,
-          habits: day.habits,
-          experiments: day.experiments
-        };
-      });
-      
-      setCalendarData(transformedData);
-    } catch (err) {
-      console.error('Error loading calendar data:', err);
-      setError(err instanceof Error ? err.message : 'Failed to load calendar data');
-    } finally {
-      setLoading(false);
+    let totalScore = 0;
+    let dataPoints = 0;
+
+    // Mood contribution (normalized to 0-1)
+    if (dayData.mood?.score) {
+      totalScore += dayData.mood.score / 5;
+      dataPoints++;
     }
-  };
 
-  const onRefresh = async () => {
-    setRefreshing(true);
-    await loadCalendarData();
-    setRefreshing(false);
+    // Sleep quality contribution (normalized to 0-1)
+    if (dayData.sleep) {
+      const sleepScore = (dayData.sleep.quality || 3) / 5;
+      totalScore += sleepScore;
+      dataPoints++;
+    }
+
+    // Mental clarity contribution (normalized to 0-1)
+    if (dayData.mentalClarity?.score) {
+      totalScore += dayData.mentalClarity.score / 10;
+      dataPoints++;
+    }
+
+    if (dataPoints === 0) return theme.colors.surfaceVariant;
+
+    const avgScore = totalScore / dataPoints;
+
+    // Color mapping based on average well-being
+    if (avgScore >= 0.7) return theme.colors.success; // Good day - Green
+    if (avgScore >= 0.5) return theme.colors.primary; // Moderate day - Blue
+    if (avgScore >= 0.3) return theme.colors.warning; // Below average - Yellow
+    return theme.colors.error; // Poor day - Red
   };
 
   const getMoodColor = (score: number) => {
@@ -78,9 +75,128 @@ export default function CalendarScreen() {
     return '#EF4444'; // Red
   };
 
+  const loadCalendarData = useCallback(async (forceRefresh: boolean = false) => {
+    if (!user) {
+      setLoading(false);
+      setCalendarData({});
+      return;
+    }
+    
+    // Prevent excessive fetches (debounce to 2 seconds unless forced)
+    const now = Date.now();
+    if (!forceRefresh && now - lastFetchTime < 2000) {
+      console.log('Skipping calendar fetch - too soon since last fetch');
+      return;
+    }
+    
+    setLoading(true);
+    setError(null);
+    try {
+      const startDate = new Date(year, month - 1, 1).toISOString().split('T')[0];
+      const endDate = new Date(year, month, 0).toISOString().split('T')[0];
+      
+      console.log(`Fetching calendar data from ${startDate} to ${endDate}`);
+      const { data, error } = await AnalyticsService.getCalendarData(user.id, startDate, endDate);
+      
+      if (error) {
+        // Only throw if it's a real error, not just empty data
+        if (error !== 'No data found') {
+          throw new Error(error);
+        }
+        setCalendarData({});
+        setLastFetchTime(now);
+        return;
+      }
+      
+      // Transform data into calendar format with robust data existence check
+      const transformedData: any = {};
+      data?.forEach((day: any) => {
+        // Determine if this day has any meaningful data
+        const hasData = !!(
+          day.mood || 
+          day.sleep || 
+          (day.activities && day.activities.length > 0) ||
+          (day.habits && day.habits.completed > 0) ||
+          day.mentalClarity ||
+          day.productivity ||
+          day.intimacy
+        );
+        
+        // Only add to calendarData if there's actual data (not empty days)
+        if (hasData) {
+          transformedData[day.date] = {
+            color: getWellBeingColor(day), // Use enhanced well-being score
+            mood: day.mood,
+            sleep: day.sleep,
+            activities: day.activities,
+            habits: day.habits,
+            experiments: day.experiments,
+            mentalClarity: day.mentalClarity,
+            productivity: day.productivity,
+            intimacy: day.intimacy,
+            hasData: true, // Explicit flag for data existence
+          };
+        }
+      });
+      
+      setCalendarData(transformedData);
+      setLastFetchTime(now);
+      console.log(`Calendar data loaded: ${Object.keys(transformedData).length} days with data`, Object.keys(transformedData));
+    } catch (err) {
+      console.error('Error loading calendar data:', err);
+      setError(err instanceof Error ? err.message : 'Failed to load calendar data');
+      // Set empty data on error so UI can still render
+      setCalendarData({});
+    } finally {
+      setLoading(false);
+    }
+  }, [user, year, month, lastFetchTime]);
+
+  useEffect(() => {
+    if (user) {
+      loadCalendarData(false);
+    } else {
+      // If no user, ensure loading is false
+      setLoading(false);
+      setCalendarData({});
+    }
+  }, [user, year, month]); // Removed loadCalendarData from deps to prevent infinite loop
+
+  // Refresh calendar when screen comes into focus (after logging data elsewhere)
+  useFocusEffect(
+    useCallback(() => {
+      if (user) {
+        console.log('📅 Calendar screen FOCUSED - triggering refresh');
+        console.log('Current year:', year, 'month:', month);
+        loadCalendarData(true); // Force refresh on focus
+      }
+      return () => {
+        console.log('📅 Calendar screen UNFOCUSED');
+      };
+    }, [user, year, month])
+  );
+
+  // Set up real-time subscriptions - these will trigger loadCalendarData on changes
+  const handleRealtimeUpdate = useCallback(() => {
+    console.log('Realtime update detected - refreshing calendar');
+    loadCalendarData(true); // Force refresh on realtime updates
+  }, [loadCalendarData]);
+
+  useRealtimeMoods(user?.id || '', handleRealtimeUpdate);
+  useRealtimeActivities(user?.id || '', handleRealtimeUpdate);
+  useRealtimeSleep(user?.id || '', handleRealtimeUpdate);
+  useRealtimeHabits(user?.id || '', handleRealtimeUpdate);
+  useRealtimeExperiments(user?.id || '', handleRealtimeUpdate);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await loadCalendarData(true); // Force refresh on manual pull-to-refresh
+    setRefreshing(false);
+  }, [loadCalendarData]);
+
   const selectedDayData = useMemo(() => {
-    return selectedDate ? calendarData[selectedDate] : null;
-  }, [selectedDate, calendarData]);
+    return selectedDayDetailData;
+  }, [selectedDayDetailData]);
 
   const monthNames = [
     'January', 'February', 'March', 'April', 'May', 'June',
@@ -107,9 +223,114 @@ export default function CalendarScreen() {
     setCurrentDate(newDate);
   };
 
-  const handleDatePress = (date: string) => {
+  const handleDatePress = async (date: string) => {
+    const dayData = calendarData[date];
+    const today = new Date().toISOString().split('T')[0];
+    
+    console.log(`\n=== DATE PRESS: ${date} ===`);
+    console.log('Today:', today);
+    console.log('dayData exists:', !!dayData);
+    console.log('dayData:', JSON.stringify(dayData, null, 2));
+    
+    // Prevent logging for future dates
+    if (date > today) {
+      Alert.alert(
+        'Future Date',
+        'You cannot log data for future dates. Please select today or a past date.',
+        [{ text: 'OK', style: 'default' }]
+      );
+      return;
+    }
+    
     setSelectedDate(date);
-    setModalVisible(true);
+    
+    // Check if data exists - use presence in calendarData as primary indicator
+    // since we now only add days that have actual data
+    const hasData = !!dayData && dayData.hasData === true;
+    
+    console.log('hasData decision:', hasData);
+    console.log('===================\n');
+    
+    if (hasData) {
+      // Data exists - show summary modal
+      console.log(`✓ Data exists for ${date} - showing summary modal`);
+      setModalVisible(true);
+      setLoadingDetail(true);
+      
+      // Fetch fresh detailed data for the selected date
+      if (user) {
+        try {
+          const { data, error } = await AnalyticsService.getDailyDetailData(user.id, date);
+          if (error) {
+            console.error('Error loading day detail:', error);
+            // Fallback to cached data from calendarData
+            if (dayData) {
+              setSelectedDayDetailData({
+                date,
+                mood: dayData.mood,
+                activities: dayData.activities || [],
+                sleep: dayData.sleep,
+                habits: dayData.habits || [],
+                experiments: dayData.experiments || [],
+                mentalClarity: dayData.mentalClarity,
+                productivity: dayData.productivity,
+                intimacy: dayData.intimacy,
+              });
+            }
+          } else if (data) {
+            console.log('✓ Loaded detailed data for', date);
+            setSelectedDayDetailData(data);
+          }
+        } catch (err) {
+          console.error('Error fetching day detail:', err);
+          // Fallback to cached data
+          if (dayData) {
+            setSelectedDayDetailData({
+              date,
+              mood: dayData.mood,
+              activities: dayData.activities || [],
+              sleep: dayData.sleep,
+              habits: dayData.habits || [],
+              experiments: dayData.experiments || [],
+              mentalClarity: dayData.mentalClarity,
+              productivity: dayData.productivity,
+              intimacy: dayData.intimacy,
+            });
+          }
+        } finally {
+          setLoadingDetail(false);
+        }
+      }
+    } else {
+      // No data exists - show "Log Data" confirmation modal
+      console.log(`✗ No data for ${date} - showing confirmation modal`);
+      setConfirmLogModalVisible(true);
+    }
+  };
+
+  const handleConfirmLogData = () => {
+    if (selectedDate) {
+      setConfirmLogModalVisible(false);
+      console.log(`Navigating to add-entry for date: ${selectedDate}`);
+      // Navigate to add-entry page with date parameter
+      router.push(`/add-entry?date=${selectedDate}`);
+    }
+  };
+
+  const handleCancelLogData = () => {
+    setConfirmLogModalVisible(false);
+    setSelectedDate(null);
+  };
+
+  const formatDateForDisplay = (dateString: string) => {
+    const date = new Date(dateString + 'T00:00:00');
+    const options: Intl.DateTimeFormatOptions = { 
+      weekday: 'long', 
+      year: 'numeric', 
+      month: 'long', 
+      day: 'numeric' 
+    };
+    return date.toLocaleDateString('en-US', options);
   };
 
   const renderCalendarDays = () => {
@@ -130,12 +351,17 @@ export default function CalendarScreen() {
       const dayData = calendarData[date];
       const isToday = date === new Date().toISOString().split('T')[0];
 
+      // Check if this date has data - simplified since we only store days with data
+      const hasData = !!dayData && dayData.hasData === true;
+      
       days.push(
         <TouchableOpacity
           key={date}
           style={[
             styles.dayCell,
             isToday && styles.todayCell,
+            hasData && { backgroundColor: dayData.color + '15' }, // Filled background for days with data
+            !hasData && !isToday && styles.emptyDateCell, // Dashed border for empty dates
           ]}
           onPress={() => handleDatePress(date)}
           activeOpacity={0.7}
@@ -144,21 +370,46 @@ export default function CalendarScreen() {
             <Text style={[
               styles.dayText,
               isToday && styles.todayText,
+              { color: isToday ? theme.colors.primary : theme.colors.text }
             ]}>
               {day}
             </Text>
-            {dayData && (
+            {hasData && dayData ? (
               <View style={styles.moodIndicators}>
+                {/* Main well-being indicator ring */}
                 <View 
                   style={[
-                    styles.moodDot,
-                    { backgroundColor: dayData.color }
+                    styles.wellBeingRing,
+                    { borderColor: dayData.color }
                   ]} 
                 />
-                <Text style={styles.moodEmoji}>
-                  {dayData.mood >= 4 ? '😊' : dayData.mood >= 3 ? '😐' : '😕'}
-                </Text>
+                {/* Mood emoji overlay */}
+                {dayData.mood && (
+                  <Text style={styles.moodEmoji}>
+                    {dayData.mood.score >= 4 ? '😊' : dayData.mood.score >= 3 ? '😐' : '😕'}
+                  </Text>
+                )}
+                {/* Micro-indicators for additional data types */}
+                {(dayData.sleep || dayData.activities || dayData.habits) && (
+                  <View style={styles.additionalIndicators}>
+                    {dayData.sleep && (
+                      <View style={[styles.microDot, { backgroundColor: '#3B82F6' }]} />
+                    )}
+                    {dayData.activities && dayData.activities.length > 0 && (
+                      <View style={[styles.microDot, { backgroundColor: '#A855F7' }]} />
+                    )}
+                    {dayData.habits && dayData.habits.completed > 0 && (
+                      <View style={[styles.microDot, { backgroundColor: '#10B981' }]} />
+                    )}
+                  </View>
+                )}
               </View>
+            ) : (
+              !isToday && (
+                <View style={styles.emptyIndicator}>
+                  <Plus size={12} color={theme.colors.textSecondary} opacity={0.3} />
+                </View>
+              )
             )}
           </View>
         </TouchableOpacity>
@@ -170,17 +421,35 @@ export default function CalendarScreen() {
 
   const getMoodStats = () => {
     const dates = Object.keys(calendarData);
-    const moodScores = dates.map(date => calendarData[date].mood);
+    const moodScores = dates.map(date => calendarData[date].mood?.score).filter(score => typeof score === 'number');
     
     const goodDays = moodScores.filter(score => score >= 4).length;
     const neutralDays = moodScores.filter(score => score === 3).length;
     const badDays = moodScores.filter(score => score <= 2).length;
-    const avgMood = moodScores.reduce((sum, score) => sum + score, 0) / moodScores.length;
+    const avgMood = moodScores.length > 0 ? (moodScores.reduce((sum, score) => sum + score, 0) / moodScores.length) : 0;
 
     return { goodDays, neutralDays, badDays, avgMood: avgMood.toFixed(1) };
   };
 
+  const getSummaryStats = () => {
+    const dates = Object.keys(calendarData);
+    const sleepHours = dates.map(date => calendarData[date].sleep?.hours).filter((hours): hours is number => typeof hours === 'number');
+    const mentalClarityScores = dates.map(date => calendarData[date].mentalClarity?.score).filter((score): score is number => typeof score === 'number');
+    const habitCompletions = dates.map(date => {
+      const habits = calendarData[date].habits;
+      if (!habits || !habits.completed || !habits.total) return null;
+      return Math.round((habits.completed / habits.total) * 100);
+    }).filter((completion): completion is number => typeof completion === 'number');
+    
+    const avgSleep = sleepHours.length > 0 ? (sleepHours.reduce((sum, hours) => sum + hours, 0) / sleepHours.length).toFixed(1) : '0';
+    const avgMentalClarity = mentalClarityScores.length > 0 ? (mentalClarityScores.reduce((sum, score) => sum + score, 0) / mentalClarityScores.length).toFixed(1) : '0';
+    const avgHabitCompletion = habitCompletions.length > 0 ? Math.round(habitCompletions.reduce((sum, completion) => sum + completion, 0) / habitCompletions.length) : 0;
+    
+    return { avgSleep, avgMentalClarity, avgHabitCompletion };
+  };
+
   const moodStats = getMoodStats();
+  const summaryStats = getSummaryStats();
 
   if (loading && !refreshing) {
     return (
@@ -199,6 +468,9 @@ export default function CalendarScreen() {
       </View>
     );
   }
+
+  // Empty state: Show friendly message when no calendar data exists
+  const hasAnyData = Object.keys(calendarData).length > 0;
 
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
@@ -275,10 +547,26 @@ export default function CalendarScreen() {
             ))}
           </View>
 
-          {/* Calendar grid */}
-          <View style={styles.calendarGrid}>
-            {renderCalendarDays()}
-          </View>
+          {/* Calendar grid or empty state */}
+          {!hasAnyData ? (
+            <View style={styles.emptyStateContainer}>
+              <Text style={styles.emptyStateEmoji}>📅</Text>
+              <Text style={[styles.emptyStateTitle, { color: theme.colors.text }]}>No Data for This Month</Text>
+              <Text style={[styles.emptyStateMessage, { color: theme.colors.textSecondary }]}>
+                Start tracking to see your wellness patterns
+              </Text>
+              <TouchableOpacity
+                style={[styles.emptyStateButton, { backgroundColor: theme.colors.primary }]}
+                onPress={() => router.push('/(tabs)/add-entry')}
+              >
+                <Text style={[styles.emptyStateButtonText, { color: '#FFFFFF' }]}>Add Entry</Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <View style={styles.calendarGrid}>
+              {renderCalendarDays()}
+            </View>
+          )}
         </View>
 
         {/* Summary Card */}
@@ -289,22 +577,19 @@ export default function CalendarScreen() {
             <View style={styles.summaryItem}>
               <Text style={styles.summaryEmoji}>🧠</Text>
               <Text style={[styles.summaryLabel, { color: theme.colors.textSecondary }]}>Mental Clarity</Text>
-              <Text style={[styles.summaryValue, { color: theme.colors.text }]}>8.2/10</Text>
-              <Text style={[styles.summaryTrend, { color: theme.colors.primary }]}>↗ +12%</Text>
+              <Text style={[styles.summaryValue, { color: theme.colors.text }]}>{summaryStats.avgMentalClarity}/10</Text>
             </View>
             
             <View style={styles.summaryItem}>
               <Text style={styles.summaryEmoji}>😴</Text>
               <Text style={[styles.summaryLabel, { color: theme.colors.textSecondary }]}>Sleep Quality</Text>
-              <Text style={[styles.summaryValue, { color: theme.colors.text }]}>7.5h avg</Text>
-              <Text style={[styles.summaryTrend, { color: theme.colors.primary }]}>↗ +8%</Text>
+              <Text style={[styles.summaryValue, { color: theme.colors.text }]}>{summaryStats.avgSleep}h avg</Text>
             </View>
             
             <View style={styles.summaryItem}>
               <Text style={styles.summaryEmoji}>🔥</Text>
               <Text style={[styles.summaryLabel, { color: theme.colors.textSecondary }]}>Habit Streak</Text>
-              <Text style={[styles.summaryValue, { color: theme.colors.text }]}>12 days</Text>
-              <Text style={[styles.summaryTrend, { color: theme.colors.primary }]}>↗ +3</Text>
+              <Text style={[styles.summaryValue, { color: theme.colors.text }]}>{summaryStats.avgHabitCompletion} avg</Text>
             </View>
           </View>
           
@@ -331,36 +616,111 @@ export default function CalendarScreen() {
           </View>
         </View>
 
-        {/* Legend */}
+        {/* Enhanced Legend */}
         <View style={[styles.legendContainer, { backgroundColor: theme.colors.card }]}>
-          <Text style={[styles.legendTitle, { color: theme.colors.text }]}>Mood Legend</Text>
-          <View style={styles.legendRow}>
+          <Text style={[styles.legendTitle, { color: theme.colors.text }]}>Daily Well-Being Legend</Text>
+          <View style={styles.legendGrid}>
             <View style={styles.legendItem}>
-              <View style={[styles.legendDot, { backgroundColor: theme.colors.primary }]} />
-              <Text style={[styles.legendText, { color: theme.colors.textSecondary }]}>Good Mood (4-5)</Text>
+              <View style={[styles.legendRing, { borderColor: theme.colors.success }]} />
+              <Text style={[styles.legendText, { color: theme.colors.textSecondary }]}>Great Day</Text>
             </View>
             <View style={styles.legendItem}>
-              <View style={[styles.legendDot, { backgroundColor: theme.colors.warning }]} />
-              <Text style={[styles.legendText, { color: theme.colors.textSecondary }]}>Neutral (3)</Text>
+              <View style={[styles.legendRing, { borderColor: theme.colors.primary }]} />
+              <Text style={[styles.legendText, { color: theme.colors.textSecondary }]}>Good Day</Text>
             </View>
             <View style={styles.legendItem}>
-              <View style={[styles.legendDot, { backgroundColor: theme.colors.error }]} />
-              <Text style={[styles.legendText, { color: theme.colors.textSecondary }]}>Low Mood (1-2)</Text>
+              <View style={[styles.legendRing, { borderColor: theme.colors.warning }]} />
+              <Text style={[styles.legendText, { color: theme.colors.textSecondary }]}>Fair Day</Text>
+            </View>
+            <View style={styles.legendItem}>
+              <View style={[styles.legendRing, { borderColor: theme.colors.error }]} />
+              <Text style={[styles.legendText, { color: theme.colors.textSecondary }]}>Tough Day</Text>
             </View>
           </View>
+          
+          <View style={[styles.legendDivider, { backgroundColor: theme.colors.border }]} />
+          
+          <Text style={[styles.legendSubtitle, { color: theme.colors.textSecondary }]}>Data Indicators</Text>
+          <View style={styles.legendGrid}>
+            <View style={styles.legendItem}>
+              <View style={[styles.microDot, { backgroundColor: '#3B82F6' }]} />
+              <Text style={[styles.legendTextSmall, { color: theme.colors.textSecondary }]}>Sleep</Text>
+            </View>
+            <View style={styles.legendItem}>
+              <View style={[styles.microDot, { backgroundColor: '#A855F7' }]} />
+              <Text style={[styles.legendTextSmall, { color: theme.colors.textSecondary }]}>Activities</Text>
+            </View>
+            <View style={styles.legendItem}>
+              <View style={[styles.microDot, { backgroundColor: '#10B981' }]} />
+              <Text style={[styles.legendTextSmall, { color: theme.colors.textSecondary }]}>Habits</Text>
+            </View>
+          </View>
+          
           <Text style={[styles.legendSubtext, { color: theme.colors.textSecondary }]}>
-            Tap any date to see detailed insights about your activities, sleep, and mood.
+            Tap any date to see detailed insights • Colors reflect combined mood, sleep & clarity scores
           </Text>
         </View>
       </ScrollView>
 
       <DayDetailModal
         visible={modalVisible}
-        onClose={() => setModalVisible(false)}
+        onClose={() => {
+          setModalVisible(false);
+          setSelectedDayDetailData(null);
+        }}
         data={selectedDayData}
       />
-      
-      <FloatingAddButton />
+
+      {/* Confirmation Modal for Logging Past Data */}
+      <Modal
+        visible={confirmLogModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={handleCancelLogData}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.confirmModal, { backgroundColor: theme.colors.card }]}>
+            <View style={styles.confirmModalHeader}>
+              <CalendarIcon size={32} color={theme.colors.primary} />
+              <TouchableOpacity 
+                onPress={handleCancelLogData}
+                style={styles.closeModalButton}
+              >
+                <X size={24} color={theme.colors.textSecondary} />
+              </TouchableOpacity>
+            </View>
+            
+            <Text style={[styles.confirmModalTitle, { color: theme.colors.text }]}>
+              Log Data for Past Date
+            </Text>
+            
+            <Text style={[styles.confirmModalDate, { color: theme.colors.primary }]}>
+              {selectedDate ? formatDateForDisplay(selectedDate) : ''}
+            </Text>
+            
+            <Text style={[styles.confirmModalMessage, { color: theme.colors.textSecondary }]}>
+              You're about to log wellness data for a past date. You can track your mood, activities, sleep, and more for this day.
+            </Text>
+            
+            <View style={styles.confirmModalActions}>
+              <TouchableOpacity
+                style={[styles.confirmModalButton, styles.cancelButton, { borderColor: theme.colors.border }]}
+                onPress={handleCancelLogData}
+              >
+                <Text style={[styles.cancelButtonText, { color: theme.colors.text }]}>Cancel</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                style={[styles.confirmModalButton, styles.continueButton, { backgroundColor: theme.colors.primary }]}
+                onPress={handleConfirmLogData}
+              >
+                <Plus size={20} color="#FFFFFF" />
+                <Text style={styles.continueButtonText}>Log Data</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -376,6 +736,11 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     borderBottomWidth: 1,
     borderBottomColor: '#E5E7EB',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 3,
   },
   titleContainer: {
     flexDirection: 'row',
@@ -383,10 +748,11 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   title: {
-    fontSize: 20,
-    fontWeight: '600',
+    fontSize: 22,
+    fontWeight: '700',
     color: '#1F2937',
-    marginLeft: 8,
+    marginLeft: 10,
+    letterSpacing: 0.3,
   },
   monthNavigation: {
     flexDirection: 'row',
@@ -394,14 +760,20 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   navButton: {
-    padding: 8,
-    borderRadius: 8,
-    backgroundColor: '#F3F4F6',
+    padding: 10,
+    borderRadius: 12,
+    backgroundColor: '#F9FAFB',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 3,
+    elevation: 1,
   },
   monthYear: {
-    fontSize: 18,
-    fontWeight: '600',
+    fontSize: 19,
+    fontWeight: '700',
     color: '#1F2937',
+    letterSpacing: 0.3,
   },
   content: {
     flex: 1,
@@ -409,19 +781,20 @@ const styles = StyleSheet.create({
   statsContainer: {
     backgroundColor: '#FFFFFF',
     margin: 20,
-    borderRadius: 16,
-    padding: 20,
+    borderRadius: 20,
+    padding: 24,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 16,
+    elevation: 6,
   },
   statsTitle: {
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: 17,
+    fontWeight: '700',
     color: '#1F2937',
-    marginBottom: 16,
+    marginBottom: 20,
+    letterSpacing: 0.2,
   },
   statsRow: {
     flexDirection: 'row',
@@ -432,80 +805,114 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   statDot: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    marginBottom: 4,
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    marginBottom: 6,
   },
   statLabel: {
     fontSize: 12,
     color: '#6B7280',
-    marginBottom: 4,
+    marginBottom: 6,
     textAlign: 'center',
+    fontWeight: '500',
   },
   statValue: {
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: 18,
+    fontWeight: '700',
     color: '#1F2937',
   },
   calendarContainer: {
     backgroundColor: '#FFFFFF',
     marginHorizontal: 20,
     marginBottom: 20,
-    borderRadius: 16,
-    padding: 20,
+    borderRadius: 20,
+    padding: 24,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 16,
+    elevation: 6,
   },
   dayHeaders: {
     flexDirection: 'row',
-    marginBottom: 16,
+    marginBottom: 20,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
   },
   dayHeader: {
     flex: 1,
     textAlign: 'center',
-    fontSize: 12,
-    fontWeight: '600',
+    fontSize: 13,
+    fontWeight: '700',
     color: '#6B7280',
-    paddingVertical: 8,
+    paddingVertical: 4,
+    letterSpacing: 0.5,
   },
   calendarGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
+    gap: 2,
   },
   emptyDay: {
     width: '14.28%',
     aspectRatio: 1,
   },
   dayCell: {
-    width: '14.28%',
+    width: '13.8%',
     aspectRatio: 1,
-    padding: 4,
+    padding: 2,
+    borderRadius: 12,
+    margin: 1,
+    overflow: 'hidden',
+  },
+  emptyDateCell: {
+    borderWidth: 1,
+    borderColor: '#F3F4F6',
+    borderStyle: 'dashed',
   },
   todayCell: {
-    backgroundColor: '#EBF8FF',
-    borderRadius: 8,
+    backgroundColor: '#EBF5FF',
+    borderWidth: 2,
+    borderColor: '#3B82F6',
+    shadowColor: '#3B82F6',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 2,
   },
   dayContent: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
+    padding: 4,
+  },
+  emptyIndicator: {
+    marginTop: 2,
+    opacity: 0.5,
   },
   dayText: {
-    fontSize: 14,
-    fontWeight: '500',
+    fontSize: 15,
+    fontWeight: '600',
     color: '#374151',
-    marginBottom: 2,
+    marginBottom: 4,
   },
   todayText: {
     color: '#3B82F6',
-    fontWeight: '600',
+    fontWeight: '700',
   },
   moodIndicators: {
     alignItems: 'center',
+    justifyContent: 'center',
+  },
+  wellBeingRing: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: 2.5,
+    position: 'absolute',
+    top: -2,
   },
   moodDot: {
     width: 6,
@@ -514,24 +921,57 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   moodEmoji: {
-    fontSize: 10,
+    fontSize: 12,
+    marginTop: 2,
+  },
+  additionalIndicators: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 4,
+    gap: 3,
+  },
+  microDot: {
+    width: 5,
+    height: 5,
+    borderRadius: 2.5,
+  },
+  indicatorDot: {
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+    marginHorizontal: 1,
   },
   legendContainer: {
     backgroundColor: '#FFFFFF',
     marginHorizontal: 20,
     marginBottom: 20,
-    borderRadius: 16,
-    padding: 20,
+    borderRadius: 20,
+    padding: 24,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 16,
+    elevation: 6,
   },
   legendTitle: {
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: 17,
+    fontWeight: '700',
     color: '#1F2937',
+    marginBottom: 16,
+    letterSpacing: 0.2,
+  },
+  legendSubtitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#6B7280',
+    marginBottom: 12,
+    marginTop: 8,
+  },
+  legendGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 16,
     marginBottom: 12,
   },
   legendRow: {
@@ -542,47 +982,67 @@ const styles = StyleSheet.create({
   legendItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    flex: 1,
+    gap: 8,
+    minWidth: '45%',
+  },
+  legendRing: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    borderWidth: 2.5,
   },
   legendDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    marginRight: 6,
+    width: 10,
+    height: 10,
+    borderRadius: 5,
   },
   legendText: {
+    fontSize: 13,
+    color: '#6B7280',
+    fontWeight: '500',
+  },
+  legendTextSmall: {
     fontSize: 12,
     color: '#6B7280',
+    fontWeight: '500',
+  },
+  legendDivider: {
+    height: 1,
+    backgroundColor: '#E5E7EB',
+    marginVertical: 16,
   },
   legendSubtext: {
     fontSize: 12,
     color: '#9CA3AF',
     fontStyle: 'italic',
     textAlign: 'center',
+    lineHeight: 18,
+    marginTop: 12,
   },
   // Summary card styles
   summaryCard: {
     backgroundColor: '#FFFFFF',
     marginHorizontal: 20,
     marginBottom: 20,
-    borderRadius: 16,
-    padding: 20,
+    borderRadius: 20,
+    padding: 24,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 16,
+    elevation: 6,
   },
   summaryTitle: {
-    fontSize: 18,
-    fontWeight: '600',
+    fontSize: 19,
+    fontWeight: '700',
     color: '#1F2937',
-    marginBottom: 16,
+    marginBottom: 20,
+    letterSpacing: 0.2,
   },
   summaryGrid: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 20,
+    marginBottom: 24,
   },
   summaryItem: {
     alignItems: 'center',
@@ -590,18 +1050,19 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
   },
   summaryEmoji: {
-    fontSize: 24,
-    marginBottom: 8,
+    fontSize: 28,
+    marginBottom: 10,
   },
   summaryLabel: {
     fontSize: 12,
     color: '#6B7280',
-    marginBottom: 4,
+    marginBottom: 6,
     textAlign: 'center',
+    fontWeight: '500',
   },
   summaryValue: {
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: 17,
+    fontWeight: '700',
     color: '#1F2937',
     marginBottom: 2,
   },
@@ -612,31 +1073,33 @@ const styles = StyleSheet.create({
   },
   summaryInsights: {
     borderTopWidth: 1,
-    borderTopColor: '#E5E7EB',
-    paddingTop: 16,
+    borderTopColor: '#F3F4F6',
+    paddingTop: 20,
   },
   insightsTitle: {
-    fontSize: 14,
-    fontWeight: '600',
+    fontSize: 15,
+    fontWeight: '700',
     color: '#1F2937',
-    marginBottom: 12,
+    marginBottom: 14,
   },
   insightItem: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    marginBottom: 8,
+    marginBottom: 10,
   },
   insightBullet: {
-    fontSize: 14,
+    fontSize: 16,
     color: '#10B981',
-    marginRight: 8,
-    marginTop: 2,
+    marginRight: 10,
+    marginTop: 1,
+    fontWeight: '600',
   },
   insightText: {
     flex: 1,
     fontSize: 13,
     color: '#6B7280',
-    lineHeight: 18,
+    lineHeight: 20,
+    fontWeight: '400',
   },
   loadingText: {
     marginTop: 16,
@@ -651,5 +1114,122 @@ const styles = StyleSheet.create({
   retryText: {
     fontSize: 14,
     textAlign: 'center',
+  },
+  emptyStateButton: {
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 24,
+    marginTop: 16,
+  },
+  emptyStateButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#FFFFFF',
+  },
+  emptyStateContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 40,
+    minHeight: 300,
+  },
+  emptyStateEmoji: {
+    fontSize: 64,
+    marginBottom: 16,
+  },
+  emptyStateTitle: {
+    fontSize: 20,
+    fontWeight: '600',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  emptyStateMessage: {
+    fontSize: 14,
+    textAlign: 'center',
+    lineHeight: 20,
+    marginBottom: 8,
+  },
+  emptyStateSubtext: {
+    fontSize: 12,
+    textAlign: 'center',
+    lineHeight: 18,
+    fontStyle: 'italic',
+  },
+  // Confirmation Modal Styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  confirmModal: {
+    width: '100%',
+    maxWidth: 400,
+    borderRadius: 24,
+    padding: 28,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.15,
+    shadowRadius: 24,
+    elevation: 10,
+  },
+  confirmModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  closeModalButton: {
+    padding: 4,
+  },
+  confirmModalTitle: {
+    fontSize: 22,
+    fontWeight: '700',
+    marginBottom: 8,
+    letterSpacing: 0.2,
+  },
+  confirmModalDate: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 16,
+  },
+  confirmModalMessage: {
+    fontSize: 14,
+    lineHeight: 22,
+    marginBottom: 28,
+  },
+  confirmModalActions: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  confirmModalButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    borderRadius: 12,
+    gap: 8,
+  },
+  cancelButton: {
+    borderWidth: 1.5,
+  },
+  cancelButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  continueButton: {
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  continueButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#FFFFFF',
   },
 });

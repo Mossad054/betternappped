@@ -1,7 +1,8 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
-import { TimeRange } from '@/constants/mockData';
 import { useTheme } from '@/contexts/ThemeContext';
+
+export type TimeRange = 'today' | 'week' | 'month' | 'year';
 
 interface TimeFilterProps {
   selectedRange: TimeRange;
@@ -17,22 +18,23 @@ const timeRanges: { key: TimeRange; label: string }[] = [
 
 export default function TimeFilter({ selectedRange, onRangeChange }: TimeFilterProps) {
   const { theme } = useTheme();
+  const styles = createStyles(theme);
   
   return (
-    <View style={[styles.container, { backgroundColor: theme.colors.card }]}>
+    <View style={styles.container}>
       {timeRanges.map((range) => (
         <TouchableOpacity
           key={range.key}
           style={[
             styles.filterButton,
-            selectedRange === range.key && [styles.activeFilterButton, { backgroundColor: theme.colors.primary }],
+            selectedRange === range.key && styles.activeFilterButton,
           ]}
           onPress={() => onRangeChange(range.key)}
         >
           <Text
             style={[
               styles.filterText,
-              { color: selectedRange === range.key ? theme.colors.text : theme.colors.textSecondary },
+              selectedRange === range.key && styles.activeFilterText,
             ]}
           >
             {range.label}
@@ -43,40 +45,33 @@ export default function TimeFilter({ selectedRange, onRangeChange }: TimeFilterP
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (theme: any) => StyleSheet.create({
   container: {
     flexDirection: 'row',
-    backgroundColor: '#F3F4F6',
-    borderRadius: 12,
-    padding: 4,
-    marginHorizontal: 20,
-    marginBottom: 20,
+    backgroundColor: theme.colors.surfaceVariant,
+    borderRadius: theme.radii.md,
+    padding: theme.spacing.xs,
+    marginHorizontal: theme.spacing.screenHorizontal,
+    marginBottom: theme.spacing.screenVertical,
   },
   filterButton: {
     flex: 1,
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 8,
+    paddingVertical: theme.spacing.sm,
+    paddingHorizontal: theme.spacing.elementGap,
+    borderRadius: theme.radii.sm,
     alignItems: 'center',
   },
   activeFilterButton: {
-    backgroundColor: '#FFFFFF',
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 1,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
+    backgroundColor: theme.colors.primary,
+    ...theme.elevation.small,
   },
   filterText: {
-    fontSize: 14,
+    ...theme.typography.body,
     fontWeight: '500',
-    color: '#6B7280',
   },
   activeFilterText: {
-    color: '#1F2937',
+    ...theme.typography.body,
+    color: theme.colors.textPrimary,
     fontWeight: '600',
   },
 });

@@ -55,6 +55,13 @@ export default function IntimacyHub() {
       </View>
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+        {/* Privacy Notice */}
+        <View style={[styles.privacyNotice, { backgroundColor: theme.colors.secondary }]}>
+          <Text style={[styles.privacyText, { color: theme.colors.text }]}>
+            🔒 Your data is private and encrypted. This hub is for tracking intimate wellness.
+          </Text>
+        </View>
+
         <View style={[styles.introCard, { backgroundColor: theme.colors.card }]}>
           <Heart size={48} color={theme.colors.primary} />
           <Text style={[styles.introTitle, { color: theme.colors.text }]}>
@@ -64,6 +71,61 @@ export default function IntimacyHub() {
             Let&apos;s understand your current state and help you strengthen your emotional and physical connection.
           </Text>
         </View>
+
+        {/* Your Intimacy Stats */}
+        <View style={[styles.statsCard, { backgroundColor: theme.colors.card }]}>
+          <Text style={[styles.cardTitle, { color: theme.colors.text }]}>Your Intimacy Stats</Text>
+          <View style={styles.statsGrid}>
+            <View style={styles.statBox}>
+              <Text style={[styles.statLabel, { color: theme.colors.textSecondary }]}>Frequency</Text>
+              <Text style={[styles.statValue, { color: theme.colors.text }]}>2.5x/week</Text>
+            </View>
+            <View style={styles.statBox}>
+              <Text style={[styles.statLabel, { color: theme.colors.textSecondary }]}>Mood Impact</Text>
+              <Text style={[styles.statValue, { color: theme.colors.text }]}>+15% avg</Text>
+            </View>
+            <View style={styles.statBox}>
+              <Text style={[styles.statLabel, { color: theme.colors.textSecondary }]}>Sleep Correlation</Text>
+              <Text style={[styles.statValue, { color: theme.colors.text }]}>Positive</Text>
+            </View>
+            <View style={styles.statBox}>
+              <Text style={[styles.statLabel, { color: theme.colors.textSecondary }]}>Time to Sleep</Text>
+              <Text style={[styles.statValue, { color: theme.colors.text }]}>~25 min</Text>
+            </View>
+          </View>
+        </View>
+
+        {/* Insights Section */}
+        <View style={[styles.insightsCard, { backgroundColor: theme.colors.card }]}>
+          <Text style={[styles.cardTitle, { color: theme.colors.text }]}>Insights</Text>
+          <View style={styles.insightItem}>
+            <Text style={[styles.insightBullet, { color: theme.colors.primary }]}>•</Text>
+            <Text style={[styles.insightText, { color: theme.colors.textSecondary }]}>
+              Higher mood scores on days with intimate activity
+            </Text>
+          </View>
+          <View style={styles.insightItem}>
+            <Text style={[styles.insightBullet, { color: theme.colors.primary }]}>•</Text>
+            <Text style={[styles.insightText, { color: theme.colors.textSecondary }]}>
+              Improved sleep quality when activity occurs before 10 PM
+            </Text>
+          </View>
+          <View style={styles.insightItem}>
+            <Text style={[styles.insightBullet, { color: theme.colors.primary }]}>•</Text>
+            <Text style={[styles.insightText, { color: theme.colors.textSecondary }]}>
+              Weekly frequency of 2-3x shows optimal mood benefits
+            </Text>
+          </View>
+        </View>
+
+        {/* Quick Log Button */}
+        <TouchableOpacity
+          style={[styles.quickLogButton, { backgroundColor: theme.colors.primary }]}
+          onPress={() => router.push('/add-entry?type=intimacy')}
+        >
+          <Plus size={24} color="#FFFFFF" />
+          <Text style={styles.quickLogText}>Log Entry</Text>
+        </TouchableOpacity>
 
         <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Available Plans</Text>
         {intimacyPlans.map((plan) => (
@@ -346,6 +408,90 @@ const styles = StyleSheet.create({
     fontSize: 15,
     lineHeight: 22,
     textAlign: 'center',
+  },
+  privacyNotice: {
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 16,
+    alignItems: 'center',
+  },
+  privacyText: {
+    fontSize: 14,
+    textAlign: 'center',
+    lineHeight: 20,
+  },
+  statsCard: {
+    padding: 20,
+    borderRadius: 16,
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  cardTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    marginBottom: 16,
+  },
+  statsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+  },
+  statBox: {
+    width: '47%',
+    padding: 12,
+    borderRadius: 12,
+    backgroundColor: '#F9FAFB',
+  },
+  statLabel: {
+    fontSize: 12,
+    marginBottom: 4,
+  },
+  statValue: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  insightsCard: {
+    padding: 20,
+    borderRadius: 16,
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  insightItem: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: 12,
+  },
+  insightBullet: {
+    fontSize: 16,
+    marginRight: 8,
+    marginTop: 2,
+  },
+  insightText: {
+    flex: 1,
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  quickLogButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 16,
+    borderRadius: 16,
+    marginBottom: 20,
+    gap: 8,
+  },
+  quickLogText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#FFFFFF',
   },
   sectionTitle: {
     fontSize: 18,

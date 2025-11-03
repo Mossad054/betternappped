@@ -1,16 +1,19 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { Session, User } from '@supabase/supabase-js';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '@/lib/supabase';
+import { useRouter } from 'expo-router';
 
 interface AuthContextType {
   user: User | null;
   session: Session | null;
   loading: boolean;
-  signUp: (email: string, password: string) => Promise<{ error: string | null; success?: boolean; needsVerification?: boolean }>;
-  signIn: (email: string, password: string) => Promise<{ error: string | null; success?: boolean }>;
-  signOut: () => Promise<{ error: string | null }>;
-  resetPassword: (email: string) => Promise<{ error: string | null; success?: boolean }>;
+  isGuest: boolean;
+  signIn: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
+  signUp: (email: string, password: string) => Promise<{ success: boolean; error?: string; needsVerification?: boolean }>;
+  signOut: () => Promise<void>;
+  continueAsGuest: () => Promise<void>;
+  refreshSession: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -19,180 +22,197 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isGuest, setIsGuest] = useState(false);
+  const router = useRouter();
 
-  useEffect(() => {
-    // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
+  // Check if user is authenticated or in guest mode
+  const checkAuthState = useCallback(async () => {
+    try {
+      console.log('🔍 AuthContext: Checking auth state...');
+      
+      // Check for guest mode first
+      const guestMode = await AsyncStorage.getItem('guest_mode');
+      if (guestMode === 'true') {
+        console.log('👤 AuthContext: Guest mode detected');
+        setIsGuest(true);
+        setUser(null);
+        setSession(null);
+        setLoading(false);
+        return;
+      }
+
+      // Check for existing session
+      const { data: { session: storedSession }, error } = await supabase.auth.getSession();
+      
+      if (error) {
+        console.error('❌ AuthContext: Error getting session:', error);
+        setLoading(false);
+        return;
+      }
+
+      console.log('✅ AuthContext: Session retrieved:', storedSession ? 'Valid' : 'None');
+      
+      setSession(storedSession);
+      setUser(storedSession?.user ?? null);
+      setIsGuest(false);
+    } catch (error) {
+      console.error('❌ AuthContext: Exception checking auth state:', error);
+    } finally {
       setLoading(false);
-    });
+    }
+  }, []);
+
+  // Initialize auth state on app start
+  useEffect(() => {
+    checkAuthState();
 
     // Listen for auth changes
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, session) => {
+      console.log('🔄 AuthContext: Auth state change:', event, session ? 'Valid session' : 'No session');
+      
       setSession(session);
       setUser(session?.user ?? null);
       setLoading(false);
 
-      // Store session in AsyncStorage for persistence
-      if (session) {
-        await AsyncStorage.setItem('supabase_session', JSON.stringify(session));
-      } else {
-        await AsyncStorage.removeItem('supabase_session');
+      // Handle sign out
+      if (event === 'SIGNED_OUT') {
+        setIsGuest(false);
+        await AsyncStorage.removeItem('guest_mode');
+        console.log('👋 AuthContext: User signed out');
+      }
+      
+      // Handle sign in
+      if (event === 'SIGNED_IN' && session) {
+        setIsGuest(false);
+        await AsyncStorage.removeItem('guest_mode');
+        console.log('✅ AuthContext: User signed in');
+      }
+
+      // Handle token refresh
+      if (event === 'TOKEN_REFRESHED' && session) {
+        setSession(session);
+        setUser(session.user);
+        console.log('🔄 AuthContext: Token refreshed');
       }
     });
 
-    return () => subscription.unsubscribe();
-  }, []);
-
-  const signUp = async (email: string, password: string) => {
-    console.log('📝 AuthContext: signUp called with email:', email);
-    try {
-      setLoading(true);
-      console.log('📝 AuthContext: Calling supabase.auth.signUp...');
-      
-      const { data, error } = await supabase.auth.signUp({
-        email,
-        password,
-      });
-
-      console.log('📝 AuthContext: Supabase response - data:', data, 'error:', error);
-
-      if (error) {
-        console.log('❌ AuthContext: Sign up error:', error.message);
-        // Handle specific error cases
-        let errorMessage = 'An unexpected error occurred. Please try again.';
-        
-        if (error.message.includes('already registered')) {
-          errorMessage = 'An account with this email already exists. Please sign in instead.';
-        } else if (error.message.includes('password')) {
-          errorMessage = 'Password must be at least 6 characters long.';
-        } else if (error.message.includes('email')) {
-          errorMessage = 'Please enter a valid email address.';
-        } else if (error.message.includes('rate limit')) {
-          errorMessage = 'Too many attempts. Please wait a moment and try again.';
-        } else {
-          errorMessage = error.message;
-        }
-
-        return { error: errorMessage, success: false };
-      }
-
-      // Check if email confirmation is required
-      const needsVerification = data.user && !data.session;
-      console.log('✅ AuthContext: Sign up successful, needsVerification:', needsVerification);
-      
-      return { 
-        error: null, 
-        success: true, 
-        needsVerification 
-      };
-    } catch (error) {
-      console.log('💥 AuthContext: Sign up exception:', error);
-      return { 
-        error: 'Network error. Please check your connection and try again.', 
-        success: false 
-      };
-    } finally {
-      setLoading(false);
-    }
-  };
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, [checkAuthState]);
 
   const signIn = async (email: string, password: string) => {
-    console.log('🔐 AuthContext: signIn called with email:', email);
     try {
-      setLoading(true);
-      console.log('🔐 AuthContext: Calling supabase.auth.signInWithPassword...');
-      
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
 
-      console.log('🔐 AuthContext: Supabase response - data:', data, 'error:', error);
-
       if (error) {
-        console.log('❌ AuthContext: Sign in error:', error.message);
-        // Handle specific error cases
-        let errorMessage = 'An unexpected error occurred. Please try again.';
-        
-        if (error.message.includes('Invalid login credentials')) {
-          errorMessage = 'Invalid email or password. Please check your credentials and try again.';
-        } else if (error.message.includes('Email not confirmed')) {
-          errorMessage = 'Please check your email and click the confirmation link before signing in.';
-        } else if (error.message.includes('rate limit')) {
-          errorMessage = 'Too many failed attempts. Please wait a moment and try again.';
-        } else if (error.message.includes('network')) {
-          errorMessage = 'Network error. Please check your connection and try again.';
-        } else {
-          errorMessage = error.message;
-        }
-
-        return { error: errorMessage, success: false };
+        console.error('❌ AuthContext: Sign in error:', error);
+        return { success: false, error: error.message };
       }
 
-      console.log('✅ AuthContext: Sign in successful');
-      return { error: null, success: true };
-    } catch (error) {
-      console.log('💥 AuthContext: Sign in exception:', error);
-      return { 
-        error: 'Network error. Please check your connection and try again.', 
-        success: false 
-      };
-    } finally {
-      setLoading(false);
+      if (data.session) {
+        setSession(data.session);
+        setUser(data.session.user);
+        setIsGuest(false);
+        await AsyncStorage.removeItem('guest_mode');
+        console.log('✅ AuthContext: Sign in successful');
+        return { success: true };
+      }
+
+      return { success: false, error: 'No session returned' };
+    } catch (error: any) {
+      console.error('❌ AuthContext: Sign in exception:', error);
+      return { success: false, error: error.message || 'An unexpected error occurred' };
+    }
+  };
+
+  const signUp = async (email: string, password: string) => {
+    try {
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+      });
+
+      if (error) {
+        console.error('❌ AuthContext: Sign up error:', error);
+        return { success: false, error: error.message };
+      }
+
+      if (data.session) {
+        setSession(data.session);
+        setUser(data.session.user);
+        setIsGuest(false);
+        await AsyncStorage.removeItem('guest_mode');
+        console.log('✅ AuthContext: Sign up successful with session');
+        return { success: true };
+      } else if (data.user) {
+        console.log('✅ AuthContext: Sign up successful, email verification required');
+        return { success: true, needsVerification: true };
+      }
+
+      return { success: false, error: 'No session or user returned' };
+    } catch (error: any) {
+      console.error('❌ AuthContext: Sign up exception:', error);
+      return { success: false, error: error.message || 'An unexpected error occurred' };
     }
   };
 
   const signOut = async () => {
     try {
-      setLoading(true);
       const { error } = await supabase.auth.signOut();
-      await AsyncStorage.removeItem('supabase_session');
       
       if (error) {
-        return { error: 'Failed to sign out. Please try again.' };
+        console.error('❌ AuthContext: Sign out error:', error);
+        throw error;
       }
-      
-      return { error: null };
+
+      setSession(null);
+      setUser(null);
+      setIsGuest(false);
+      await AsyncStorage.removeItem('guest_mode');
+      console.log('✅ AuthContext: Sign out successful');
     } catch (error) {
-      return { error: 'Network error. Please check your connection and try again.' };
-    } finally {
-      setLoading(false);
+      console.error('❌ AuthContext: Sign out exception:', error);
+      throw error;
     }
   };
 
-  const resetPassword = async (email: string) => {
+  const continueAsGuest = async () => {
     try {
-      setLoading(true);
-      const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: 'betternapped://reset-password', // Deep link for password reset
-      });
+      console.log('👤 AuthContext: Setting guest mode...');
+      await AsyncStorage.setItem('guest_mode', 'true');
+      setIsGuest(true);
+      setUser(null);
+      setSession(null);
+      console.log('✅ AuthContext: Guest mode enabled');
+    } catch (error) {
+      console.error('❌ AuthContext: Error setting guest mode:', error);
+      throw error;
+    }
+  };
 
+  const refreshSession = async () => {
+    try {
+      console.log('🔄 AuthContext: Refreshing session...');
+      const { data, error } = await supabase.auth.refreshSession();
+      
       if (error) {
-        let errorMessage = 'Failed to send reset email. Please try again.';
-        
-        if (error.message.includes('rate limit')) {
-          errorMessage = 'Too many attempts. Please wait a moment and try again.';
-        } else if (error.message.includes('email')) {
-          errorMessage = 'Please enter a valid email address.';
-        } else {
-          errorMessage = error.message;
-        }
-
-        return { error: errorMessage, success: false };
+        console.error('❌ AuthContext: Session refresh error:', error);
+        return;
       }
 
-      return { error: null, success: true };
+      if (data.session) {
+        setSession(data.session);
+        setUser(data.session.user);
+        console.log('✅ AuthContext: Session refreshed');
+      }
     } catch (error) {
-      return { 
-        error: 'Network error. Please check your connection and try again.', 
-        success: false 
-      };
-    } finally {
-      setLoading(false);
+      console.error('❌ AuthContext: Session refresh exception:', error);
     }
   };
 
@@ -200,10 +220,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     user,
     session,
     loading,
-    signUp,
+    isGuest,
     signIn,
+    signUp,
     signOut,
-    resetPassword,
+    continueAsGuest,
+    refreshSession,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

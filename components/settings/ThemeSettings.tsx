@@ -71,21 +71,47 @@ export function ThemeSettings({ onBack }: ThemeSettingsProps) {
     return (
       <TouchableOpacity
         key={scheme.id}
-        style={[styles.colorSchemeItem, isSelected && styles.selectedColorScheme]}
+        style={[
+          styles.colorSchemeItem,
+          {
+            backgroundColor: theme.colors.card,
+            borderRadius: theme.borderRadius.md,
+            ...theme.shadows.small
+          },
+          isSelected && {
+            borderColor: theme.colors.accent,
+            backgroundColor: theme.colors.accent + '10'
+          }
+        ]}
         onPress={() => handleColorSchemeSelect(scheme.id)}
         activeOpacity={0.7}
       >
         <View style={styles.colorSchemeHeader}>
-          <Text style={[styles.colorSchemeName, isSelected && styles.selectedText]}>
+          <Text style={[
+            styles.colorSchemeName,
+            {
+              color: theme.colors.text,
+              fontSize: theme.typography.md,
+              fontWeight: theme.typography.fontWeight.medium
+            },
+            isSelected && { color: theme.colors.accent }
+          ]}>
             {scheme.name}
           </Text>
-          {isSelected && <Text style={styles.checkmark}>✓</Text>}
+          {isSelected && <Text style={[styles.checkmark, { color: theme.colors.accent }]}>✓</Text>}
         </View>
         <View style={styles.colorPalette}>
           {scheme.colors.map((color, index) => (
             <View
               key={index}
-              style={[styles.colorSwatch, { backgroundColor: color }]}
+              style={[
+                styles.colorSwatch, 
+                { 
+                  backgroundColor: color,
+                  borderRadius: theme.borderRadius.sm,
+                  borderColor: theme.colors.borderLight
+                }
+              ]}
             />
           ))}
         </View>
@@ -99,18 +125,44 @@ export function ThemeSettings({ onBack }: ThemeSettingsProps) {
     return (
       <TouchableOpacity
         key={pack.id}
-        style={[styles.iconPackItem, isSelected && styles.selectedIconPack]}
+        style={[
+          styles.iconPackItem,
+          {
+            backgroundColor: theme.colors.card,
+            borderRadius: theme.borderRadius.md,
+            ...theme.shadows.small
+          },
+          isSelected && {
+            borderColor: theme.colors.accent,
+            backgroundColor: theme.colors.accent + '10'
+          }
+        ]}
         onPress={() => handleIconPackSelect(pack.id)}
         activeOpacity={0.7}
       >
         <View style={styles.iconPackContent}>
           <View style={styles.iconPackHeader}>
-            <Text style={[styles.iconPackName, isSelected && styles.selectedText]}>
+            <Text style={[
+              styles.iconPackName,
+              {
+                color: theme.colors.text,
+                fontSize: theme.typography.md,
+                fontWeight: theme.typography.fontWeight.medium
+              },
+              isSelected && { color: theme.colors.accent }
+            ]}>
               {pack.name}
             </Text>
-            {isSelected && <Text style={styles.checkmark}>✓</Text>}
+            {isSelected && <Text style={[styles.checkmark, { color: theme.colors.accent }]}>✓</Text>}
           </View>
-          <Text style={styles.iconPackDescription}>{pack.description}</Text>
+          <Text style={[
+            styles.iconPackDescription,
+            {
+              color: theme.colors.textSecondary,
+              fontSize: theme.typography.sm,
+              fontWeight: theme.typography.fontWeight.regular
+            }
+          ]}>{pack.description}</Text>
         </View>
       </TouchableOpacity>
     );
@@ -118,41 +170,97 @@ export function ThemeSettings({ onBack }: ThemeSettingsProps) {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
-      <View style={[styles.header, { paddingTop: insets.top + 16, backgroundColor: theme.colors.card, borderBottomColor: theme.colors.border }]}>
+      <View style={[
+        styles.header, 
+        { 
+          paddingTop: insets.top + theme.spacing.base, 
+          backgroundColor: theme.colors.card, 
+          borderBottomColor: theme.colors.borderLight 
+        }
+      ]}>
         <TouchableOpacity onPress={onBack} style={styles.backButton}>
           <ArrowLeft size={24} color={theme.colors.text} />
         </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: theme.colors.text }]}>Theme</Text>
+        <Text style={[
+          styles.headerTitle, 
+          { 
+            color: theme.colors.text,
+            fontSize: theme.typography.lg,
+            fontWeight: theme.typography.fontWeight.semibold
+          }
+        ]}>Theme</Text>
         <View style={styles.placeholder} />
       </View>
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        <Text style={styles.sectionTitle}>Appearance</Text>
+        <Text style={[
+          styles.sectionTitle,
+          {
+            color: theme.colors.text,
+            fontSize: theme.typography.md,
+            fontWeight: theme.typography.fontWeight.semibold
+          }
+        ]}>Appearance</Text>
         
-        <View style={styles.settingItem}>
-          <View style={[styles.iconContainer, { backgroundColor: '#F59E0B15' }]}>
+        <View style={[
+          styles.settingItem,
+          {
+            backgroundColor: theme.colors.card,
+            borderRadius: theme.borderRadius.md,
+            ...theme.shadows.small
+          }
+        ]}>
+          <View style={[styles.iconContainer, { backgroundColor: `${theme.colors.warning}15`, borderRadius: theme.borderRadius.sm }]}>
             {isDarkMode ? (
-              <Moon size={20} color="#F59E0B" />
+              <Moon size={20} color={theme.colors.warning} />
             ) : (
-              <Sun size={20} color="#F59E0B" />
+              <Sun size={20} color={theme.colors.warning} />
             )}
           </View>
           <View style={styles.settingContent}>
-            <Text style={styles.settingTitle}>Dark Mode</Text>
-            <Text style={styles.settingSubtitle}>
+            <Text style={[
+              styles.settingTitle,
+              {
+                color: theme.colors.text,
+                fontSize: theme.typography.md,
+                fontWeight: theme.typography.fontWeight.medium
+              }
+            ]}>Dark Mode</Text>
+            <Text style={[
+              styles.settingSubtitle,
+              {
+                color: theme.colors.textSecondary,
+                fontSize: theme.typography.sm,
+                fontWeight: theme.typography.fontWeight.regular
+              }
+            ]}>
               {isDarkMode ? 'Dark theme enabled' : 'Light theme enabled'}
             </Text>
           </View>
           <Switch
             value={isDarkMode}
             onValueChange={handleDarkModeToggle}
-            trackColor={{ false: theme.colors.disabled, true: theme.colors.primary }}
-            thumbColor={isDarkMode ? '#FFFFFF' : '#9CA3AF'}
+            trackColor={{ false: theme.colors.border, true: theme.colors.accent }}
+            thumbColor={isDarkMode ? theme.colors.textInverted : theme.colors.textLight}
           />
         </View>
 
-        <Text style={styles.sectionTitle}>Color Schemes</Text>
-        <Text style={styles.sectionSubtitle}>
+        <Text style={[
+          styles.sectionTitle,
+          {
+            color: theme.colors.text,
+            fontSize: theme.typography.md,
+            fontWeight: theme.typography.fontWeight.semibold
+          }
+        ]}>Color Schemes</Text>
+        <Text style={[
+          styles.sectionSubtitle,
+          {
+            color: theme.colors.textSecondary,
+            fontSize: theme.typography.sm,
+            fontWeight: theme.typography.fontWeight.regular
+          }
+        ]}>
           Choose a color palette that matches your style
         </Text>
         
@@ -160,8 +268,22 @@ export function ThemeSettings({ onBack }: ThemeSettingsProps) {
           {colorSchemes.map(renderColorScheme)}
         </View>
 
-        <Text style={styles.sectionTitle}>Icon Packs</Text>
-        <Text style={styles.sectionSubtitle}>
+        <Text style={[
+          styles.sectionTitle,
+          {
+            color: theme.colors.text,
+            fontSize: theme.typography.md,
+            fontWeight: theme.typography.fontWeight.semibold
+          }
+        ]}>Icon Packs</Text>
+        <Text style={[
+          styles.sectionSubtitle,
+          {
+            color: theme.colors.textSecondary,
+            fontSize: theme.typography.sm,
+            fontWeight: theme.typography.fontWeight.regular
+          }
+        ]}>
           Select your preferred icon style
         </Text>
         
@@ -169,54 +291,170 @@ export function ThemeSettings({ onBack }: ThemeSettingsProps) {
           {iconPacks.map(renderIconPack)}
         </View>
 
-        <Text style={styles.sectionTitle}>Emoji Customization</Text>
+        <Text style={[
+          styles.sectionTitle,
+          {
+            color: theme.colors.text,
+            fontSize: theme.typography.md,
+            fontWeight: theme.typography.fontWeight.semibold
+          }
+        ]}>Emoji Customization</Text>
         
-        <TouchableOpacity style={styles.emojiCustomizationItem} activeOpacity={0.7}>
-          <View style={[styles.iconContainer, { backgroundColor: '#EC489915' }]}>
-            <Smile size={20} color="#EC4899" />
+        <TouchableOpacity style={[
+          styles.emojiCustomizationItem,
+          {
+            backgroundColor: theme.colors.card,
+            borderRadius: theme.borderRadius.md,
+            ...theme.shadows.small
+          }
+        ]} activeOpacity={0.7}>
+          <View style={[styles.iconContainer, { backgroundColor: `${theme.colors.accentPeach}15`, borderRadius: theme.borderRadius.sm }]}>
+            <Smile size={20} color={theme.colors.accentPeach} />
           </View>
           <View style={styles.settingContent}>
-            <Text style={styles.settingTitle}>Mood Emojis</Text>
-            <Text style={styles.settingSubtitle}>Customize mood tracking emojis</Text>
+            <Text style={[
+              styles.settingTitle,
+              {
+                color: theme.colors.text,
+                fontSize: theme.typography.md,
+                fontWeight: theme.typography.fontWeight.medium
+              }
+            ]}>Mood Emojis</Text>
+            <Text style={[
+              styles.settingSubtitle,
+              {
+                color: theme.colors.textSecondary,
+                fontSize: theme.typography.sm,
+                fontWeight: theme.typography.fontWeight.regular
+              }
+            ]}>Customize mood tracking emojis</Text>
           </View>
-          <Text style={styles.customizeText}>Customize</Text>
+          <Text style={[styles.customizeText, { color: theme.colors.accent }]}>Customize</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.emojiCustomizationItem} activeOpacity={0.7}>
-          <View style={[styles.iconContainer, { backgroundColor: '#8B5CF615' }]}>
-            <Image size={20} color="#8B5CF6" />
+        <TouchableOpacity style={[
+          styles.emojiCustomizationItem,
+          {
+            backgroundColor: theme.colors.card,
+            borderRadius: theme.borderRadius.md,
+            ...theme.shadows.small
+          }
+        ]} activeOpacity={0.7}>
+          <View style={[styles.iconContainer, { backgroundColor: `${theme.colors.accentLime}15`, borderRadius: theme.borderRadius.sm }]}>
+            <Image size={20} color={theme.colors.accentLime} />
           </View>
           <View style={styles.settingContent}>
-            <Text style={styles.settingTitle}>Activity Icons</Text>
-            <Text style={styles.settingSubtitle}>Customize activity tracking icons</Text>
+            <Text style={[
+              styles.settingTitle,
+              {
+                color: theme.colors.text,
+                fontSize: theme.typography.md,
+                fontWeight: theme.typography.fontWeight.medium
+              }
+            ]}>Activity Icons</Text>
+            <Text style={[
+              styles.settingSubtitle,
+              {
+                color: theme.colors.textSecondary,
+                fontSize: theme.typography.sm,
+                fontWeight: theme.typography.fontWeight.regular
+              }
+            ]}>Customize activity tracking icons</Text>
           </View>
-          <Text style={styles.customizeText}>Customize</Text>
+          <Text style={[styles.customizeText, { color: theme.colors.accent }]}>Customize</Text>
         </TouchableOpacity>
 
-        <View style={styles.previewCard}>
-          <Text style={styles.previewTitle}>🎨 Theme Preview</Text>
+        <View style={[
+          styles.previewCard,
+          {
+            backgroundColor: theme.colors.card,
+            borderRadius: theme.borderRadius.md,
+            ...theme.shadows.small
+          }
+        ]}>
+          <Text style={[
+            styles.previewTitle,
+            {
+              color: theme.colors.text,
+              fontSize: theme.typography.md,
+              fontWeight: theme.typography.fontWeight.semibold
+            }
+          ]}>🎨 Theme Preview</Text>
           <View style={styles.previewContent}>
-            <View style={styles.previewMoodCard}>
-              <Text style={styles.previewCardTitle}>Mood Tracking</Text>
+            <View style={[
+              styles.previewMoodCard,
+              {
+                backgroundColor: theme.colors.backgroundSecondary,
+                borderRadius: theme.borderRadius.sm
+              }
+            ]}>
+              <Text style={[
+                styles.previewCardTitle,
+                {
+                  color: theme.colors.textSecondary,
+                  fontSize: theme.typography.xs,
+                  fontWeight: theme.typography.fontWeight.medium
+                }
+              ]}>Mood Tracking</Text>
               <View style={styles.previewMoodRow}>
                 <Text style={styles.previewEmoji}>😊</Text>
                 <Text style={styles.previewEmoji}>😐</Text>
                 <Text style={styles.previewEmoji}>😔</Text>
               </View>
             </View>
-            <View style={styles.previewActivityCard}>
-              <Text style={styles.previewCardTitle}>Activities</Text>
+            <View style={[
+              styles.previewActivityCard,
+              {
+                backgroundColor: theme.colors.backgroundSecondary,
+                borderRadius: theme.borderRadius.sm
+              }
+            ]}>
+              <Text style={[
+                styles.previewCardTitle,
+                {
+                  color: theme.colors.textSecondary,
+                  fontSize: theme.typography.xs,
+                  fontWeight: theme.typography.fontWeight.medium
+                }
+              ]}>Activities</Text>
               <View style={styles.previewActivityRow}>
                 <View style={[styles.previewActivityDot, { backgroundColor: colorSchemes.find(s => s.id === selectedColorScheme)?.colors[0] }]} />
-                <Text style={styles.previewActivityText}>Exercise</Text>
+                <Text style={[
+                  styles.previewActivityText,
+                  {
+                    color: theme.colors.text,
+                    fontSize: theme.typography.xs
+                  }
+                ]}>Exercise</Text>
               </View>
             </View>
           </View>
         </View>
 
-        <View style={styles.infoCard}>
-          <Text style={styles.infoTitle}>✨ Personalization Tips</Text>
-          <Text style={styles.infoText}>
+        <View style={[
+          styles.infoCard,
+          {
+            backgroundColor: theme.colors.accentYellow + '20',
+            borderRadius: theme.borderRadius.md,
+            borderLeftColor: theme.colors.warning
+          }
+        ]}>
+          <Text style={[
+            styles.infoTitle,
+            {
+              color: theme.colors.warning,
+              fontSize: theme.typography.md,
+              fontWeight: theme.typography.fontWeight.semibold
+            }
+          ]}>✨ Personalization Tips</Text>
+          <Text style={[
+            styles.infoText,
+            {
+              color: theme.colors.textSecondary,
+              fontSize: theme.typography.sm,
+              fontWeight: theme.typography.fontWeight.regular
+            }
+          ]}>
             • Dark mode can help reduce eye strain in low light{'\n'}
             • Color schemes affect charts, buttons, and accent colors{'\n'}
             • Icon packs change the visual style throughout the app{'\n'}
@@ -232,16 +470,13 @@ export function ThemeSettings({ onBack }: ThemeSettingsProps) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F9FAFB',
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 20,
     paddingBottom: 16,
-    backgroundColor: '#FFFFFF',
     borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
   },
   backButton: {
     padding: 8,
@@ -249,9 +484,6 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     flex: 1,
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#1F2937',
     textAlign: 'center',
   },
   placeholder: {
@@ -262,37 +494,21 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
   },
   sectionTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#1F2937',
     marginTop: 24,
     marginBottom: 4,
   },
   sectionSubtitle: {
-    fontSize: 14,
-    color: '#6B7280',
     marginBottom: 12,
   },
   settingItem: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
     padding: 16,
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 8,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 1,
-    },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
   },
   iconContainer: {
     width: 36,
     height: 36,
-    borderRadius: 8,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
@@ -301,32 +517,17 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   settingTitle: {
-    fontSize: 16,
-    fontWeight: '500',
-    color: '#1F2937',
     marginBottom: 2,
   },
   settingSubtitle: {
-    fontSize: 14,
-    color: '#6B7280',
   },
   colorSchemesContainer: {
     gap: 8,
   },
   colorSchemeItem: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
     padding: 16,
     borderWidth: 2,
     borderColor: 'transparent',
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 1,
-    },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
   },
   selectedColorScheme: {
     borderColor: '#3B82F6',
@@ -339,15 +540,11 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   colorSchemeName: {
-    fontSize: 16,
-    fontWeight: '500',
-    color: '#1F2937',
   },
   selectedText: {
     color: '#3B82F6',
   },
   checkmark: {
-    fontSize: 16,
     fontWeight: 'bold',
     color: '#3B82F6',
   },
@@ -366,19 +563,9 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   iconPackItem: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
     padding: 16,
     borderWidth: 2,
     borderColor: 'transparent',
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 1,
-    },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
   },
   selectedIconPack: {
     borderColor: '#3B82F6',
@@ -394,54 +581,23 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   iconPackName: {
-    fontSize: 16,
-    fontWeight: '500',
-    color: '#1F2937',
   },
   iconPackDescription: {
-    fontSize: 14,
-    color: '#6B7280',
   },
   emojiCustomizationItem: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
     padding: 16,
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 8,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 1,
-    },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
   },
   customizeText: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#3B82F6',
   },
   previewCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
     padding: 16,
     marginTop: 16,
     marginBottom: 8,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 1,
-    },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
   },
   previewTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#1F2937',
     marginBottom: 12,
   },
   previewContent: {
@@ -450,20 +606,13 @@ const styles = StyleSheet.create({
   },
   previewMoodCard: {
     flex: 1,
-    backgroundColor: '#F9FAFB',
-    borderRadius: 8,
     padding: 12,
   },
   previewActivityCard: {
     flex: 1,
-    backgroundColor: '#F9FAFB',
-    borderRadius: 8,
     padding: 12,
   },
   previewCardTitle: {
-    fontSize: 12,
-    fontWeight: '500',
-    color: '#6B7280',
     marginBottom: 8,
   },
   previewMoodRow: {
@@ -484,27 +633,17 @@ const styles = StyleSheet.create({
     borderRadius: 6,
   },
   previewActivityText: {
-    fontSize: 12,
-    color: '#1F2937',
   },
   infoCard: {
-    backgroundColor: '#FEF3C7',
-    borderRadius: 12,
     padding: 16,
     marginTop: 24,
     marginBottom: 32,
     borderLeftWidth: 4,
-    borderLeftColor: '#F59E0B',
   },
   infoTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#92400E',
     marginBottom: 8,
   },
   infoText: {
-    fontSize: 14,
-    color: '#92400E',
     lineHeight: 20,
   },
 });

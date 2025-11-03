@@ -1,8 +1,49 @@
 import React from 'react';
 import { View, Text, StyleSheet, Modal, ScrollView, TouchableOpacity } from 'react-native';
 import { X, Clock, Moon, Brain, CheckCircle, XCircle, TrendingUp, TrendingDown, FlaskConical, AlertCircle } from 'lucide-react-native';
-import { DailyDetailData } from '@/constants/mockData';
 import { useTheme } from '@/contexts/ThemeContext';
+
+export interface DailyDetailData {
+  date: string;
+  mood?: {
+    score: number;
+    emoji: string;
+    note?: string;
+  };
+  activities?: Array<{
+    name: string;
+    emoji?: string;
+    category: string;
+    duration: number;
+    impact: number;
+  }>;
+  sleep?: {
+    hours: number;
+    emoji?: string;
+    quality: string;
+    bedtime: string;
+    wakeTime: string;
+  };
+  mentalClarity?: {
+    score: number;
+    factors: string[];
+  };
+  habits?: Array<{
+    name: string;
+    emoji?: string;
+    completed: boolean;
+  }>;
+  experiments?: Array<{
+    name: string;
+    emoji?: string;
+    status: 'completed' | 'skipped' | 'pending';
+    outcomes?: Array<{
+      type: string;
+      value: number;
+    }>;
+  }>;
+  notes?: string;
+}
 
 interface DayDetailModalProps {
   visible: boolean;
@@ -25,26 +66,26 @@ export default function DayDetailModal({ visible, onClose, data }: DayDetailModa
   };
 
   const getImpactAnalysis = () => {
-    const positiveActivities = data.activities.filter(a => a.impact > 0);
-    const negativeActivities = data.activities.filter(a => a.impact < 0);
+    const positiveActivities = data.activities?.filter(a => a.impact > 0) || [];
+    const negativeActivities = data.activities?.filter(a => a.impact < 0) || [];
     
     let analysis = '';
     
-    if (data.mood.score >= 4) {
+    if (data.mood?.score >= 4) {
       analysis = `You had a great day! Your mood was boosted by `;
       if (positiveActivities.length > 0) {
         analysis += positiveActivities.map(a => a.name.toLowerCase()).join(', ');
       }
-      if (data.sleep.hours >= 7) {
+      if (data.sleep?.hours >= 7) {
         analysis += ` and getting ${data.sleep.hours} hours of quality sleep`;
       }
       analysis += '.';
-    } else if (data.mood.score <= 2) {
+    } else if (data.mood?.score <= 2) {
       analysis = `This was a challenging day. `;
       if (negativeActivities.length > 0) {
         analysis += `Activities like ${negativeActivities.map(a => a.name.toLowerCase()).join(', ')} may have contributed to lower mood. `;
       }
-      if (data.sleep.hours < 6) {
+      if (data.sleep?.hours < 6) {
         analysis += `Limited sleep (${data.sleep.hours} hours) likely affected your energy levels. `;
       }
       analysis += 'Consider focusing on mood-boosting activities tomorrow.';
@@ -53,7 +94,7 @@ export default function DayDetailModal({ visible, onClose, data }: DayDetailModa
       if (positiveActivities.length > 0) {
         analysis += `${positiveActivities[0].name} helped maintain your mood, `;
       }
-      analysis += `and ${data.sleep.hours} hours of sleep provided decent rest.`;
+      analysis += `and ${data.sleep?.hours || 0} hours of sleep provided decent rest.`;
     }
     
     return analysis;
@@ -72,10 +113,10 @@ export default function DayDetailModal({ visible, onClose, data }: DayDetailModa
             <View>
               <Text style={[styles.modalTitle, { color: theme.colors.text }]}>{formatDate(data.date)}</Text>
               <View style={styles.moodContainer}>
-                <Text style={styles.moodEmoji}>{data.mood.emoji}</Text>
+                <Text style={styles.moodEmoji}>{data.mood?.emoji || '😐'}</Text>
                 <Text style={[styles.moodText, { color: theme.colors.textSecondary }]}>
-                  Mood: {data.mood.score}/5
-                  {data.mood.note && ` • ${data.mood.note}`}
+                  Mood: {data.mood?.score || 0}/5
+                  {data.mood?.note && ` • ${data.mood.note}`}
                 </Text>
               </View>
             </View>
@@ -94,13 +135,14 @@ export default function DayDetailModal({ visible, onClose, data }: DayDetailModa
             </View>
 
             {/* Activities */}
-            <View style={styles.section}>
-              <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Activities & Impact</Text>
-              {data.activities.map((activity, index) => (
+            {data.activities && data.activities.length > 0 && (
+              <View style={styles.section}>
+                <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Activities & Impact</Text>
+                {data.activities.map((activity, index) => (
                 <View key={index} style={styles.activityItem}>
                   <View style={styles.activityHeader}>
                     <View style={styles.activityInfo}>
-                      <Text style={styles.activityEmoji}>{activity.emoji}</Text>
+                      <Text style={styles.activityEmoji}>{activity.emoji || '📍'}</Text>
                       <View>
                         <Text style={[styles.activityName, { color: theme.colors.text }]}>{activity.name}</Text>
                         <Text style={[styles.activityCategory, { color: theme.colors.textSecondary }]}>{activity.category}</Text>
@@ -140,13 +182,15 @@ export default function DayDetailModal({ visible, onClose, data }: DayDetailModa
                 </View>
               ))}
             </View>
+            )}
 
             {/* Sleep */}
+            {data.sleep && (
             <View style={styles.section}>
               <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Sleep Analysis</Text>
               <View style={[styles.sleepCard, { backgroundColor: theme.colors.background }]}>
                 <View style={styles.sleepHeader}>
-                  <Text style={styles.sleepEmoji}>{data.sleep.emoji}</Text>
+                  <Text style={styles.sleepEmoji}>{data.sleep.emoji || '😴'}</Text>
                   <View>
                     <Text style={[styles.sleepHours, { color: theme.colors.text }]}>{data.sleep.hours} hours</Text>
                     <Text style={[styles.sleepQuality, { color: theme.colors.textSecondary }]}>{data.sleep.quality} quality</Text>
@@ -166,8 +210,10 @@ export default function DayDetailModal({ visible, onClose, data }: DayDetailModa
                 </Text>
               </View>
             </View>
+            )}
 
             {/* Mental Clarity */}
+            {data.mentalClarity && (
             <View style={styles.section}>
               <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Mental Clarity</Text>
               <View style={[styles.clarityCard, { backgroundColor: theme.colors.background }]}>
@@ -185,8 +231,10 @@ export default function DayDetailModal({ visible, onClose, data }: DayDetailModa
                 )}
               </View>
             </View>
+            )}
 
             {/* Habits */}
+            {data.habits && data.habits.length > 0 && (
             <View style={styles.section}>
               <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Habits Tracking</Text>
               <View style={styles.habitsGrid}>
@@ -197,7 +245,7 @@ export default function DayDetailModal({ visible, onClose, data }: DayDetailModa
                     ) : (
                       <XCircle size={16} color={theme.colors.error} />
                     )}
-                    <Text style={styles.habitEmoji}>{habit.emoji}</Text>
+                    <Text style={styles.habitEmoji}>{habit.emoji || '📌'}</Text>
                     <Text style={[
                       styles.habitName,
                       { color: habit.completed ? theme.colors.primary : theme.colors.textSecondary }
@@ -208,6 +256,7 @@ export default function DayDetailModal({ visible, onClose, data }: DayDetailModa
                 ))}
               </View>
             </View>
+            )}
 
             {/* Experiments */}
             {data.experiments && data.experiments.length > 0 && (
@@ -226,7 +275,7 @@ export default function DayDetailModal({ visible, onClose, data }: DayDetailModa
                     <View style={styles.experimentHeader}>
                       <FlaskConical size={20} color={theme.colors.info} />
                       <View style={styles.experimentInfo}>
-                        <Text style={styles.experimentEmoji}>{experiment.emoji}</Text>
+                        <Text style={styles.experimentEmoji}>{experiment.emoji || '🧪'}</Text>
                         <Text style={[styles.experimentName, { color: theme.colors.text }]}>{experiment.name}</Text>
                       </View>
                       {experiment.status === 'completed' && (

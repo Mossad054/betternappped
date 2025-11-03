@@ -1,4 +1,4 @@
-import { supabase } from '@/lib/supabase';
+import { SupabaseSafe } from '@/lib/supabaseSafe';
 import { MoodsService } from './moods.service';
 import { ActivitiesService } from './activities.service';
 import { SleepService } from './sleep.service';
@@ -7,6 +7,7 @@ import { ExperimentsService } from './experiments.service';
 import { ProductivityService } from './productivity.service';
 import { IntimacyService } from './intimacy.service';
 import { MentalClarityService } from './mentalClarity.service';
+import { isGuestMode, guestDataStore } from '@/lib/guestDataStore';
 
 export interface CalendarData {
   date: string;
@@ -54,6 +55,11 @@ export interface AIRecommendation {
 export class AnalyticsService {
   static async getCalendarData(userId: string, startDate: string, endDate: string): Promise<{ data: CalendarData[] | null; error: any }> {
     try {
+      // For guest mode, return empty calendar data
+      if (await isGuestMode()) {
+        return { data: [], error: null };
+      }
+      
       // Fetch all data types for the date range
       const [moodData, sleepData, activitiesData, habitsData, experimentsData] = await Promise.all([
         MoodsService.getByDateRange(userId, startDate, endDate),
@@ -124,16 +130,98 @@ export class AnalyticsService {
         MentalClarityService.getByDate(userId, date)
       ]);
 
+      // Transform mood data
+      const mood = moodData.data ? {
+        score: moodData.data.score,
+        emoji: moodData.data.emoji,
+        note: moodData.data.notes
+      } : undefined;
+
+      // Transform activities data - calculate impact based on mood correlation
+      const activities = (activitiesData.data || []).map(activity => ({
+        name: activity.name,
+        emoji: activity.emoji || '📝',
+        category: activity.category,
+        duration: activity.duration || 0,
+        impact: 0 // TODO: Calculate actual impact based on mood correlation over time
+      }));
+
+      // Transform sleep data
+      const sleep = sleepData.data ? {
+        hours: Number(sleepData.data.hours),
+        emoji: sleepData.data.hours >= 8 ? '😴' : sleepData.data.hours >= 7 ? '😌' : '🥱',
+        quality: ['poor', 'fair', 'good', 'very good', 'excellent'][sleepData.data.quality - 1] || 'good',
+        bedtime: sleepData.data.bedtime,
+        wakeTime: sleepData.data.wake_time
+      } : undefined;
+
+      // Transform habits data - get habits with logs for this date
+      const habits = (habitsData.data || []).map(habit => {
+        // If date was provided to getHabitsWithLogs, logs are already filtered
+        // Otherwise, find the log for this date
+        const logForDate = habit.habit_logs?.find((log: any) => log.date === date) || habit.habit_logs?.[0];
+        return {
+          name: habit.name,
+          emoji: habit.emoji || '🔥',
+          completed: logForDate?.completed || false
+        };
+      });
+
+      // Transform experiments data - filter by date and status
+      const allExperiments = experimentsData.data || [];
+      const experimentsForDate = [];
+      
+      for (const exp of allExperiments) {
+        const expDate = new Date(date);
+        const startDate = new Date(exp.start_date);
+        const endDate = new Date(exp.end_date);
+        
+        // Check if this date falls within the experiment period
+        if (expDate >= startDate && expDate <= endDate) {
+          // Get experiment log for this date
+          const logResult = await ExperimentsService.getExperimentLogByDate(exp.id, date, userId);
+          const logForDate = logResult.data;
+          
+          let status: 'completed' | 'skipped' | 'pending' = 'pending';
+          if (logForDate?.completed) status = 'completed';
+          else if (logForDate?.skipped) status = 'skipped';
+
+          // Transform outcomes
+          const outcomes = exp.outcomes && logForDate?.outcome_scores 
+            ? exp.outcomes.map((outcome: string) => {
+                const score = logForDate.outcome_scores[outcome] || 3;
+                return { type: outcome, value: score };
+              })
+            : undefined;
+
+          experimentsForDate.push({
+            name: exp.activity_name,
+            emoji: exp.activity_emoji,
+            status,
+            outcomes
+          });
+        }
+      }
+      
+      const experiments = experimentsForDate.length > 0 ? experimentsForDate : undefined;
+
+      // Transform mental clarity data
+      const mentalClarity = mentalClarityData.data ? {
+        score: mentalClarityData.data.score,
+        factors: mentalClarityData.data.factors || []
+      } : {
+        score: 0,
+        factors: []
+      };
+
       const dailyData: DailyDetailData = {
         date,
-        mood: moodData.data,
-        activities: activitiesData.data || [],
-        sleep: sleepData.data,
-        habits: habitsData.data || [],
-        experiments: experimentsData.data || [],
-        productivity: productivityData.data,
-        intimacy: intimacyData.data,
-        mentalClarity: mentalClarityData.data
+        mood,
+        activities,
+        sleep,
+        habits,
+        experiments,
+        mentalClarity
       };
 
       return { data: dailyData, error: null };
@@ -152,11 +240,11 @@ export class AnalyticsService {
 
       if (error) return { data: null, error };
 
-      if (!data || data.length === 0) {
+      if (!moodData.data || moodData.data.length === 0) {
         return { data: { trend: 'stable', average: 3, insights: [] }, error: null };
       }
 
-      const scores = data.map(m => m.score);
+      const scores = moodData.data.map(m => m.score);
       const average = scores.reduce((sum, score) => sum + score, 0) / scores.length;
       
       // Calculate trend
@@ -190,43 +278,213 @@ export class AnalyticsService {
 
   static async calculateActivityImpact(userId: string, days: number = 14): Promise<{ data: any | null; error: any }> {
     try {
-      const { data: activitiesData, error: activitiesError } = await ActivitiesService.getByDateRange(
-        userId,
-        new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-        new Date().toISOString().split('T')[0]
-      );
+      const endDate = new Date().toISOString().split('T')[0];
+      const startDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
 
-      if (activitiesError) return { data: null, error: activitiesError };
+      // Fetch all required data
+      const [activitiesResult, moodsResult, sleepResult, mentalClarityResult] = await Promise.all([
+        ActivitiesService.getByDateRange(userId, startDate, endDate),
+        MoodsService.getByDateRange(userId, startDate, endDate),
+        SleepService.getByDateRange(userId, startDate, endDate),
+        MentalClarityService.getByDateRange(userId, startDate, endDate)
+      ]);
 
-      if (!activitiesData || activitiesData.length === 0) {
+      if (!activitiesResult.data || activitiesResult.data.length === 0) {
         return { data: { correlations: [], insights: [] }, error: null };
       }
 
+      const activities = activitiesResult.data;
+      const moods = moodsResult.data || [];
+      const sleep = sleepResult.data || [];
+      const mentalClarity = mentalClarityResult.data || [];
+
       // Group activities by category
       const categoryGroups: { [key: string]: any[] } = {};
-      activitiesData.forEach(activity => {
+      activities.forEach(activity => {
         if (!categoryGroups[activity.category]) {
           categoryGroups[activity.category] = [];
         }
         categoryGroups[activity.category].push(activity);
       });
 
-      const correlations = Object.entries(categoryGroups).map(([category, activities]) => ({
-        category,
-        count: activities.length,
-        impact: 'positive' // This would need more sophisticated analysis
-      }));
+      const correlations = await Promise.all(
+        Object.entries(categoryGroups).map(async ([category, categoryActivities]) => {
+          // Calculate impact scores for each metric
+          const moodImpact = this.calculateMoodImpactForCategory(categoryActivities, moods);
+          const sleepImpact = this.calculateSleepImpactForCategory(categoryActivities, sleep);
+          const clarityImpact = this.calculateClarityImpactForCategory(categoryActivities, mentalClarity);
+          
+          // Calculate overall impact score
+          const overallScore = (moodImpact.score + sleepImpact.score + clarityImpact.score) / 3;
+          
+          // Generate impact insights
+          let impact = 'neutral';
+          let insights = [];
+          
+          if (overallScore >= 0.7) {
+            impact = 'very-positive';
+            insights.push(`${category} activities consistently improve your wellbeing`);
+          } else if (overallScore >= 0.5) {
+            impact = 'positive';
+            insights.push(`${category} activities generally have a positive effect`);
+          } else if (overallScore <= 0.3) {
+            impact = 'negative';
+            insights.push(`${category} activities might be affecting you negatively`);
+          }
+
+          // Add specific metric insights
+          if (moodImpact.score > 0.7) insights.push(`Great for mood improvement`);
+          if (sleepImpact.score > 0.7) insights.push(`Helps with better sleep`);
+          if (clarityImpact.score > 0.7) insights.push(`Enhances mental clarity`);
+
+          return {
+            category,
+            count: categoryActivities.length,
+            impact,
+            score: overallScore,
+            metrics: {
+              mood: moodImpact.score,
+              sleep: sleepImpact.score,
+              clarity: clarityImpact.score
+            },
+            insights
+          };
+        })
+      );
+
+      // Sort correlations by impact score
+      correlations.sort((a, b) => b.score - a.score);
+
+      // Generate overall insights
+      const insights = [];
+      const positiveCategories = correlations.filter(c => c.impact === 'very-positive' || c.impact === 'positive');
+      const negativeCategories = correlations.filter(c => c.impact === 'negative');
+
+      if (positiveCategories.length > 0) {
+        insights.push(`${positiveCategories.map(c => c.category).join(', ')} have the most positive impact on your wellbeing`);
+      }
+
+      if (negativeCategories.length > 0) {
+        insights.push(`Consider adjusting your approach to ${negativeCategories.map(c => c.category).join(', ')} activities`);
+      }
+
+      const mostFrequent = correlations.sort((a, b) => b.count - a.count)[0];
+      insights.push(`You're most consistent with ${mostFrequent.category} activities`);
 
       return { 
         data: { 
           correlations,
-          insights: ['Regular activities show positive impact on wellbeing']
+          insights,
+          summary: {
+            totalActivities: activities.length,
+            positiveImpact: positiveCategories.length,
+            needsAttention: negativeCategories.length
+          }
         }, 
         error: null 
       };
     } catch (error) {
       return { data: null, error };
     }
+  }
+
+  private static calculateMoodImpactForCategory(activities: any[], moods: any[]): { score: number } {
+    let score = 0.5; // neutral baseline
+    
+    if (activities.length === 0 || moods.length === 0) {
+      return { score };
+    }
+
+    // Map activities to mood scores on the same day
+    const moodScores = activities.map(activity => {
+      const dayMood = moods.find(m => m.date === activity.date);
+      return dayMood ? dayMood.score : null;
+    }).filter(score => score !== null);
+
+    if (moodScores.length === 0) return { score };
+
+    // Calculate average mood score for days with these activities
+    const avgMoodWithActivity = moodScores.reduce((sum, score) => sum + score, 0) / moodScores.length;
+    
+    // Calculate average mood score for days without these activities
+    const daysWithoutActivities = moods.filter(mood => 
+      !activities.some(activity => activity.date === mood.date)
+    );
+    
+    const avgMoodWithoutActivity = daysWithoutActivities.length > 0
+      ? daysWithoutActivities.reduce((sum, mood) => sum + mood.score, 0) / daysWithoutActivities.length
+      : 3; // neutral baseline if no comparison data
+
+    // Normalize to 0-1 scale
+    score = Math.min(1, Math.max(0, (avgMoodWithActivity - avgMoodWithoutActivity + 5) / 10));
+    
+    return { score };
+  }
+
+  private static calculateSleepImpactForCategory(activities: any[], sleep: any[]): { score: number } {
+    let score = 0.5; // neutral baseline
+    
+    if (activities.length === 0 || sleep.length === 0) {
+      return { score };
+    }
+
+    // Map activities to sleep quality on the same day
+    const sleepScores = activities.map(activity => {
+      const daySleep = sleep.find(s => s.date === activity.date);
+      return daySleep ? daySleep.quality : null;
+    }).filter(score => score !== null);
+
+    if (sleepScores.length === 0) return { score };
+
+    // Calculate average sleep quality for days with these activities
+    const avgSleepWithActivity = sleepScores.reduce((sum, score) => sum + score, 0) / sleepScores.length;
+    
+    // Calculate average sleep quality for days without these activities
+    const daysWithoutActivities = sleep.filter(s => 
+      !activities.some(activity => activity.date === s.date)
+    );
+    
+    const avgSleepWithoutActivity = daysWithoutActivities.length > 0
+      ? daysWithoutActivities.reduce((sum, s) => sum + s.quality, 0) / daysWithoutActivities.length
+      : 3; // neutral baseline if no comparison data
+
+    // Normalize to 0-1 scale
+    score = Math.min(1, Math.max(0, (avgSleepWithActivity - avgSleepWithoutActivity + 5) / 10));
+    
+    return { score };
+  }
+
+  private static calculateClarityImpactForCategory(activities: any[], clarity: any[]): { score: number } {
+    let score = 0.5; // neutral baseline
+    
+    if (activities.length === 0 || clarity.length === 0) {
+      return { score };
+    }
+
+    // Map activities to mental clarity scores on the same day
+    const clarityScores = activities.map(activity => {
+      const dayClarity = clarity.find(c => c.date === activity.date);
+      return dayClarity ? dayClarity.score : null;
+    }).filter(score => score !== null);
+
+    if (clarityScores.length === 0) return { score };
+
+    // Calculate average clarity score for days with these activities
+    const avgClarityWithActivity = clarityScores.reduce((sum, score) => sum + score, 0) / clarityScores.length;
+    
+    // Calculate average clarity score for days without these activities
+    const daysWithoutActivities = clarity.filter(c => 
+      !activities.some(activity => activity.date === c.date)
+    );
+    
+    const avgClarityWithoutActivity = daysWithoutActivities.length > 0
+      ? daysWithoutActivities.reduce((sum, c) => sum + c.score, 0) / daysWithoutActivities.length
+      : 3; // neutral baseline if no comparison data
+
+    // Normalize to 0-1 scale
+    score = Math.min(1, Math.max(0, (avgClarityWithActivity - avgClarityWithoutActivity + 5) / 10));
+    
+    return { score };
   }
 
   static async calculateSleepPatterns(userId: string, days: number = 14): Promise<{ data: any | null; error: any }> {
@@ -310,6 +568,31 @@ export class AnalyticsService {
 
   static async generateAIRecommendations(userId: string): Promise<{ data: AIRecommendation[] | null; error: any }> {
     try {
+      // For guest mode, return sample recommendations
+      if (await isGuestMode()) {
+        return {
+          data: [
+            {
+              id: 'guest-1',
+              type: 'mood',
+              title: 'Welcome to Betternapped!',
+              description: 'Start tracking your mood, sleep, and activities to get personalized insights.',
+              priority: 'high',
+              action: 'Try logging your first mood entry'
+            },
+            {
+              id: 'guest-2',
+              type: 'sleep',
+              title: 'Track Your Sleep',
+              description: 'Consistent sleep tracking helps identify patterns and improve your rest.',
+              priority: 'medium',
+              action: 'Log your sleep hours tonight'
+            }
+          ],
+          error: null
+        };
+      }
+      
       const [moodTrends, sleepPatterns, habitEffectiveness] = await Promise.all([
         this.calculateMoodTrends(userId, 7),
         this.calculateSleepPatterns(userId, 7),

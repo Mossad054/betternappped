@@ -8,8 +8,19 @@ import {
   Switch,
   Alert,
   Platform,
+  ActivityIndicator,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import * as Sharing from 'expo-sharing';
+import * as FileSystem from 'expo-file-system';
+import { useAuth } from '@/contexts/AuthContext';
+import { MoodsService } from '@/services/moods.service';
+import { SleepService } from '@/services/sleep.service';
+import { HabitsService } from '@/services/habits.service';
+import { ActivitiesService } from '@/services/activities.service';
+import { ProductivityService } from '@/services/productivity.service';
+import { IntimacyService } from '@/services/intimacy.service';
+import { ExperimentsService } from '@/services/experiments.service';
 import { 
   ArrowLeft, 
   Cloud, 
@@ -27,9 +38,11 @@ interface PrivacySettingsProps {
 
 export function PrivacySettings({ onBack }: PrivacySettingsProps) {
   const insets = useSafeAreaInsets();
+  const { user } = useAuth();
   const [dataSyncEnabled, setDataSyncEnabled] = useState<boolean>(true);
   const [analyticsEnabled, setAnalyticsEnabled] = useState<boolean>(false);
   const [crashReportsEnabled, setCrashReportsEnabled] = useState<boolean>(true);
+  const [exporting, setExporting] = useState(false);
 
   const handleDataSync = (enabled: boolean) => {
     setDataSyncEnabled(enabled);
@@ -41,8 +54,12 @@ export function PrivacySettings({ onBack }: PrivacySettingsProps) {
     }
   };
 
-  const handleExportData = (format: 'json' | 'csv') => {
-    console.log(`Exporting data as ${format.toUpperCase()}`);
+  const handleExportData = async (format: 'json' | 'csv') => {
+    if (!user) {
+      Alert.alert('Error', 'You must be logged in to export data');
+      return;
+    }
+
     Alert.alert(
       'Export Data',
       `Your data will be exported as ${format.toUpperCase()} format. This may take a few moments.`,
@@ -50,11 +67,74 @@ export function PrivacySettings({ onBack }: PrivacySettingsProps) {
         { text: 'Cancel', style: 'cancel' },
         {
           text: 'Export',
-          onPress: () => {
-            // Simulate export process
-            setTimeout(() => {
-              Alert.alert('Export Complete', `Your data has been exported as ${format.toUpperCase()}.`);
-            }, 2000);
+          onPress: async () => {
+            setExporting(true);
+            try {
+              // Aggregate all data from services
+              const [moods, sleep, habits, activities, productivity, intimacy, experiments] = await Promise.all([
+                MoodsService.getAll(user.id),
+                SleepService.getAll(user.id),
+                HabitsService.getAll(user.id),
+                ActivitiesService.getAll(user.id),
+                ProductivityService.getAll(user.id),
+                IntimacyService.getAll(user.id),
+                ExperimentsService.getAll(user.id),
+              ]);
+
+              const exportData = {
+                exportDate: new Date().toISOString(),
+                userId: user.id,
+                moods: moods.data || [],
+                sleep: sleep.data || [],
+                habits: habits.data || [],
+                activities: activities.data || [],
+                productivity: productivity.data || [],
+                intimacy: intimacy.data || [],
+                experiments: experiments.data || [],
+              };
+
+              let fileContent: string;
+              let fileName: string;
+
+              if (format === 'json') {
+                fileContent = JSON.stringify(exportData, null, 2);
+                fileName = `betternapped-export-${new Date().toISOString().split('T')[0]}.json`;
+              } else {
+                // CSV format - create simple CSV with main data
+                fileContent = 'Category,Date,Details\n';
+                
+                exportData.moods.forEach((mood: any) => {
+                  fileContent += `Mood,${mood.date},"Score: ${mood.score}"\n`;
+                });
+                
+                exportData.sleep.forEach((s: any) => {
+                  fileContent += `Sleep,${s.date},"Hours: ${s.hours}, Quality: ${s.quality}"\n`;
+                });
+                
+                exportData.habits.forEach((h: any) => {
+                  fileContent += `Habit,${h.created_at?.split('T')[0]},"${h.name}, Streak: ${h.streak}"\n`;
+                });
+                
+                fileName = `betternapped-export-${new Date().toISOString().split('T')[0]}.csv`;
+              }
+
+              // Write to file
+              const fileUri = `${FileSystem.documentDirectory}${fileName}`;
+              await FileSystem.writeAsStringAsync(fileUri, fileContent);
+
+              // Share the file
+              if (await Sharing.isAvailableAsync()) {
+                await Sharing.shareAsync(fileUri);
+                Alert.alert('Export Complete', 'Your data has been exported successfully!');
+              } else {
+                Alert.alert('Export Complete', `Data saved to: ${fileUri}`);
+              }
+            } catch (error) {
+              console.error('Export error:', error);
+              Alert.alert('Export Failed', 'Failed to export data. Please try again.');
+            } finally {
+              setExporting(false);
+            }
           }
         }
       ]

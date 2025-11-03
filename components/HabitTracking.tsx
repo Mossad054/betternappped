@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Modal } from 'react-native';
 import Svg, { Circle } from 'react-native-svg';
-import { TimeRange } from '@/constants/mockData';
 import { useTheme } from '@/contexts/ThemeContext';
 
 interface HabitData {
@@ -16,7 +15,7 @@ interface HabitData {
 
 interface HabitTrackingProps {
   data: HabitData[];
-  timeRange: TimeRange;
+  timeRange: 'today' | 'week' | 'month';
 }
 
 export default function HabitTracking({ data, timeRange }: HabitTrackingProps) {
@@ -588,5 +587,20 @@ const styles = StyleSheet.create({
   detailValue: {
     fontSize: 14,
     color: '#6B7280',
+  },
+  emptyStateContainer: {
+    padding: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emptyStateEmoji: {
+    fontSize: 48,
+    marginBottom: 12,
+  },
+  emptyStateText: {
+    fontSize: 14,
+    textAlign: 'center',
+    color: '#6B7280',
+    lineHeight: 20,
   },
 });

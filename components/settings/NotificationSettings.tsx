@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -7,23 +7,92 @@ import {
   TouchableOpacity,
   Switch,
   Platform,
+  Alert,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ArrowLeft, Clock, Bell, Zap, Target } from 'lucide-react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import { useNotifications } from '@/hooks/useNotifications';
 
 interface NotificationSettingsProps {
   onBack: () => void;
 }
 
+const SETTINGS_KEY = '@notification_settings';
+
 export function NotificationSettings({ onBack }: NotificationSettingsProps) {
   const insets = useSafeAreaInsets();
-  const [notificationsEnabled, setNotificationsEnabled] = useState<boolean>(true);
-  const [dailyReminder, setDailyReminder] = useState<boolean>(true);
-  const [streakAlerts, setStreakAlerts] = useState<boolean>(true);
+  const notifications = useNotifications();
+  const [notificationsEnabled, setNotificationsEnabled] = useState<boolean>(false);
+  const [dailyReminder, setDailyReminder] = useState<boolean>(false);
+  const [streakAlerts, setStreakAlerts] = useState<boolean>(false);
   const [experimentReminders, setExperimentReminders] = useState<boolean>(false);
   const [reminderTime, setReminderTime] = useState<Date>(new Date(2024, 0, 1, 20, 0));
   const [showTimePicker, setShowTimePicker] = useState<boolean>(false);
+
+  useEffect(() => {
+    loadSettings();
+    checkPermissions();
+  }, []);
+
+  const loadSettings = async () => {
+    try {
+      const saved = await AsyncStorage.getItem(SETTINGS_KEY);
+      if (saved) {
+        const settings = JSON.parse(saved);
+        setDailyReminder(settings.dailyReminder ?? false);
+        setStreakAlerts(settings.streakAlerts ?? false);
+        setExperimentReminders(settings.experimentReminders ?? false);
+        if (settings.reminderTime) {
+          const [hours, minutes] = settings.reminderTime.split(':').map(Number);
+          const time = new Date();
+          time.setHours(hours, minutes);
+          setReminderTime(time);
+        }
+      }
+    } catch (error) {
+      console.error('Error loading notification settings:', error);
+    }
+  };
+
+  const saveSettings = async (settings: any) => {
+    try {
+      await AsyncStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+    } catch (error) {
+      console.error('Error saving notification settings:', error);
+    }
+  };
+
+  const checkPermissions = async () => {
+    const hasPermission = await notifications.checkPermissionStatus();
+    setNotificationsEnabled(hasPermission);
+  };
+
+  const handleNotificationsToggle = async (value: boolean) => {
+    if (value) {
+      const granted = await notifications.requestPermissions();
+      setNotificationsEnabled(granted);
+      if (!granted) {
+        Alert.alert(
+          'Permission Denied',
+          'Please enable notifications in your device settings to receive reminders.'
+        );
+      }
+    } else {
+      setNotificationsEnabled(false);
+      setDailyReminder(false);
+      setStreakAlerts(false);
+      setExperimentReminders(false);
+      await notifications.cancelAllNotifications();
+      await saveSettings({
+        dailyReminder: false,
+        streakAlerts: false,
+        experimentReminders: false,
+        reminderTime: '20:00',
+      });
+    }
+  };
 
   const handleTimeChange = (event: any, selectedTime?: Date) => {
     if (Platform.OS === 'android') {
@@ -88,7 +157,7 @@ export function NotificationSettings({ onBack }: NotificationSettingsProps) {
           'Enable Notifications',
           'Allow the app to send you notifications',
           notificationsEnabled,
-          setNotificationsEnabled,
+          handleNotificationsToggle,
           Bell,
           '#3B82F6'
         )}
@@ -99,7 +168,10 @@ export function NotificationSettings({ onBack }: NotificationSettingsProps) {
           'Daily Reminders',
           'Get reminded to log your daily entries',
           dailyReminder,
-          setDailyReminder,
+          async (value) => {
+            setDailyReminder(value);
+            await saveSettings({ dailyReminder: value, streakAlerts, experimentReminders, reminderTime: `${reminderTime.getHours()}:${reminderTime.getMinutes()}` });
+          },
           Clock,
           '#10B981'
         )}
@@ -108,7 +180,10 @@ export function NotificationSettings({ onBack }: NotificationSettingsProps) {
           'Streak Alerts',
           'Celebrate your habit streaks and milestones',
           streakAlerts,
-          setStreakAlerts,
+          async (value) => {
+            setStreakAlerts(value);
+            await saveSettings({ dailyReminder, streakAlerts: value, experimentReminders, reminderTime: `${reminderTime.getHours()}:${reminderTime.getMinutes()}` });
+          },
           Zap,
           '#F59E0B'
         )}
@@ -117,7 +192,10 @@ export function NotificationSettings({ onBack }: NotificationSettingsProps) {
           'Experiment Reminders',
           'Get notified about ongoing experiments',
           experimentReminders,
-          setExperimentReminders,
+          async (value) => {
+            setExperimentReminders(value);
+            await saveSettings({ dailyReminder, streakAlerts, experimentReminders: value, reminderTime: `${reminderTime.getHours()}:${reminderTime.getMinutes()}` });
+          },
           Target,
           '#8B5CF6'
         )}

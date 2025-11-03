@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -11,7 +11,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 
-import { Stack, router } from 'expo-router';
+import { Stack, router, useLocalSearchParams } from 'expo-router';
 import { useAuth } from '@/contexts/AuthContext';
 import { MoodsService } from '@/services/moods.service';
 import { ActivitiesService } from '@/services/activities.service';
@@ -184,10 +184,65 @@ const productivityFactors = [
 const wakingFeelings = ['Refreshed', 'Tired', 'Foggy', 'Energized', 'Groggy', 'Alert'];
 
 export default function AddEntryScreen() {
-  const { user } = useAuth();
+  const { user, isGuest } = useAuth();
+  const params = useLocalSearchParams<{ date?: string }>();
   const [saving, setSaving] = useState(false);
+  
+  // Initialize selected date - will be updated in useEffect if params.date exists
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [showDatePicker, setShowDatePicker] = useState<boolean>(false);
+  const [isBackdatedEntry, setIsBackdatedEntry] = useState<boolean>(false);
+  
+  // Handle date parameter from URL
+  useEffect(() => {
+    console.log('🔍 Add-entry mounted with params:', params);
+    console.log('🔍 Date parameter:', params.date);
+    
+    if (params.date) {
+      try {
+        // Parse the date string (YYYY-MM-DD format) and create Date object
+        console.log('✅ Setting date from URL param:', params.date);
+        const [year, month, day] = params.date.split('-').map(Number);
+        const parsedDate = new Date(year, month - 1, day);
+        parsedDate.setHours(0, 0, 0, 0); // Normalize to midnight
+        
+        console.log('✅ Parsed date:', parsedDate.toISOString().split('T')[0]);
+        console.log('✅ Full date object:', parsedDate);
+        
+        setSelectedDate(parsedDate);
+        
+        // Check if backdated
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const isBackdated = parsedDate < today;
+        
+        console.log('🔍 Is backdated?', isBackdated);
+        console.log('🔍 Param date:', parsedDate.toDateString());
+        console.log('🔍 Today:', today.toDateString());
+        
+        setIsBackdatedEntry(isBackdated);
+      } catch (error) {
+        console.error('❌ Error parsing date:', error);
+      }
+    } else {
+      console.log('ℹ️ No date param - using today');
+      setIsBackdatedEntry(false);
+    }
+  }, [params.date]); // Re-run if params.date changes
+
+  // Redirect guests to signup
+  useEffect(() => {
+    if (isGuest) {
+      Alert.alert(
+        'Sign Up Required',
+        'Please sign up to add your own entries and track your wellness journey!',
+        [
+          { text: 'Cancel', onPress: () => router.back() },
+          { text: 'Sign Up', onPress: () => router.push('/auth/signup') }
+        ]
+      );
+    }
+  }, [isGuest]);
 
   const [moodCardExpanded, setMoodCardExpanded] = useState<boolean>(true);
   const [moods, setMoods] = useState<MoodOption[]>(moodOptions);
@@ -314,6 +369,11 @@ export default function AddEntryScreen() {
 
     setSaving(true);
     const date = selectedDate.toISOString().split('T')[0];
+    
+    console.log('💾 SAVING ENTRY');
+    console.log('💾 Selected Date object:', selectedDate);
+    console.log('💾 Formatted date for save:', date);
+    console.log('💾 Is backdated?', isBackdatedEntry);
 
     try {
       // Save mood data
@@ -442,16 +502,44 @@ export default function AddEntryScreen() {
       />
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+        {/* DEBUG: Show current state */}
+        {__DEV__ && (
+          <View style={styles.debugPanel}>
+            <Text style={styles.debugText}>🔍 DEBUG INFO:</Text>
+            <Text style={styles.debugText}>URL Param: {params.date || 'none'}</Text>
+            <Text style={styles.debugText}>Selected Date: {selectedDate.toISOString().split('T')[0]}</Text>
+            <Text style={styles.debugText}>Is Backdated: {isBackdatedEntry ? 'YES' : 'NO'}</Text>
+            <Text style={styles.debugText}>Today: {new Date().toISOString().split('T')[0]}</Text>
+          </View>
+        )}
+        
         {/* Date Selection */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Date</Text>
+          <Text style={styles.sectionTitle}>
+            Date {isBackdatedEntry && '(Past Date)'}
+          </Text>
           <TouchableOpacity
-            style={styles.dateSelector}
+            style={[
+              styles.dateSelector,
+              isBackdatedEntry && styles.dateSelectorBackdated
+            ]}
             onPress={() => setShowDatePicker(true)}
           >
-            <Calendar size={20} color="#34B27B" />
-            <Text style={styles.dateText}>{formatDate(selectedDate)}</Text>
+            <Calendar size={20} color={isBackdatedEntry ? "#F59E0B" : "#34B27B"} />
+            <Text style={[
+              styles.dateText,
+              isBackdatedEntry && styles.dateTextBackdated
+            ]}>
+              {formatDate(selectedDate)}
+            </Text>
           </TouchableOpacity>
+          {isBackdatedEntry && (
+            <View style={styles.backdatedNotice}>
+              <Text style={styles.backdatedNoticeText}>
+                📅 You're logging data for a past date ({selectedDate.toISOString().split('T')[0]})
+              </Text>
+            </View>
+          )}
         </View>
 
         {/* CARD 1: Mood Selection */}
@@ -1046,9 +1134,17 @@ export default function AddEntryScreen() {
           value={selectedDate}
           mode="date"
           display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+          maximumDate={new Date()} // Prevent future date selection
           onChange={(event: DateTimePickerEvent, date?: Date) => {
             setShowDatePicker(false);
-            if (date) setSelectedDate(date);
+            if (date) {
+              setSelectedDate(date);
+              // Check if date is not today
+              const today = new Date();
+              today.setHours(0, 0, 0, 0);
+              date.setHours(0, 0, 0, 0);
+              setIsBackdatedEntry(date < today);
+            }
           }}
         />
       )}
@@ -1093,6 +1189,21 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
   },
+  debugPanel: {
+    backgroundColor: '#FEF2F2',
+    borderWidth: 2,
+    borderColor: '#DC2626',
+    borderRadius: 8,
+    padding: 12,
+    margin: 20,
+    marginBottom: 0,
+  },
+  debugText: {
+    fontSize: 12,
+    color: '#991B1B',
+    fontFamily: 'monospace',
+    marginBottom: 4,
+  },
   section: {
     backgroundColor: '#FFFFFF',
     marginHorizontal: 20,
@@ -1118,10 +1229,33 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     marginTop: 12,
   },
+  dateSelectorBackdated: {
+    backgroundColor: '#FEF3C7',
+    borderWidth: 2,
+    borderColor: '#F59E0B',
+  },
   dateText: {
     fontSize: 16,
     color: '#374151',
     marginLeft: 12,
+    fontWeight: '500',
+  },
+  dateTextBackdated: {
+    color: '#92400E',
+    fontWeight: '700',
+  },
+  backdatedNotice: {
+    backgroundColor: '#EBF5FF',
+    padding: 12,
+    borderRadius: 8,
+    marginTop: 12,
+    borderLeftWidth: 3,
+    borderLeftColor: '#3B82F6',
+  },
+  backdatedNoticeText: {
+    fontSize: 14,
+    color: '#1E40AF',
+    fontWeight: '500',
   },
   card: {
     backgroundColor: '#FFFFFF',

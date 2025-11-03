@@ -1,8 +1,8 @@
 -- Betternapped Database Schema
 -- Run this SQL in your Supabase SQL Editor
 
--- Enable Row Level Security
-ALTER DATABASE postgres SET "app.jwt_secret" TO 'your-jwt-secret';
+-- Note: JWT configuration removed for basic setup
+-- You can add JWT configuration later if needed
 
 -- Create users table (extends Supabase auth.users)
 CREATE TABLE IF NOT EXISTS public.users (
@@ -61,8 +61,11 @@ CREATE TABLE IF NOT EXISTS public.habits (
   name TEXT NOT NULL,
   description TEXT NOT NULL,
   category TEXT NOT NULL,
+  instruction TEXT,
+  emoji TEXT,
   total_days INTEGER NOT NULL DEFAULT 30,
   streak INTEGER NOT NULL DEFAULT 0,
+  streak_goal INTEGER NOT NULL DEFAULT 30,
   reminder_enabled BOOLEAN NOT NULL DEFAULT false,
   reminder_time TIME,
   quote TEXT,

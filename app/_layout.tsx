@@ -20,10 +20,15 @@ function RootLayoutNav() {
       <Stack.Screen name="mental-clarity-test" options={{ presentation: "modal" }} />
       <Stack.Screen name="sleep-wellness-hub" options={{ presentation: "card" }} />
       <Stack.Screen name="intimacy-hub" options={{ presentation: "card" }} />
-      <Stack.Screen name="auth/login" options={{ headerShown: false }} />
-      <Stack.Screen name="auth/signup" options={{ headerShown: false }} />
-      <Stack.Screen name="auth/forgot-password" options={{ headerShown: false }} />
+      <Stack.Screen name="onboarding/welcome" options={{ headerShown: false }} />
+      <Stack.Screen name="onboarding/track-wellness" options={{ headerShown: false }} />
+      <Stack.Screen name="onboarding/experiments" options={{ headerShown: false }} />
+      <Stack.Screen name="onboarding/insights" options={{ headerShown: false }} />
+      <Stack.Screen name="onboarding/get-started" options={{ headerShown: false }} />
+      <Stack.Screen name="auth/auth" options={{ headerShown: false }} />
       <Stack.Screen name="experiments-hub" options={{ presentation: "card" }} />
+      <Stack.Screen name="create-experiment" options={{ presentation: "modal" }} />
+      <Stack.Screen name="habit-library" options={{ presentation: "card" }} />
     </Stack>
   );
 }

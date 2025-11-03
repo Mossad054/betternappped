@@ -1,7 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, useWindowDimensions } from 'react-native';
 import Svg, { Polyline, Circle, Line, Path, G, Text as SvgText } from 'react-native-svg';
-import { TimeRange } from '@/constants/mockData';
 import { useTheme } from '@/contexts/ThemeContext';
 
 interface MoodData {
@@ -14,12 +13,13 @@ interface MoodData {
 
 interface MoodTrackingProps {
   data: MoodData[];
-  timeRange: TimeRange;
+  timeRange: 'week' | 'month' | 'year';
 }
 
 export default function MoodTracking({ data, timeRange }: MoodTrackingProps) {
   const { width } = useWindowDimensions();
   const { theme } = useTheme();
+  const styles = createStyles(theme);
   
   // Calculate streak from live data
   const getMoodStreak = (moodData: MoodData[]) => {
@@ -54,9 +54,9 @@ export default function MoodTracking({ data, timeRange }: MoodTrackingProps) {
   
   const getStreakColor = (type: 'good' | 'neutral' | 'bad') => {
     switch (type) {
-      case 'good': return theme.colors.primary;
-      case 'neutral': return theme.colors.warning;
-      case 'bad': return theme.colors.error;
+      case 'good': return theme.colors.moodHappy;
+      case 'neutral': return theme.colors.moodNeutral;
+      case 'bad': return theme.colors.moodSad;
     }
   };
 
@@ -90,9 +90,9 @@ export default function MoodTracking({ data, timeRange }: MoodTrackingProps) {
     
     let currentAngle = -90; // Start from top
     const segments = [
-      { ...distribution.good, color: theme.colors.primary, label: 'Good' },
-      { ...distribution.neutral, color: theme.colors.warning, label: 'Neutral' },
-      { ...distribution.bad, color: theme.colors.error, label: 'Challenging' }
+      { ...distribution.good, color: theme.colors.moodHappy, label: 'Good' },
+      { ...distribution.neutral, color: theme.colors.moodNeutral, label: 'Neutral' },
+      { ...distribution.bad, color: theme.colors.moodSad, label: 'Challenging' }
     ].filter(segment => segment.percentage > 0);
     
     return (
@@ -264,6 +264,17 @@ export default function MoodTracking({ data, timeRange }: MoodTrackingProps) {
   };
 
   const renderChart = () => {
+    if (!data || data.length === 0) {
+      return (
+        <View style={styles.emptyStateContainer}>
+          <Text style={styles.emptyStateEmoji}>📊</Text>
+          <Text style={[styles.emptyStateText, { color: theme.colors.textSecondary }]}>
+            No mood data yet. Start tracking your mood to see insights here!
+          </Text>
+        </View>
+      );
+    }
+
     if (data.length <= 1) {
       return (
         <View style={styles.singleDayContainer}>
@@ -292,7 +303,7 @@ export default function MoodTracking({ data, timeRange }: MoodTrackingProps) {
         <View style={[styles.streakBadge, { backgroundColor: getStreakColor(streak.type) }]}>
           <Text style={styles.streakEmoji}>🔥</Text>
           <Text style={styles.streakText}>
-            {streak.count}-day {getStreakText(streak.type)} streak
+            {streak.days}-day {getStreakText(streak.type)} streak
           </Text>
         </View>
       </View>
@@ -343,81 +354,82 @@ export default function MoodTracking({ data, timeRange }: MoodTrackingProps) {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (theme: any) => StyleSheet.create({
   container: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 20,
-    marginHorizontal: 20,
-    marginBottom: 16,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
+    ...theme.components.card,
+    marginHorizontal: theme.spacing.screenHorizontal,
+    marginBottom: theme.spacing.md,
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: theme.spacing.md,
   },
   title: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#1F2937',
+    ...theme.typography.h4,
   },
   streakBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 20,
+    paddingHorizontal: theme.spacing.md - 2,
+    paddingVertical: theme.spacing.sm,
+    borderRadius: theme.radii.xl,
+    ...theme.elevation.small,
   },
   streakEmoji: {
     fontSize: 14,
-    marginRight: 4,
+    marginRight: theme.spacing.xs,
   },
   streakText: {
-    fontSize: 12,
+    ...theme.typography.captionSmall,
     fontWeight: '600',
     color: '#FFFFFF',
   },
   chartContainer: {
     alignItems: 'center',
-    marginBottom: 20,
+    marginBottom: theme.spacing.screenVertical,
   },
   singleDayContainer: {
     alignItems: 'center',
-    paddingVertical: 40,
+    paddingVertical: theme.spacing.xxl,
+  },
+  emptyStateContainer: {
+    padding: theme.spacing.xxl,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emptyStateEmoji: {
+    fontSize: 48,
+    marginBottom: theme.spacing.elementGap,
+  },
+  emptyStateText: {
+    ...theme.typography.body,
+    textAlign: 'center',
   },
   singleDayEmoji: {
     fontSize: 48,
-    marginBottom: 12,
+    marginBottom: theme.spacing.elementGap,
   },
   singleDayText: {
-    fontSize: 16,
-    color: '#6B7280',
+    ...theme.typography.bodyLarge,
+    color: theme.colors.textSecondary,
     textAlign: 'center',
   },
   moodDistribution: {
-    marginTop: 16,
+    marginTop: theme.spacing.md,
   },
   distributionTitle: {
-    fontSize: 14,
+    ...theme.typography.body,
     fontWeight: '600',
-    color: '#1F2937',
-    marginBottom: 8,
+    marginBottom: theme.spacing.sm,
   },
   distributionBar: {
     flexDirection: 'row',
     height: 8,
-    borderRadius: 4,
+    borderRadius: theme.radii.md,
     overflow: 'hidden',
-    marginBottom: 12,
+    marginBottom: theme.spacing.elementGap,
   },
   distributionSegment: {
     height: '100%',
@@ -433,35 +445,33 @@ const styles = StyleSheet.create({
   distributionDot: {
     width: 8,
     height: 8,
-    borderRadius: 4,
-    marginRight: 6,
+    borderRadius: theme.radii.xs,
+    marginRight: theme.spacing.chipGap - 2,
   },
   distributionLabelText: {
-    fontSize: 12,
-    color: '#6B7280',
+    ...theme.typography.caption,
   },
   pieChartContainer: {
     alignItems: 'center',
-    paddingVertical: 20,
+    paddingVertical: theme.spacing.screenVertical,
   },
   pieChartLabels: {
-    marginTop: 16,
+    marginTop: theme.spacing.md,
     alignItems: 'center',
   },
   pieChartLabel: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: theme.spacing.sm,
   },
   pieChartDot: {
     width: 8,
     height: 8,
-    borderRadius: 4,
-    marginRight: 8,
+    borderRadius: theme.radii.xs,
+    marginRight: theme.spacing.sm,
   },
   pieChartLabelText: {
-    fontSize: 14,
-    color: '#374151',
+    ...theme.typography.body,
     fontWeight: '500',
   },
 });

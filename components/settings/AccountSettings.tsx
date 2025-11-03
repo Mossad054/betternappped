@@ -9,6 +9,7 @@ import {
   Alert,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
 import { 
   ArrowLeft, 
   User, 
@@ -19,6 +20,7 @@ import {
   Edit3,
   ChevronRight
 } from 'lucide-react-native';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface AccountSettingsProps {
   onBack: () => void;
@@ -26,6 +28,8 @@ interface AccountSettingsProps {
 
 export function AccountSettings({ onBack }: AccountSettingsProps) {
   const insets = useSafeAreaInsets();
+  const router = useRouter();
+  const { user, isGuest, signOut } = useAuth();
   const [isEditingProfile, setIsEditingProfile] = useState<boolean>(false);
   const [profileData, setProfileData] = useState({
     name: 'John Doe',
@@ -55,23 +59,6 @@ export function AccountSettings({ onBack }: AccountSettingsProps) {
     );
   };
 
-  const handleLogout = () => {
-    Alert.alert(
-      'Logout',
-      'Are you sure you want to logout?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Logout',
-          style: 'destructive',
-          onPress: () => {
-            console.log('User logged out');
-            Alert.alert('Logged Out', 'You have been logged out successfully.');
-          }
-        }
-      ]
-    );
-  };
 
   const handleDeleteAccount = () => {
     Alert.alert(
@@ -145,104 +132,168 @@ export function AccountSettings({ onBack }: AccountSettingsProps) {
       </View>
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        <Text style={styles.sectionTitle}>Profile Information</Text>
-        
-        <View style={styles.profileCard}>
-          <View style={styles.profileHeader}>
-            <View style={styles.avatarContainer}>
-              <User size={32} color="#FFFFFF" />
+        {isGuest ? (
+          <>
+            <View style={styles.guestCard}>
+              <Text style={styles.guestTitle}>Guest Mode</Text>
+              <Text style={styles.guestMessage}>
+                Sign up to save your data and access it across devices.
+              </Text>
             </View>
-            <View style={styles.profileInfo}>
-              <Text style={styles.profileName}>{profileData.name}</Text>
-              <Text style={styles.profileEmail}>{profileData.email}</Text>
-              <Text style={styles.joinDate}>Member since {profileData.joinDate}</Text>
+
+            <Text style={styles.sectionTitle}>Account Actions</Text>
+
+            {renderActionItem(
+              'Create Account',
+              'Sign up to save your data',
+              () => router.push('/auth/auth'),
+              User,
+              '#3B82F6'
+            )}
+
+            {renderActionItem(
+              'Sign In',
+              'Sign in to your existing account',
+              () => router.push('/auth/auth'),
+              LogOut,
+              '#3B82F6'
+            )}
+
+            <View style={styles.infoCard}>
+              <Text style={styles.infoTitle}>💡 About Guest Mode</Text>
+              <Text style={styles.infoText}>
+                • Your data is stored locally on this device{'\n'}
+                • Create an account to sync across devices{'\n'}
+                • Sign up to access your data anywhere
+              </Text>
             </View>
-            <TouchableOpacity
-              onPress={() => setIsEditingProfile(!isEditingProfile)}
-              style={styles.editButton}
-            >
-              <Edit3 size={18} color="#3B82F6" />
-            </TouchableOpacity>
-          </View>
-
-          {isEditingProfile && (
-            <View style={styles.editForm}>
-              <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>Name</Text>
-                <TextInput
-                  style={styles.textInput}
-                  value={editData.name}
-                  onChangeText={(text) => setEditData({ ...editData, name: text })}
-                  placeholder="Enter your name"
-                />
-              </View>
-
-              <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>Email</Text>
-                <TextInput
-                  style={styles.textInput}
-                  value={editData.email}
-                  onChangeText={(text) => setEditData({ ...editData, email: text })}
-                  placeholder="Enter your email"
-                  keyboardType="email-address"
-                  autoCapitalize="none"
-                />
-              </View>
-
-              <View style={styles.buttonRow}>
+          </>
+        ) : (
+          <>
+            <Text style={styles.sectionTitle}>Profile Information</Text>
+            
+            <View style={styles.profileCard}>
+              <View style={styles.profileHeader}>
+                <View style={styles.avatarContainer}>
+                  <User size={32} color="#FFFFFF" />
+                </View>
+                <View style={styles.profileInfo}>
+                  <Text style={styles.profileName}>{user?.email || profileData.email}</Text>
+                  <Text style={styles.profileEmail}>{user?.email || profileData.email}</Text>
+                  <Text style={styles.joinDate}>Member since {profileData.joinDate}</Text>
+                </View>
                 <TouchableOpacity
-                  style={[styles.button, styles.cancelButton]}
-                  onPress={handleCancelEdit}
+                  onPress={() => setIsEditingProfile(!isEditingProfile)}
+                  style={styles.editButton}
                 >
-                  <Text style={styles.cancelButtonText}>Cancel</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.button, styles.saveButton]}
-                  onPress={handleSaveProfile}
-                >
-                  <Text style={styles.saveButtonText}>Save</Text>
+                  <Edit3 size={18} color="#3B82F6" />
                 </TouchableOpacity>
               </View>
+
+              {isEditingProfile && (
+                <View style={styles.editForm}>
+                  <View style={styles.inputGroup}>
+                    <Text style={styles.inputLabel}>Name</Text>
+                    <TextInput
+                      style={styles.textInput}
+                      value={editData.name}
+                      onChangeText={(text) => setEditData({ ...editData, name: text })}
+                      placeholder="Enter your name"
+                    />
+                  </View>
+
+                  <View style={styles.inputGroup}>
+                    <Text style={styles.inputLabel}>Email</Text>
+                    <TextInput
+                      style={styles.textInput}
+                      value={editData.email}
+                      onChangeText={(text) => setEditData({ ...editData, email: text })}
+                      placeholder="Enter your email"
+                      keyboardType="email-address"
+                      autoCapitalize="none"
+                    />
+                  </View>
+
+                  <View style={styles.buttonRow}>
+                    <TouchableOpacity
+                      style={[styles.button, styles.cancelButton]}
+                      onPress={handleCancelEdit}
+                    >
+                      <Text style={styles.cancelButtonText}>Cancel</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[styles.button, styles.saveButton]}
+                      onPress={handleSaveProfile}
+                    >
+                      <Text style={styles.saveButtonText}>Save</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              )}
             </View>
-          )}
-        </View>
 
-        <Text style={styles.sectionTitle}>Account Actions</Text>
+            <Text style={styles.sectionTitle}>Account Actions</Text>
 
-        {renderActionItem(
-          'Change Password',
-          'Update your account password',
-          handleChangePassword,
-          Lock,
-          '#3B82F6'
+            {renderActionItem(
+              'Change Password',
+              'Update your account password',
+              handleChangePassword,
+              Lock,
+              '#3B82F6'
+            )}
+
+            {renderActionItem(
+              'Sign Out',
+              'Sign out of your account',
+              async () => {
+                Alert.alert(
+                  'Sign Out',
+                  'Are you sure you want to sign out?',
+                  [
+                    {
+                      text: 'Cancel',
+                      style: 'cancel',
+                    },
+                    {
+                      text: 'Sign Out',
+                      style: 'destructive',
+                      onPress: async () => {
+                        try {
+                          await signOut();
+                          Alert.alert('Signed Out', 'You have been successfully signed out.');
+                          router.push('/auth/auth');
+                        } catch (error) {
+                          Alert.alert('Sign Out Failed', 'There was an error signing out. Please try again.');
+                        }
+                      },
+                    },
+                  ]
+                );
+              },
+              LogOut,
+              '#F59E0B'
+            )}
+
+            {renderActionItem(
+              'Delete Account',
+              'Permanently delete your account and data',
+              handleDeleteAccount,
+              Trash2,
+              '#EF4444',
+              true
+            )}
+
+            <View style={styles.infoCard}>
+              <Text style={styles.infoTitle}>🔒 Account Security</Text>
+              <Text style={styles.infoText}>
+                • Your data is encrypted and securely stored{'\n'}
+                • We never share your personal information{'\n'}
+                • Account deletion is permanent and cannot be undone{'\n'}
+                • Contact support if you need help with your account
+              </Text>
+            </View>
+          </>
         )}
-
-        {renderActionItem(
-          'Logout',
-          'Sign out of your account',
-          handleLogout,
-          LogOut,
-          '#F59E0B'
-        )}
-
-        {renderActionItem(
-          'Delete Account',
-          'Permanently delete your account and data',
-          handleDeleteAccount,
-          Trash2,
-          '#EF4444',
-          true
-        )}
-
-        <View style={styles.infoCard}>
-          <Text style={styles.infoTitle}>🔒 Account Security</Text>
-          <Text style={styles.infoText}>
-            • Your data is encrypted and securely stored{'\n'}
-            • We never share your personal information{'\n'}
-            • Account deletion is permanent and cannot be undone{'\n'}
-            • Contact support if you need help with your account
-          </Text>
-        </View>
       </ScrollView>
     </View>
   );
@@ -388,6 +439,25 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '500',
     color: '#FFFFFF',
+  },
+  guestCard: {
+    backgroundColor: '#EFF6FF',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 24,
+    borderWidth: 1,
+    borderColor: '#DBEAFE',
+  },
+  guestTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#1F2937',
+    marginBottom: 8,
+  },
+  guestMessage: {
+    fontSize: 14,
+    color: '#6B7280',
+    lineHeight: 20,
   },
   actionItem: {
     backgroundColor: '#FFFFFF',

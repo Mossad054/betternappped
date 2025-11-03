@@ -1,32 +1,26 @@
 import { Tabs, router } from "expo-router";
-import { BarChart3, Settings, Calendar, Home, Plus } from "lucide-react-native";
+import { BarChart3, Settings, Calendar, Home, Plus, TestTube, BookOpen, TrendingUp } from "lucide-react-native";
 import React from "react";
 import { View, StyleSheet } from "react-native";
-
-// Removed Colors import - using hardcoded values
-
-const styles = StyleSheet.create({
-  addButton: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: '#34B27B',
-    alignItems: 'center' as const,
-    justifyContent: 'center' as const,
-    shadowColor: '#34B27B',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.4,
-    shadowRadius: 12,
-    elevation: 8,
-    marginBottom: 20,
-  },
-});
+import { useTheme } from "@/contexts/ThemeContext";
 
 export default function TabLayout() {
+  const { theme } = useTheme();
+
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: '#34B27B',
+        tabBarActiveTintColor: theme.colors.iconActive,
+        tabBarInactiveTintColor: theme.colors.iconInactive,
+        tabBarStyle: {
+          backgroundColor: theme.colors.surface,
+          borderTopColor: theme.colors.borderLight,
+          borderTopWidth: 1,
+          ...theme.elevation.large,
+          paddingBottom: theme.spacing.sm,
+          paddingTop: theme.spacing.sm,
+          height: 64,
+        },
         headerShown: false,
       }}
     >
@@ -34,48 +28,135 @@ export default function TabLayout() {
         name="home"
         options={{
           title: "Home",
-          tabBarIcon: ({ color }) => <Home color={color} size={24} />,
-        }}
-      />
-      <Tabs.Screen
-        name="activity"
-        options={{
-          title: "Activity & Stats",
-          tabBarIcon: ({ color }) => <BarChart3 color={color} size={24} />,
-        }}
-      />
-      <Tabs.Screen
-        name="add-entry"
-        options={{
-          title: "",
-          tabBarIcon: () => (
-            <View style={styles.addButton}>
-              <Plus size={24} color="#FFFFFF" />
+          tabBarIcon: ({ color, focused }) => (
+            <View style={[
+              styles.iconContainer,
+              { backgroundColor: focused ? theme.colors.primary : 'transparent', borderRadius: theme.radii.xl }
+            ]}>
+              <Home color={focused ? theme.colors.textPrimary : color} size={24} />
             </View>
           ),
-          href: null,
         }}
-        listeners={{
-          tabPress: (e) => {
-            e.preventDefault();
-            router.push('/add-entry');
-          },
+      />
+      <Tabs.Screen
+        name="lessons"
+        options={{
+          title: "Lessons",
+          tabBarIcon: ({ color, focused }) => (
+            <View style={[
+              styles.iconContainer,
+              { backgroundColor: focused ? theme.colors.primary : 'transparent', borderRadius: theme.radii.xl }
+            ]}>
+              <BookOpen color={focused ? theme.colors.textPrimary : color} size={24} />
+            </View>
+          ),
         }}
       />
       <Tabs.Screen
         name="calendar"
         options={{
           title: "Calendar",
-          tabBarIcon: ({ color }) => <Calendar color={color} size={24} />,
+          tabBarIcon: ({ color, focused }) => (
+            <View style={[
+              styles.iconContainer,
+              { backgroundColor: focused ? theme.colors.primary : 'transparent', borderRadius: theme.radii.xl }
+            ]}>
+              <Calendar color={focused ? theme.colors.textPrimary : color} size={24} />
+            </View>
+          ),
+        }}
+      />
+
+      <Tabs.Screen
+        name="journal"
+        options={{
+          title: "Journal",
+          tabBarIcon: ({ color, focused }) => (
+            <View style={[
+              styles.iconContainer,
+              { backgroundColor: focused ? theme.colors.primary : 'transparent', borderRadius: theme.radii.xl }
+            ]}>
+              <Plus color={focused ? theme.colors.textPrimary : color} size={24} />
+            </View>
+          ),
+        }}
+      />
+
+      <Tabs.Screen
+        name="analytics"
+        options={{
+          title: "Analytics",
+          tabBarIcon: ({ color, focused }) => (
+            <View style={[
+              styles.iconContainer,
+              { backgroundColor: focused ? theme.colors.primary : 'transparent', borderRadius: theme.radii.xl }
+            ]}>
+              <TrendingUp color={focused ? theme.colors.textPrimary : color} size={24} />
+            </View>
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="activity"
+        options={{
+          title: "Activity & Stats",
+          tabBarIcon: ({ color, focused }) => (
+            <View style={[
+              styles.iconContainer,
+              { backgroundColor: focused ? theme.colors.primary : 'transparent', borderRadius: theme.radii.xl }
+            ]}>
+              <BarChart3 color={focused ? theme.colors.textPrimary : color} size={24} />
+            </View>
+          ),
         }}
       />
       <Tabs.Screen
         name="settings"
         options={{
           title: "Settings",
-          tabBarIcon: ({ color }) => <Settings color={color} size={24} />,
+          tabBarIcon: ({ color, focused }) => (
+            <View style={[
+              styles.iconContainer,
+              { backgroundColor: focused ? theme.colors.primary : 'transparent', borderRadius: theme.radii.xl }
+            ]}>
+              <Settings color={focused ? theme.colors.textPrimary : color} size={24} />
+            </View>
+          ),
         }}
       />
+      {__DEV__ && (
+        <Tabs.Screen
+          name="dev-tools"
+          options={{
+            title: "Dev Tools",
+            tabBarIcon: ({ color, focused }) => (
+            <View style={[
+              styles.iconContainer,
+              { backgroundColor: focused ? theme.colors.primary : 'transparent', borderRadius: theme.radii.xl }
+            ]}>
+              <TestTube color={focused ? theme.colors.textPrimary : color} size={24} />
+            </View>
+          ),
+          }}
+        />
+      )}
     </Tabs>
   );
 }
+
+const styles = StyleSheet.create({
+  addButton: {
+    width: 56,
+    height: 56,
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+    marginBottom: 20,
+  },
+  iconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+});

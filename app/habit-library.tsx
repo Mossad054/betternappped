@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -7,10 +7,12 @@ import {
   TouchableOpacity,
   Modal,
   TextInput,
+  Alert,
 } from 'react-native';
 import { Stack, router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useAuth } from '@/contexts/AuthContext';
 import {
   X,
   Search,
@@ -24,18 +26,39 @@ import {
   getHabitLibraryData,
   HabitLibraryItem,
   HabitCategory,
-  getActiveHabits,
-  ActiveHabit,
 } from '@/constants/mockData';
+import { HabitsService } from '@/services/habits.service';
 
 export default function HabitLibraryScreen() {
   const insets = useSafeAreaInsets();
   const { theme } = useTheme();
+  const { user } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<HabitCategory | 'All'>('All');
   const [selectedHabit, setSelectedHabit] = useState<HabitLibraryItem | null>(null);
   const [modalVisible, setModalVisible] = useState(false);
-  const [activeHabits, setActiveHabits] = useState<ActiveHabit[]>(getActiveHabits());
+  const [activeHabits, setActiveHabits] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (user) {
+      loadActiveHabits();
+    }
+  }, [user]);
+
+  const loadActiveHabits = async () => {
+    if (!user) return;
+    try {
+      const { data, error } = await HabitsService.getAll(user.id);
+      if (!error && data) {
+        setActiveHabits(data);
+      }
+    } catch (error) {
+      console.error('Error loading active habits:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const habitLibraryData = getHabitLibraryData();
   const categories: (HabitCategory | 'All')[] = ['All', 'Intimacy', 'Health', 'Anxiety', 'Mood', 'Sleep', 'MentalClarity'];
@@ -61,25 +84,38 @@ export default function HabitLibraryScreen() {
     return habits;
   };
 
-  const handleAddHabit = (habit: HabitLibraryItem) => {
-    const newActiveHabit: ActiveHabit = {
-      id: `active-${Date.now()}`,
-      name: habit.name,
-      description: habit.description,
-      category: habit.category,
-      quote: habit.expectedOutcome,
-      currentDay: 1,
-      totalDays: 7,
-      completedToday: false,
-      reminderEnabled: true,
-      streak: 0,
-      progressPercentage: 14,
-      feedback: undefined,
-    };
+  const handleAddHabit = async (habit: HabitLibraryItem) => {
+    if (!user) {
+      Alert.alert('Sign In Required', 'Please sign in to add habits.');
+      return;
+    }
 
-    setActiveHabits(prev => [...prev, newActiveHabit]);
-    setModalVisible(false);
-    setSelectedHabit(null);
+    try {
+      const { error } = await HabitsService.create({
+        name: habit.name,
+        description: habit.description,
+        category: habit.category,
+        emoji: habit.emoji,
+        instruction: habit.description,
+        total_days: 30,
+        streak_goal: 30,
+        reminder_enabled: false,
+      }, user.id);
+
+      if (error) {
+        Alert.alert('Error', 'Failed to add habit. Please try again.');
+        return;
+      }
+
+      // Reload active habits
+      await loadActiveHabits();
+      setModalVisible(false);
+      setSelectedHabit(null);
+      Alert.alert('Success', 'Habit added successfully!');
+    } catch (error) {
+      console.error('Error adding habit:', error);
+      Alert.alert('Error', 'Failed to add habit. Please try again.');
+    }
   };
 
   const isHabitActive = (habit: HabitLibraryItem) => {

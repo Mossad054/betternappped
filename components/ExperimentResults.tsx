@@ -2,51 +2,39 @@ import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { RotateCcw, CheckCircle } from 'lucide-react-native';
 import { useTheme } from '@/contexts/ThemeContext';
-
-interface ExperimentData {
-  id: string;
-  name: string;
-  description?: string;
-  start_date: string;
-  end_date?: string;
-  status: string;
-  target_metric?: string;
-  hypothesis?: string;
-  isActive?: boolean;
-  emoji?: string;
-  title?: string;
-  currentDay?: number;
-  totalDays?: number;
-  category?: string;
-}
+import { type Experiment } from '@/constants/mockData';
 
 interface ExperimentResultsProps {
-  data: ExperimentData[];
+  data: Experiment[];
+  onConvertToHabit?: (experiment: Experiment) => void;
+  onRunAgain?: (experiment: Experiment) => void;
 }
 
-export default function ExperimentResults({ data }: ExperimentResultsProps) {
+export default function ExperimentResults({ data, onConvertToHabit, onRunAgain }: ExperimentResultsProps) {
   const { theme } = useTheme();
+  const styles = createStyles(theme);
   const activeExperiments = data.filter(exp => exp.status === 'active');
   const completedExperiments = data.filter(exp => exp.status === 'completed');
 
-  const getCategoryColor = (category: string) => {
-    switch (category) {
-      case 'mood': return theme.colors.primary;
-      case 'sleep': return theme.colors.primary;
-      case 'clarity': return theme.colors.primary;
+  const getCategoryColor = (outcome: string) => {
+    switch (outcome.toLowerCase()) {
+      case 'mood': return theme.colors.moodHappy;
+      case 'sleep quality': return theme.colors.moodCalm;
+      case 'mental clarity': return theme.colors.primary;
+      case 'anxiety / calmness': return theme.colors.moodNeutral;
       default: return theme.colors.textSecondary;
     }
   };
 
-  const renderActiveExperiment = (experiment: ExperimentData) => {
-    const progress = (experiment.currentDay / experiment.totalDays) * 100;
+  const renderActiveExperiment = (experiment: Experiment) => {
+    const progress = ((experiment.currentDay || 0) / (experiment.totalDays || 30)) * 100;
     
     return (
       <View key={experiment.id} style={styles.experimentCard}>
         <View style={styles.experimentHeader}>
           <View style={styles.experimentTitleRow}>
-            <Text style={styles.experimentEmoji}>{experiment.emoji}</Text>
-            <Text style={styles.experimentTitle}>{experiment.title}</Text>
+            <Text style={styles.experimentEmoji}>{experiment.activityEmoji}</Text>
+            <Text style={styles.experimentTitle}>{experiment.activityName}</Text>
           </View>
           <View style={styles.activeIndicator}>
             <Text style={styles.activeText}>Active</Text>
@@ -57,105 +45,115 @@ export default function ExperimentResults({ data }: ExperimentResultsProps) {
           <Text style={styles.progressText}>
             Day {experiment.currentDay}/{experiment.totalDays} complete
           </Text>
-          <View style={styles.progressBar}>
-            <View style={[styles.progressFill, { width: `${progress}%` }]} />
+          <View style={styles.progressBarContainer}>
+            <View style={[styles.progressFill, { width: `${progress}%`, backgroundColor: theme.colors.primary }]} />
           </View>
         </View>
         
         <View style={styles.trendSection}>
-          <Text style={styles.trendTitle}>Early Trends</Text>
+          <Text style={styles.trendTitle}>Tracking Outcomes</Text>
           <View style={styles.trendIndicators}>
-            <View style={styles.trendItem}>
-              <Text style={styles.trendArrow}>↗️</Text>
-              <Text style={styles.trendLabel}>Mood</Text>
-            </View>
-            <View style={styles.trendItem}>
-              <Text style={styles.trendArrow}>↗️</Text>
-              <Text style={styles.trendLabel}>Energy</Text>
-            </View>
-            <View style={styles.trendItem}>
-              <Text style={styles.trendArrow}>→</Text>
-              <Text style={styles.trendLabel}>Sleep</Text>
-            </View>
+            {experiment.outcomes.slice(0, 3).map((outcome, index) => (
+              <View key={index} style={styles.trendItem}>
+                <Text style={styles.trendLabel}>{outcome}</Text>
+              </View>
+            ))}
           </View>
         </View>
       </View>
     );
   };
 
-  const renderCompletedExperiment = (experiment: ExperimentData) => {
-    const improvement = experiment.afterScore && experiment.beforeScore 
-      ? ((experiment.afterScore - experiment.beforeScore) / experiment.beforeScore * 100)
-      : 0;
+  const renderCompletedExperiment = (experiment: Experiment) => {
+    // Calculate improvement from baseline to results data
+    const getAverageScore = (data?: any) => {
+      if (!data) return 0;
+      const scores = Object.values(data).filter(v => typeof v === 'number') as number[];
+      return scores.length > 0 ? scores.reduce((a, b) => a + b, 0) / scores.length : 0;
+    };
+
+    const beforeScore = getAverageScore(experiment.baselineData);
+    const afterScore = getAverageScore(experiment.resultsData);
+    const improvement = beforeScore > 0 ? ((afterScore - beforeScore) / beforeScore * 100) : 0;
 
     return (
       <View key={experiment.id} style={styles.experimentCard}>
         <View style={styles.experimentHeader}>
           <View style={styles.experimentTitleRow}>
-            <Text style={styles.experimentEmoji}>{experiment.emoji}</Text>
-            <Text style={styles.experimentTitle}>{experiment.title}</Text>
+            <Text style={styles.experimentEmoji}>{experiment.activityEmoji}</Text>
+            <Text style={styles.experimentTitle}>{experiment.activityName}</Text>
           </View>
           <View style={styles.completedIndicator}>
-            <CheckCircle size={16} color="#10B981" />
+            <CheckCircle size={16} color={theme.colors.success} />
             <Text style={styles.completedText}>Complete</Text>
           </View>
         </View>
 
-        <View style={styles.resultsSection}>
-          <View style={styles.comparisonBars}>
-            <View style={styles.comparisonItem}>
-              <Text style={styles.comparisonLabel}>Before</Text>
-              <View style={styles.comparisonBarContainer}>
-                <View 
-                  style={[
-                    styles.comparisonBar, 
-                    { 
-                      width: `${(experiment.beforeScore / 5) * 100}%`,
-                      backgroundColor: '#E5E7EB'
-                    }
-                  ]} 
-                />
+        {(experiment.baselineData || experiment.resultsData) && (
+          <View style={styles.resultsSection}>
+            <View style={styles.comparisonBars}>
+              <View style={styles.comparisonItem}>
+                <Text style={styles.comparisonLabel}>Before</Text>
+                <View style={styles.comparisonBarContainer}>
+                  <View 
+                    style={[
+                      styles.comparisonBar, 
+                      { 
+                        width: `${(beforeScore / 5) * 100}%`,
+                        backgroundColor: theme.colors.surfaceVariant
+                      }
+                    ]} 
+                  />
+                </View>
+                <Text style={styles.comparisonValue}>{beforeScore.toFixed(1)}</Text>
               </View>
-              <Text style={styles.comparisonValue}>{experiment.beforeScore.toFixed(1)}</Text>
-            </View>
-            
-            <View style={styles.comparisonItem}>
-              <Text style={styles.comparisonLabel}>After</Text>
-              <View style={styles.comparisonBarContainer}>
-                <View 
-                  style={[
-                    styles.comparisonBar, 
-                    { 
-                      width: `${((experiment.afterScore || 0) / 5) * 100}%`,
-                      backgroundColor: getCategoryColor(experiment.category)
-                    }
-                  ]} 
-                />
+              
+              <View style={styles.comparisonItem}>
+                <Text style={styles.comparisonLabel}>After</Text>
+                <View style={styles.comparisonBarContainer}>
+                  <View 
+                    style={[
+                      styles.comparisonBar, 
+                      { 
+                        width: `${(afterScore / 5) * 100}%`,
+                        backgroundColor: theme.colors.primary
+                      }
+                    ]} 
+                  />
+                </View>
+                <Text style={styles.comparisonValue}>{afterScore.toFixed(1)}</Text>
               </View>
-              <Text style={styles.comparisonValue}>{experiment.afterScore?.toFixed(1)}</Text>
             </View>
-          </View>
 
-          <View style={styles.improvementBadge}>
-            <Text style={styles.improvementText}>
-              +{improvement.toFixed(0)}% improvement
-            </Text>
+            {improvement > 0 && (
+              <View style={styles.improvementBadge}>
+                <Text style={styles.improvementText}>
+                  +{improvement.toFixed(0)}% improvement
+                </Text>
+              </View>
+            )}
           </View>
-        </View>
+        )}
 
-        {experiment.insight && (
+        {experiment.insights && (
           <View style={styles.insightSection}>
-            <Text style={styles.insightText}>{experiment.insight}</Text>
+            <Text style={styles.insightText}>{experiment.insights}</Text>
           </View>
         )}
 
         <View style={styles.actionButtons}>
-          <TouchableOpacity style={styles.actionButton}>
-            <CheckCircle size={16} color="#10B981" />
+          <TouchableOpacity 
+            style={styles.actionButton}
+            onPress={() => onConvertToHabit?.(experiment)}
+          >
+            <CheckCircle size={16} color="#FFFFFF" />
             <Text style={styles.actionButtonText}>Convert to Habit</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={[styles.actionButton, styles.secondaryButton]}>
-            <RotateCcw size={16} color="#6B7280" />
+          <TouchableOpacity 
+            style={[styles.actionButton, styles.secondaryButton]}
+            onPress={() => onRunAgain?.(experiment)}
+          >
+            <RotateCcw size={16} color={theme.colors.textPrimary} />
             <Text style={[styles.actionButtonText, styles.secondaryButtonText]}>Run Again</Text>
           </TouchableOpacity>
         </View>
@@ -183,40 +181,28 @@ export default function ExperimentResults({ data }: ExperimentResultsProps) {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (theme: any) => StyleSheet.create({
   container: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 20,
-    marginHorizontal: 20,
-    marginBottom: 16,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
+    ...theme.components.card,
+    marginHorizontal: theme.spacing.screenHorizontal,
+    marginBottom: theme.spacing.md,
   },
   title: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#1F2937',
-    marginBottom: 16,
+    ...theme.typography.h4,
+    marginBottom: theme.spacing.md,
   },
   experimentCard: {
     borderWidth: 1,
-    borderColor: '#E5E7EB',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
+    borderColor: theme.colors.divider,
+    borderRadius: theme.radii.md,
+    padding: theme.spacing.md,
+    marginBottom: theme.spacing.elementGap,
   },
   experimentHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: theme.spacing.elementGap,
   },
   experimentTitleRow: {
     flexDirection: 'row',
@@ -224,65 +210,60 @@ const styles = StyleSheet.create({
   },
   experimentEmoji: {
     fontSize: 20,
-    marginRight: 8,
+    marginRight: theme.spacing.sm,
   },
   experimentTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#1F2937',
+    ...theme.typography.h5,
   },
   activeIndicator: {
-    backgroundColor: '#FEF3C7',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
+    backgroundColor: theme.colors.warning,
+    paddingHorizontal: theme.spacing.sm,
+    paddingVertical: theme.spacing.xs,
+    borderRadius: theme.radii.md,
   },
   activeText: {
-    fontSize: 12,
+    ...theme.typography.captionSmall,
+    color: theme.colors.textPrimary,
     fontWeight: '600',
-    color: '#D97706',
   },
   completedIndicator: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#D1FAE5',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
+    backgroundColor: theme.colors.success,
+    paddingHorizontal: theme.spacing.sm,
+    paddingVertical: theme.spacing.xs,
+    borderRadius: theme.radii.md,
   },
   completedText: {
-    fontSize: 12,
+    ...theme.typography.captionSmall,
+    color: theme.colors.textPrimary,
     fontWeight: '600',
-    color: '#10B981',
-    marginLeft: 4,
+    marginLeft: theme.spacing.xs,
   },
   progressSection: {
-    marginBottom: 16,
+    marginBottom: theme.spacing.md,
   },
   progressText: {
-    fontSize: 14,
-    color: '#6B7280',
-    marginBottom: 8,
+    ...theme.typography.body,
+    marginBottom: theme.spacing.sm,
   },
-  progressBar: {
+  progressBarContainer: {
     height: 8,
-    backgroundColor: '#E5E7EB',
-    borderRadius: 4,
+    backgroundColor: theme.colors.surfaceVariant,
+    borderRadius: theme.radii.xs,
     overflow: 'hidden',
   },
   progressFill: {
     height: '100%',
-    backgroundColor: '#10B981',
-    borderRadius: 4,
+    borderRadius: theme.radii.xs,
   },
   trendSection: {
-    marginBottom: 8,
+    marginBottom: theme.spacing.sm,
   },
   trendTitle: {
-    fontSize: 14,
+    ...theme.typography.body,
     fontWeight: '600',
-    color: '#1F2937',
-    marginBottom: 8,
+    marginBottom: theme.spacing.sm,
   },
   trendIndicators: {
     flexDirection: 'row',
@@ -291,72 +272,64 @@ const styles = StyleSheet.create({
   trendItem: {
     alignItems: 'center',
   },
-  trendArrow: {
-    fontSize: 16,
-    marginBottom: 4,
-  },
   trendLabel: {
-    fontSize: 12,
-    color: '#6B7280',
+    ...theme.typography.caption,
   },
   resultsSection: {
-    marginBottom: 16,
+    marginBottom: theme.spacing.md,
   },
   comparisonBars: {
-    marginBottom: 12,
+    marginBottom: theme.spacing.elementGap,
   },
   comparisonItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: theme.spacing.sm,
   },
   comparisonLabel: {
-    fontSize: 14,
+    ...theme.typography.body,
     fontWeight: '500',
-    color: '#374151',
     width: 50,
   },
   comparisonBarContainer: {
     flex: 1,
     height: 20,
-    backgroundColor: '#F3F4F6',
-    borderRadius: 10,
-    marginHorizontal: 12,
+    backgroundColor: theme.colors.surfaceVariant,
+    borderRadius: theme.radii.sm + 2,
+    marginHorizontal: theme.spacing.elementGap,
     overflow: 'hidden',
   },
   comparisonBar: {
     height: '100%',
-    borderRadius: 10,
+    borderRadius: theme.radii.sm + 2,
   },
   comparisonValue: {
-    fontSize: 14,
+    ...theme.typography.body,
     fontWeight: '600',
-    color: '#1F2937',
     width: 30,
     textAlign: 'right',
   },
   improvementBadge: {
     alignSelf: 'center',
-    backgroundColor: '#D1FAE5',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
+    backgroundColor: theme.colors.success,
+    paddingHorizontal: theme.spacing.elementGap,
+    paddingVertical: theme.spacing.chipGap - 2,
+    borderRadius: theme.radii.lg,
   },
   improvementText: {
-    fontSize: 14,
+    ...theme.typography.body,
     fontWeight: '600',
-    color: '#10B981',
+    color: theme.colors.textPrimary,
   },
   insightSection: {
-    backgroundColor: '#F0F9FF',
-    padding: 12,
-    borderRadius: 8,
-    marginBottom: 16,
+    backgroundColor: theme.colors.moodCalm,
+    padding: theme.spacing.elementGap,
+    borderRadius: theme.radii.sm,
+    marginBottom: theme.spacing.md,
   },
   insightText: {
-    fontSize: 14,
-    color: '#1E40AF',
-    lineHeight: 20,
+    ...theme.typography.body,
+    color: theme.colors.textPrimary,
   },
   actionButtons: {
     flexDirection: 'row',
@@ -365,43 +338,39 @@ const styles = StyleSheet.create({
   actionButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#10B981',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 8,
+    backgroundColor: theme.colors.success,
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.sm,
+    borderRadius: theme.radii.sm,
     flex: 0.48,
     justifyContent: 'center',
   },
   secondaryButton: {
-    backgroundColor: '#F3F4F6',
+    backgroundColor: theme.colors.surfaceVariant,
   },
   actionButtonText: {
-    fontSize: 14,
+    ...theme.typography.body,
     fontWeight: '600',
     color: '#FFFFFF',
-    marginLeft: 6,
+    marginLeft: theme.spacing.chipGap - 2,
   },
   secondaryButtonText: {
-    color: '#6B7280',
+    color: theme.colors.textPrimary,
   },
   emptyState: {
     alignItems: 'center',
-    paddingVertical: 40,
+    paddingVertical: theme.spacing.xxl,
   },
   emptyEmoji: {
     fontSize: 48,
-    marginBottom: 16,
+    marginBottom: theme.spacing.md,
   },
   emptyTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#1F2937',
-    marginBottom: 8,
+    ...theme.typography.h4,
+    marginBottom: theme.spacing.sm,
   },
   emptyText: {
-    fontSize: 14,
-    color: '#6B7280',
+    ...theme.typography.body,
     textAlign: 'center',
-    lineHeight: 20,
   },
 });

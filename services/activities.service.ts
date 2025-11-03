@@ -1,5 +1,6 @@
-import { supabase } from '@/lib/supabase';
+import { SupabaseSafe } from '@/lib/supabaseSafe';
 import { Database } from '@/lib/supabase';
+import { isGuestMode, guestDataStore } from '@/lib/guestDataStore';
 
 type Activity = Database['public']['Tables']['activities']['Row'];
 type ActivityInsert = Database['public']['Tables']['activities']['Insert'];
@@ -7,59 +8,55 @@ type ActivityUpdate = Database['public']['Tables']['activities']['Update'];
 
 export class ActivitiesService {
   static async create(activityData: Omit<ActivityInsert, 'user_id'>, userId: string): Promise<{ data: Activity | null; error: any }> {
-    try {
-      const { data, error } = await supabase
-        .from('activities')
-        .insert({ ...activityData, user_id: userId })
-        .select()
-        .single();
-
-      return { data, error };
-    } catch (error) {
-      return { data: null, error };
+    if (await isGuestMode()) {
+      return guestDataStore.create('activities', activityData);
     }
+    const result = await SupabaseSafe.insert('activities', activityData, userId);
+    return { data: result.data, error: result.error };
   }
 
   static async createMany(activities: Omit<ActivityInsert, 'user_id'>[], userId: string): Promise<{ data: Activity[] | null; error: any }> {
-    try {
-      const { data, error } = await supabase
-        .from('activities')
-        .insert(activities.map(activity => ({ ...activity, user_id: userId })))
-        .select();
-
-      return { data, error };
-    } catch (error) {
-      return { data: null, error };
+    if (await isGuestMode()) {
+      const results = await Promise.all(
+        activities.map(activity => guestDataStore.create('activities', activity))
+      );
+      
+      const errors = results.filter(r => r.error);
+      if (errors.length > 0) {
+        return { data: null, error: errors[0].error };
+      }
+      
+      const data = results.map(r => r.data).filter(Boolean);
+      return { data, error: null };
     }
+    
+    const results = await Promise.all(
+      activities.map(activity => SupabaseSafe.insert('activities', activity, userId))
+    );
+    
+    const errors = results.filter(r => r.error);
+    if (errors.length > 0) {
+      return { data: null, error: errors[0].error };
+    }
+    
+    const data = results.map(r => r.data).filter(Boolean);
+    return { data, error: null };
   }
 
   static async getAll(userId: string): Promise<{ data: Activity[] | null; error: any }> {
-    try {
-      const { data, error } = await supabase
-        .from('activities')
-        .select('*')
-        .eq('user_id', userId)
-        .order('date', { ascending: false });
-
-      return { data, error };
-    } catch (error) {
-      return { data: null, error };
+    if (await isGuestMode()) {
+      return guestDataStore.getAll('activities');
     }
+    const result = await SupabaseSafe.select('activities', { order: { date: 'desc' } }, userId);
+    return { data: result.data, error: result.error };
   }
 
   static async getById(id: string, userId: string): Promise<{ data: Activity | null; error: any }> {
-    try {
-      const { data, error } = await supabase
-        .from('activities')
-        .select('*')
-        .eq('id', id)
-        .eq('user_id', userId)
-        .single();
-
-      return { data, error };
-    } catch (error) {
-      return { data: null, error };
+    if (await isGuestMode()) {
+      return guestDataStore.getById('activities', id);
     }
+    const result = await SupabaseSafe.select('activities', { eq: { id } }, userId);
+    return { data: result.data?.[0] || null, error: result.error };
   }
 
   static async getByDateRange(
@@ -67,49 +64,43 @@ export class ActivitiesService {
     startDate: string, 
     endDate: string
   ): Promise<{ data: Activity[] | null; error: any }> {
-    try {
-      const { data, error } = await supabase
-        .from('activities')
-        .select('*')
-        .eq('user_id', userId)
-        .gte('date', startDate)
-        .lte('date', endDate)
-        .order('date', { ascending: true });
-
-      return { data, error };
-    } catch (error) {
-      return { data: null, error };
+    if (await isGuestMode()) {
+      return guestDataStore.getByDateRange('activities', startDate, endDate);
     }
+    const result = await SupabaseSafe.select('activities', { 
+      gte: { date: startDate },
+      lte: { date: endDate },
+      order: { date: 'asc' }
+    }, userId);
+    return { data: result.data, error: result.error };
   }
 
   static async getByDate(userId: string, date: string): Promise<{ data: Activity[] | null; error: any }> {
-    try {
-      const { data, error } = await supabase
-        .from('activities')
-        .select('*')
-        .eq('user_id', userId)
-        .eq('date', date)
-        .order('created_at', { ascending: true });
-
-      return { data, error };
-    } catch (error) {
-      return { data: null, error };
+    if (await isGuestMode()) {
+      const allActivities = await guestDataStore.getAll('activities');
+      if (allActivities.error) return { data: null, error: allActivities.error };
+      const filtered = allActivities.data?.filter(activity => activity.date === date) || [];
+      return { data: filtered, error: null };
     }
+    const result = await SupabaseSafe.select('activities', { 
+      eq: { date },
+      order: { created_at: 'asc' }
+    }, userId);
+    return { data: result.data, error: result.error };
   }
 
   static async getByCategory(userId: string, category: string): Promise<{ data: Activity[] | null; error: any }> {
-    try {
-      const { data, error } = await supabase
-        .from('activities')
-        .select('*')
-        .eq('user_id', userId)
-        .eq('category', category)
-        .order('date', { ascending: false });
-
-      return { data, error };
-    } catch (error) {
-      return { data: null, error };
+    if (await isGuestMode()) {
+      const allActivities = await guestDataStore.getAll('activities');
+      if (allActivities.error) return { data: null, error: allActivities.error };
+      const filtered = allActivities.data?.filter(activity => activity.category === category) || [];
+      return { data: filtered, error: null };
     }
+    const result = await SupabaseSafe.select('activities', { 
+      eq: { category },
+      order: { date: 'desc' }
+    }, userId);
+    return { data: result.data, error: result.error };
   }
 
   static async update(
@@ -117,46 +108,33 @@ export class ActivitiesService {
     data: Omit<ActivityUpdate, 'user_id'>, 
     userId: string
   ): Promise<{ data: Activity | null; error: any }> {
-    try {
-      const { data: updatedData, error } = await supabase
-        .from('activities')
-        .update(data)
-        .eq('id', id)
-        .eq('user_id', userId)
-        .select()
-        .single();
-
-      return { data: updatedData, error };
-    } catch (error) {
-      return { data: null, error };
+    if (await isGuestMode()) {
+      return guestDataStore.update('activities', id, data);
     }
+    const result = await SupabaseSafe.update('activities', id, data, userId);
+    return { data: result.data, error: result.error };
   }
 
   static async delete(id: string, userId: string): Promise<{ error: any }> {
-    try {
-      const { error } = await supabase
-        .from('activities')
-        .delete()
-        .eq('id', id)
-        .eq('user_id', userId);
-
-      return { error };
-    } catch (error) {
-      return { error };
+    if (await isGuestMode()) {
+      return guestDataStore.delete('activities', id);
     }
+    const result = await SupabaseSafe.delete('activities', id, userId);
+    return { error: result.error };
   }
 
   static async deleteByDate(userId: string, date: string): Promise<{ error: any }> {
-    try {
-      const { error } = await supabase
-        .from('activities')
-        .delete()
-        .eq('user_id', userId)
-        .eq('date', date);
-
-      return { error };
-    } catch (error) {
-      return { error };
+    // Get all activities for the date first, then delete them
+    const activities = await this.getByDate(userId, date);
+    if (activities.error) return { error: activities.error };
+    
+    if (activities.data && activities.data.length > 0) {
+      const deletePromises = activities.data.map(activity => 
+        SupabaseSafe.delete('activities', activity.id, userId)
+      );
+      await Promise.all(deletePromises);
     }
+    
+    return { error: null };
   }
 }

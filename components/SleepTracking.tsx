@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, useWindowDimensions, TouchableOpacity, Modal } from 'react-native';
 import Svg, { Rect } from 'react-native-svg';
-import { TimeRange } from '@/constants/mockData';
 import { useTheme } from '@/contexts/ThemeContext';
 
 interface SleepData {
@@ -16,7 +15,7 @@ interface SleepData {
 
 interface SleepTrackingProps {
   data: SleepData[];
-  timeRange: TimeRange;
+  timeRange: 'week' | 'month';
 }
 
 export default function SleepTracking({ data, timeRange }: SleepTrackingProps) {
@@ -35,9 +34,9 @@ export default function SleepTracking({ data, timeRange }: SleepTrackingProps) {
     }
   };
 
-  const averageHours = data.reduce((sum, item) => sum + item.hours, 0) / data.length;
+  const averageHours = data.length > 0 ? data.reduce((sum, item) => sum + item.hours, 0) / data.length : 0;
   const consistentNights = data.filter(item => item.hours >= 7 && item.hours <= 9).length;
-  const consistencyPercentage = Math.round((consistentNights / data.length) * 100);
+  const consistencyPercentage = data.length > 0 ? Math.round((consistentNights / data.length) * 100) : 0;
 
   const getDayColor = (hours: number) => {
     if (hours >= 7 && hours <= 9) return theme.colors.primary; // Green - met target
@@ -58,6 +57,17 @@ export default function SleepTracking({ data, timeRange }: SleepTrackingProps) {
 
   const renderMiniCalendar = () => {
     const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    
+    if (!data || data.length === 0) {
+      return (
+        <View style={styles.emptyStateContainer}>
+          <Text style={styles.emptyStateEmoji}>😴</Text>
+          <Text style={[styles.emptyStateText, { color: theme.colors.textSecondary }]}>
+            No sleep data yet. Start tracking your sleep to see insights!
+          </Text>
+        </View>
+      );
+    }
     
     return (
       <View style={styles.miniCalendar}>
@@ -234,7 +244,7 @@ export default function SleepTracking({ data, timeRange }: SleepTrackingProps) {
                   <View style={styles.detailRow}>
                     <Text style={[styles.detailLabel, { color: theme.colors.text }]}>Wake Time</Text>
                     <Text style={[styles.detailValue, { color: theme.colors.textSecondary }]}>
-                      {selectedDay.wakeTime || '6:00 AM'}
+                      {selectedDay.wake_time || '6:00 AM'}
                     </Text>
                   </View>
                   <View style={styles.detailRow}>
@@ -266,9 +276,8 @@ export default function SleepTracking({ data, timeRange }: SleepTrackingProps) {
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 20,
+    borderRadius: 20,
+    padding: 24,
     marginHorizontal: 20,
     marginBottom: 16,
     shadowColor: '#000',
@@ -277,8 +286,10 @@ const styles = StyleSheet.create({
       height: 2,
     },
     shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
+    shadowRadius: 12,
+    elevation: 3,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
   },
   header: {
     flexDirection: 'row',
@@ -289,7 +300,6 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#1F2937',
   },
   averageContainer: {
     alignItems: 'center',
@@ -297,11 +307,9 @@ const styles = StyleSheet.create({
   averageHours: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#3B82F6',
   },
   averageLabel: {
     fontSize: 12,
-    color: '#6B7280',
   },
   chartContainer: {
     alignItems: 'center',
@@ -318,12 +326,10 @@ const styles = StyleSheet.create({
   singleDayHours: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#3B82F6',
     marginBottom: 4,
   },
   singleDayText: {
     fontSize: 14,
-    color: '#6B7280',
   },
   emojiTrend: {
     marginBottom: 20,
@@ -331,7 +337,6 @@ const styles = StyleSheet.create({
   emojiTrendTitle: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#1F2937',
     marginBottom: 8,
   },
   emojiScrollView: {
@@ -348,18 +353,16 @@ const styles = StyleSheet.create({
   },
   emojiHours: {
     fontSize: 12,
-    color: '#6B7280',
     fontWeight: '500',
   },
   consistencySection: {
     borderTopWidth: 1,
-    borderTopColor: '#E5E7EB',
+    borderTopColor: 'rgba(255, 255, 255, 0.1)',
     paddingTop: 16,
   },
   consistencyTitle: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#1F2937',
     marginBottom: 12,
   },
   consistencyBadge: {
@@ -368,19 +371,17 @@ const styles = StyleSheet.create({
   progressRing: {
     width: '100%',
     height: 8,
-    backgroundColor: '#E5E7EB',
-    borderRadius: 4,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    borderRadius: 12,
     marginBottom: 8,
     overflow: 'hidden',
   },
   progressFill: {
     height: '100%',
-    backgroundColor: '#3B82F6',
-    borderRadius: 4,
+    borderRadius: 12,
   },
   consistencyText: {
     fontSize: 12,
-    color: '#6B7280',
     textAlign: 'center',
   },
   // Mini Calendar styles
@@ -391,7 +392,6 @@ const styles = StyleSheet.create({
   calendarTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#1F2937',
     marginBottom: 16,
   },
   calendarGrid: {
@@ -403,14 +403,14 @@ const styles = StyleSheet.create({
   calendarDay: {
     width: 40,
     height: 60,
-    borderRadius: 8,
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 8,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
-    shadowRadius: 4,
+    shadowRadius: 6,
     elevation: 2,
   },
   dayName: {
@@ -447,7 +447,20 @@ const styles = StyleSheet.create({
   },
   legendText: {
     fontSize: 10,
-    color: '#6B7280',
+  },
+  emptyStateContainer: {
+    padding: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emptyStateEmoji: {
+    fontSize: 48,
+    marginBottom: 12,
+  },
+  emptyStateText: {
+    fontSize: 14,
+    textAlign: 'center',
+    lineHeight: 20,
   },
   // Modal styles
   modalOverlay: {
@@ -456,11 +469,15 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   modalContent: {
-    backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
     maxHeight: '60%',
-    paddingTop: 20,
+    paddingTop: 24,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 8,
   },
   modalHeader: {
     flexDirection: 'row',
@@ -469,19 +486,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingBottom: 20,
     borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
+    borderBottomColor: 'rgba(255, 255, 255, 0.1)',
   },
   modalTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#1F2937',
   },
   closeButton: {
     padding: 4,
   },
   closeButtonText: {
     fontSize: 18,
-    color: '#6B7280',
   },
   modalBody: {
     padding: 20,
@@ -501,17 +516,14 @@ const styles = StyleSheet.create({
   sleepDuration: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#1F2937',
     marginBottom: 4,
   },
   sleepQuality: {
     fontSize: 16,
-    color: '#6B7280',
     marginBottom: 4,
   },
   sleepDate: {
     fontSize: 14,
-    color: '#6B7280',
   },
   sleepDetails: {
     gap: 12,
@@ -522,15 +534,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 8,
     borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
+    borderBottomColor: 'rgba(255, 255, 255, 0.05)',
   },
   detailLabel: {
     fontSize: 14,
     fontWeight: '500',
-    color: '#1F2937',
   },
   detailValue: {
     fontSize: 14,
-    color: '#6B7280',
   },
 });

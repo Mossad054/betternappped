@@ -1,14 +1,102 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Animated } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Animated, ActivityIndicator } from 'react-native';
 import { ChevronDown, ChevronUp, Brain, Target, BookOpen, TrendingUp } from 'lucide-react-native';
-import { getMoreInsightsData } from '@/constants/mockData';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useAuth } from '@/contexts/AuthContext';
+import { AnalyticsService } from '@/services/analytics.service';
+import { HabitsService } from '@/services/habits.service';
+import { MentalClarityService } from '@/services/mentalClarity.service';
 
 export default function MoreInsights() {
   const { theme } = useTheme();
+  const { user } = useAuth();
   const [isExpanded, setIsExpanded] = useState(false);
   const [animation] = useState(new Animated.Value(0));
-  const insightsData = getMoreInsightsData();
+  const [loading, setLoading] = useState(false);
+  const [insightsData, setInsightsData] = useState({
+    mentalClarity: { trend: 'N/A', description: 'No data available' },
+    goals: { completed: 0, total: 0, description: 'No data available' },
+    journaling: { entries: 0, streak: 0, description: 'No data available' },
+    engagement: { score: 0, description: 'No data available' },
+  });
+
+  useEffect(() => {
+    if (user && isExpanded) {
+      loadInsightsData();
+    }
+  }, [user, isExpanded]);
+
+  const loadInsightsData = async () => {
+    if (!user) return;
+    setLoading(true);
+    try {
+      const [habitsResult, mentalClarityResult] = await Promise.all([
+        HabitsService.getAll(user.id),
+        MentalClarityService.getByDateRange(
+          user.id,
+          new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+          new Date().toISOString().split('T')[0]
+        )
+      ]);
+
+      const habits = habitsResult.data || [];
+      const mentalClarityLogs = mentalClarityResult.data || [];
+      
+      // Calculate mental clarity trend
+      let mentalClarityTrend = 'N/A';
+      let mentalClarityDesc = 'No data available';
+      if (mentalClarityLogs.length > 0) {
+        const scores = mentalClarityLogs.map(m => m.score || 0);
+        const avg = scores.reduce((sum, s) => sum + s, 0) / scores.length;
+        mentalClarityTrend = `${avg.toFixed(1)}/5`;
+        mentalClarityDesc = scores.length > 0 ? `${scores.length} entries this week` : 'No entries';
+      }
+
+      // Calculate goals (habits)
+      const completedHabits = habits.filter(h => h.streak && h.streak > 0).length;
+      const totalHabits = habits.length;
+      const goalsDesc = totalHabits > 0 
+        ? `${completedHabits}/${totalHabits} habits active` 
+        : 'No habits tracked yet';
+
+      // Engagement score (based on habit completion rate)
+      let engagementScore = 0;
+      if (habits.length > 0) {
+        const rates = await Promise.all(
+          habits.map(async (h) => {
+            const { data } = await HabitsService.getHabitCompletionRate(h.id, user.id, 7);
+            return data || 0;
+          })
+        );
+        engagementScore = Math.round(rates.reduce((sum, r) => sum + r, 0) / rates.length);
+      }
+
+      setInsightsData({
+        mentalClarity: {
+          trend: mentalClarityTrend,
+          description: mentalClarityDesc
+        },
+        goals: {
+          completed: completedHabits,
+          total: totalHabits,
+          description: goalsDesc
+        },
+        journaling: {
+          entries: 0, // Journaling not implemented yet
+          streak: 0,
+          description: 'Coming soon'
+        },
+        engagement: {
+          score: engagementScore,
+          description: engagementScore >= 80 ? 'Excellent engagement' : engagementScore >= 50 ? 'Good engagement' : 'Track more to see insights'
+        }
+      });
+    } catch (error) {
+      console.error('Error loading insights:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const toggleExpanded = () => {
     const toValue = isExpanded ? 0 : 1;
@@ -105,26 +193,44 @@ export default function MoreInsights() {
 
         <View style={styles.additionalInsights}>
           <Text style={[styles.additionalTitle, { color: theme.colors.text }]}>Weekly Highlights</Text>
-          <View style={styles.highlightsList}>
-            <View style={styles.highlightItem}>
-              <Text style={styles.highlightEmoji}>🌟</Text>
-              <Text style={[styles.highlightText, { color: theme.colors.textSecondary }]}>
-                Best mood day was Tuesday after morning exercise
-              </Text>
+          {loading ? (
+            <ActivityIndicator size="small" color={theme.colors.primary} />
+          ) : (
+            <View style={styles.highlightsList}>
+              {insightsData.goals.completed > 0 && (
+                <View style={styles.highlightItem}>
+                  <Text style={styles.highlightEmoji}>🎯</Text>
+                  <Text style={[styles.highlightText, { color: theme.colors.textSecondary }]}>
+                    {insightsData.goals.completed} active {insightsData.goals.completed === 1 ? 'habit' : 'habits'} tracked
+                  </Text>
+                </View>
+              )}
+              {insightsData.mentalClarity.trend !== 'N/A' && (
+                <View style={styles.highlightItem}>
+                  <Text style={styles.highlightEmoji}>🧠</Text>
+                  <Text style={[styles.highlightText, { color: theme.colors.textSecondary }]}>
+                    Mental clarity: {insightsData.mentalClarity.trend}
+                  </Text>
+                </View>
+              )}
+              {insightsData.engagement.score > 0 && (
+                <View style={styles.highlightItem}>
+                  <Text style={styles.highlightEmoji}>📊</Text>
+                  <Text style={[styles.highlightText, { color: theme.colors.textSecondary }]}>
+                    {insightsData.engagement.score}% habit engagement this week
+                  </Text>
+                </View>
+              )}
+              {insightsData.goals.completed === 0 && insightsData.mentalClarity.trend === 'N/A' && (
+                <View style={styles.highlightItem}>
+                  <Text style={styles.highlightEmoji}>🌟</Text>
+                  <Text style={[styles.highlightText, { color: theme.colors.textSecondary }]}>
+                    Start tracking habits and activities to see insights here
+                  </Text>
+                </View>
+              )}
             </View>
-            <View style={styles.highlightItem}>
-              <Text style={styles.highlightEmoji}>💤</Text>
-              <Text style={[styles.highlightText, { color: theme.colors.textSecondary }]}>
-                Sleep quality improved 15% with consistent bedtime
-              </Text>
-            </View>
-            <View style={styles.highlightItem}>
-              <Text style={styles.highlightEmoji}>🎯</Text>
-              <Text style={[styles.highlightText, { color: theme.colors.textSecondary }]}>
-                Completed 3 new habits this week
-              </Text>
-            </View>
-          </View>
+          )}
         </View>
       </Animated.View>
     </View>

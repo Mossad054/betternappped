@@ -1,35 +1,35 @@
-import { createClient } from '@supabase/supabase-js';
+import 'react-native-url-polyfill/auto';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { createClient, processLock } from '@supabase/supabase-js';
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from './constants';
 
-// Check if Supabase is properly configured
-const isSupabaseConfigured = SUPABASE_URL && 
-  SUPABASE_ANON_KEY && 
-  SUPABASE_URL !== 'https://your-project-id.supabase.co' && 
+// ✅ Configuration checks for safety
+const isSupabaseConfigured =
+  !!SUPABASE_URL &&
+  !!SUPABASE_ANON_KEY &&
+  SUPABASE_URL !== 'https://your-project-id.supabase.co' &&
   SUPABASE_ANON_KEY !== 'your-anon-key-here';
 
-console.log('🔧 Supabase Configuration:');
-console.log('📡 SUPABASE_URL:', SUPABASE_URL);
-console.log('🔑 SUPABASE_ANON_KEY:', SUPABASE_ANON_KEY ? 'Set' : 'Not set');
-console.log('✅ isSupabaseConfigured:', isSupabaseConfigured);
+console.log('🔧 Supabase Config Check');
+console.log('📡 URL:', SUPABASE_URL);
+console.log('🔑 Key:', SUPABASE_ANON_KEY ? 'Set' : 'Missing');
+console.log('✅ Configured:', isSupabaseConfigured);
 
-// Create Supabase client with fallback for development
-export const supabase = isSupabaseConfigured 
-  ? createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-      auth: {
-        autoRefreshToken: true,
-        persistSession: true,
-        detectSessionInUrl: false,
-      },
-    })
-  : createClient('https://mock.supabase.co', 'mock-key', {
-      auth: {
-        autoRefreshToken: true,
-        persistSession: true,
-        detectSessionInUrl: false,
-      },
-    });
+export const supabase = createClient(
+  SUPABASE_URL || 'https://mock.supabase.co',
+  SUPABASE_ANON_KEY || 'mock-key',
+  {
+    auth: {
+      storage: AsyncStorage,
+      autoRefreshToken: true,
+      persistSession: true,
+      detectSessionInUrl: false,
+      lock: processLock,
+    },
+  }
+);
 
-console.log('🚀 Supabase client created:', isSupabaseConfigured ? 'Real Supabase' : 'Mock Supabase');
+console.log('🚀 Supabase client initialized:', isSupabaseConfigured ? 'Real' : 'Mock');
 
 export type Database = {
   public: {
@@ -169,8 +169,11 @@ export type Database = {
           name: string;
           description: string;
           category: string;
+          instruction?: string;
+          emoji?: string;
           total_days: number;
           streak: number;
+          streak_goal: number;
           reminder_enabled: boolean;
           reminder_time?: string;
           quote?: string;
@@ -182,8 +185,11 @@ export type Database = {
           name: string;
           description: string;
           category: string;
+          instruction?: string;
+          emoji?: string;
           total_days: number;
           streak?: number;
+          streak_goal?: number;
           reminder_enabled?: boolean;
           reminder_time?: string;
           quote?: string;
@@ -195,8 +201,11 @@ export type Database = {
           name?: string;
           description?: string;
           category?: string;
+          instruction?: string;
+          emoji?: string;
           total_days?: number;
           streak?: number;
+          streak_goal?: number;
           reminder_enabled?: boolean;
           reminder_time?: string;
           quote?: string;

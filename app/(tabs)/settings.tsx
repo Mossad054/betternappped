@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { 
   Bell, 
   User, 
@@ -10,7 +11,10 @@ import {
   HelpCircle, 
   Globe, 
   Lock,
-  ChevronRight
+  ChevronRight,
+  Database,
+  Wifi,
+  WifiOff
 } from 'lucide-react-native';
 import { NotificationSettings } from '@/components/settings/NotificationSettings';
 import { AccountSettings } from '@/components/settings/AccountSettings';
@@ -19,17 +23,19 @@ import { ThemeSettings } from '@/components/settings/ThemeSettings';
 import { HelpSettings } from '@/components/settings/HelpSettings';
 import { LanguageSettings } from '@/components/settings/LanguageSettings';
 import { SecuritySettings } from '@/components/settings/SecuritySettings';
-import { useAuth } from '@/contexts/AuthContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { testSupabaseConnection } from '@/lib/supabase-debug';
+import { SUPABASE_URL } from '@/lib/constants';
 
 type SettingSection = 'notifications' | 'account' | 'privacy' | 'theme' | 'help' | 'language' | 'security' | 'developer' | null;
 
 export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
   const { theme } = useTheme();
-  const { user, signOut } = useAuth();
+  const { user, isGuest, signOut } = useAuth();
   const [activeSection, setActiveSection] = useState<SettingSection>(null);
   const [useMockData, setUseMockData] = useState(false);
+  const [connectionStatus, setConnectionStatus] = useState<'testing' | 'connected' | 'disconnected' | 'unknown'>('unknown');
   
   // Load mock data preference on mount
   React.useEffect(() => {
@@ -55,6 +61,25 @@ export default function SettingsScreen() {
     }
   };
 
+  const testConnection = async () => {
+    setConnectionStatus('testing');
+    try {
+      const result = await testSupabaseConnection();
+      setConnectionStatus(result.success ? 'connected' : 'disconnected');
+      
+      Alert.alert(
+        'Connection Test',
+        result.success 
+          ? '✅ Supabase connection successful!' 
+          : `❌ Connection failed: ${result.error}`,
+        [{ text: 'OK' }]
+      );
+    } catch (error) {
+      setConnectionStatus('disconnected');
+      Alert.alert('Connection Test', '❌ Connection test failed', [{ text: 'OK' }]);
+    }
+  };
+
   const handleSignOut = async () => {
     Alert.alert(
       'Sign Out',
@@ -69,14 +94,10 @@ export default function SettingsScreen() {
           style: 'destructive',
           onPress: async () => {
             try {
-              const { error } = await signOut();
-              if (error) {
-                Alert.alert('Sign Out Failed', 'There was an error signing out. Please try again.');
-              } else {
-                Alert.alert('Signed Out', 'You have been successfully signed out.');
-              }
+              await signOut();
+              Alert.alert('Signed Out', 'You have been successfully signed out.');
             } catch (error) {
-              Alert.alert('Network Error', 'Please check your connection and try again.');
+              Alert.alert('Sign Out Failed', 'There was an error signing out. Please try again.');
             }
           },
         },
@@ -149,16 +170,37 @@ export default function SettingsScreen() {
     return (
       <TouchableOpacity
         key={section.id}
-        style={[styles.settingItem, { backgroundColor: theme.colors.card }]}
+        style={[
+          styles.settingItem, 
+          { 
+            backgroundColor: theme.colors.card,
+            borderRadius: theme.borderRadius.base,
+            ...theme.shadows.small
+          }
+        ]}
         onPress={() => setActiveSection(section.id)}
         activeOpacity={0.7}
       >
-        <View style={[styles.iconContainer, { backgroundColor: `${section.color}15` }]}>
+        <View style={[styles.iconContainer, { backgroundColor: `${section.color}15`, borderRadius: theme.borderRadius.md }]}>
           <IconComponent size={24} color={section.color} />
         </View>
         <View style={styles.settingContent}>
-          <Text style={[styles.settingTitle, { color: theme.colors.text }]}>{section.title}</Text>
-          <Text style={[styles.settingSubtitle, { color: theme.colors.textSecondary }]}>{section.subtitle}</Text>
+          <Text style={[
+            styles.settingTitle, 
+            { 
+              color: theme.colors.text,
+              fontSize: theme.typography.fontSize.md,
+              fontWeight: theme.typography.fontWeight.semibold
+            }
+          ]}>{section.title}</Text>
+          <Text style={[
+            styles.settingSubtitle, 
+            { 
+              color: theme.colors.textSecondary,
+              fontSize: theme.typography.fontSize.sm,
+              fontWeight: theme.typography.fontWeight.regular
+            }
+          ]}>{section.subtitle}</Text>
         </View>
         <ChevronRight size={20} color={theme.colors.textSecondary} />
       </TouchableOpacity>
@@ -191,6 +233,31 @@ export default function SettingsScreen() {
               </Text>
             </View>
             
+            <View style={[styles.settingItem, { backgroundColor: theme.colors.card }]}>
+              <View style={styles.settingInfo}>
+                <Text style={[styles.settingTitle, { color: theme.colors.text }]}>Supabase Connection</Text>
+                <Text style={[styles.settingDescription, { color: theme.colors.textSecondary }]}>
+                  {SUPABASE_URL === 'https://your-project-id.supabase.co' 
+                    ? 'Using placeholder credentials - update app.json' 
+                    : `Connected to: ${SUPABASE_URL?.substring(0, 30)}...`}
+                </Text>
+                <Text style={[styles.settingDescription, { color: theme.colors.textSecondary, marginTop: 4 }]}>
+                  Status: {connectionStatus === 'testing' ? 'Testing...' : 
+                          connectionStatus === 'connected' ? '✅ Connected' :
+                          connectionStatus === 'disconnected' ? '❌ Disconnected' : '❓ Unknown'}
+                </Text>
+              </View>
+              <TouchableOpacity
+                style={[styles.testButton, { backgroundColor: theme.colors.primary }]}
+                onPress={testConnection}
+                disabled={connectionStatus === 'testing'}
+              >
+                <Text style={styles.testButtonText}>
+                  {connectionStatus === 'testing' ? 'Testing...' : 'Test'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+
             <View style={[styles.settingItem, { backgroundColor: theme.colors.card }]}>
               <View style={styles.settingInfo}>
                 <Text style={[styles.settingTitle, { color: theme.colors.text }]}>Use Mock Data</Text>
@@ -242,9 +309,45 @@ export default function SettingsScreen() {
   
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
-      <ScrollView contentContainerStyle={[styles.content, { paddingTop: insets.top + 20 }]}>
-        <Text style={[styles.title, { color: theme.colors.text }]}>Settings</Text>
-        <Text style={[styles.subtitle, { color: theme.colors.textSecondary }]}>Customize your wellness tracking experience</Text>
+      <ScrollView contentContainerStyle={[styles.content, { paddingTop: insets.top + theme.spacing.lg }]}>
+        <Text style={[
+          styles.title, 
+          { 
+            color: theme.colors.text,
+            fontSize: theme.typography.fontSize.xxxl,
+            fontWeight: theme.typography.fontWeight.bold
+          }
+        ]}>Settings</Text>
+        {user && (
+          <Text style={[
+            styles.userEmail, 
+            { 
+              color: theme.colors.textSecondary,
+              fontSize: theme.typography.fontSize.sm,
+              fontWeight: theme.typography.fontWeight.regular,
+              marginTop: 4
+            }
+          ]}>{user.email}</Text>
+        )}
+        {isGuest && (
+          <Text style={[
+            styles.guestIndicator, 
+            { 
+              color: theme.colors.warning,
+              fontSize: theme.typography.fontSize.sm,
+              fontWeight: theme.typography.fontWeight.regular,
+              marginTop: 4
+            }
+          ]}>Guest Mode</Text>
+        )}
+        <Text style={[
+          styles.subtitle, 
+          { 
+            color: theme.colors.textSecondary,
+            fontSize: theme.typography.fontSize.md,
+            fontWeight: theme.typography.fontWeight.regular
+          }
+        ]}>Customize your wellness tracking experience</Text>
         
         <View style={styles.settingsContainer}>
           {settingSections.map(renderSettingItem)}
@@ -257,45 +360,37 @@ export default function SettingsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F9FAFB',
   },
   content: {
     paddingHorizontal: 20,
     paddingBottom: 20,
   },
   title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#1F2937',
     marginBottom: 8,
   },
   subtitle: {
-    fontSize: 16,
-    color: '#6B7280',
     marginBottom: 24,
   },
   settingsContainer: {
     gap: 12,
   },
   settingItem: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 16,
+    padding: 18,
     flexDirection: 'row',
     alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    marginBottom: 12,
     shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
+    shadowRadius: 12,
+    elevation: 3,
   },
   iconContainer: {
     width: 48,
     height: 48,
-    borderRadius: 12,
+    borderRadius: 24,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 16,
@@ -304,35 +399,35 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   settingTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#1F2937',
     marginBottom: 4,
   },
   settingSubtitle: {
-    fontSize: 14,
-    color: '#6B7280',
   },
   toggle: {
     width: 44,
     height: 24,
-    borderRadius: 12,
     justifyContent: 'center',
     paddingHorizontal: 2,
   },
   toggleThumb: {
     width: 20,
     height: 20,
-    borderRadius: 10,
   },
   signOutButton: {
     paddingHorizontal: 16,
     paddingVertical: 8,
-    borderRadius: 8,
   },
   signOutText: {
-    fontSize: 14,
-    fontWeight: '600',
+  },
+  testButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minWidth: 60,
+  },
+  testButtonText: {
+    color: '#FFFFFF',
   },
   sectionContent: {
     padding: 20,
@@ -341,20 +436,14 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   sectionTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
     marginBottom: 8,
   },
   sectionSubtitle: {
-    fontSize: 16,
-    color: '#6B7280',
   },
   settingInfo: {
     flex: 1,
   },
   settingDescription: {
-    fontSize: 14,
-    color: '#6B7280',
     marginTop: 4,
   },
 });

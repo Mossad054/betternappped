@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, useWindowDimensions, TouchableOpacity, Modal, ScrollView } from 'react-native';
-import { TimeRange } from '@/constants/mockData';
 import { useTheme } from '@/contexts/ThemeContext';
 import { CheckCircle, XCircle, X, TrendingUp, TrendingDown, Calendar, BarChart3 } from 'lucide-react-native';
 
@@ -18,7 +17,7 @@ interface ActivityData {
 
 interface ActivityTrackingProps {
   data: ActivityData[];
-  timeRange: TimeRange;
+  timeRange: 'week' | 'month' | 'year';
 }
 
 export default function ActivityTracking({ data, timeRange }: ActivityTrackingProps) {
@@ -27,7 +26,7 @@ export default function ActivityTracking({ data, timeRange }: ActivityTrackingPr
   const [selectedActivity, setSelectedActivity] = useState<ActivityData | null>(null);
   const [modalVisible, setModalVisible] = useState<boolean>(false);
   
-  const maxCount = Math.max(...data.map(item => item.count));
+  const maxCount = data.length > 0 ? Math.max(...data.map(item => item.count || 0)) : 0;
   const chartWidth = width - 140;
   
   const positiveActivities = data
@@ -89,6 +88,15 @@ export default function ActivityTracking({ data, timeRange }: ActivityTrackingPr
     <View style={[styles.container, { backgroundColor: theme.colors.card }]}>
       <Text style={[styles.title, { color: theme.colors.text }]}>Activity Tracking</Text>
       
+      {!data || data.length === 0 ? (
+        <View style={styles.emptyStateContainer}>
+          <Text style={styles.emptyStateEmoji}>🎯</Text>
+          <Text style={[styles.emptyStateText, { color: theme.colors.textSecondary }]}>
+            No activity data yet. Start tracking activities to see insights here!
+          </Text>
+        </View>
+      ) : (
+        <>
       <View style={styles.chartContainer}>
         {data.map((item) => {
           const barWidth = (item.count / maxCount) * chartWidth;
@@ -235,15 +243,16 @@ export default function ActivityTracking({ data, timeRange }: ActivityTrackingPr
               })()}
             </ScrollView>
           </View>
-        </View>
-      </Modal>
+          </View>
+        </Modal>
+      </>
+      )}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: '#FFFFFF',
     borderRadius: 16,
     padding: 20,
     marginHorizontal: 20,
@@ -256,11 +265,12 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 8,
     elevation: 4,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
   },
   title: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#1F2937',
     marginBottom: 16,
   },
   chartContainer: {
@@ -277,11 +287,9 @@ const styles = StyleSheet.create({
   categoryLabel: {
     fontSize: 14,
     fontWeight: '500',
-    color: '#374151',
   },
   engagementText: {
     fontSize: 11,
-    color: '#6B7280',
     marginTop: 2,
   },
   barContainer: {
@@ -297,18 +305,16 @@ const styles = StyleSheet.create({
   countLabel: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#6B7280',
     minWidth: 30,
   },
   impactSection: {
     borderTopWidth: 1,
-    borderTopColor: '#E5E7EB',
+    borderTopColor: 'rgba(255, 255, 255, 0.1)',
     paddingTop: 20,
   },
   impactTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#1F2937',
     marginBottom: 16,
   },
   impactLists: {
@@ -322,7 +328,6 @@ const styles = StyleSheet.create({
   impactColumnTitle: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#374151',
     marginBottom: 12,
   },
   impactItem: {
@@ -331,7 +336,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     padding: 8,
     borderRadius: 8,
-    backgroundColor: '#F9FAFB',
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
   },
   impactTextContainer: {
     marginLeft: 8,
@@ -340,15 +345,12 @@ const styles = StyleSheet.create({
   impactActivity: {
     fontSize: 13,
     fontWeight: '500',
-    color: '#374151',
   },
   impactValue: {
     fontSize: 12,
-    color: '#10B981',
     fontWeight: '600',
   },
   negativeImpact: {
-    color: '#EF4444',
   },
   modalOverlay: {
     flex: 1,
@@ -356,7 +358,6 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   modalContent: {
-    backgroundColor: '#FFFFFF',
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     maxHeight: '80%',
@@ -369,7 +370,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingBottom: 20,
     borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
+    borderBottomColor: 'rgba(255, 255, 255, 0.1)',
   },
   modalTitleContainer: {
     flexDirection: 'row',
@@ -384,7 +385,6 @@ const styles = StyleSheet.create({
   modalTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#1F2937',
   },
   closeButton: {
     padding: 4,
@@ -397,7 +397,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-around',
     marginBottom: 24,
     paddingVertical: 16,
-    backgroundColor: '#F9FAFB',
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
     borderRadius: 12,
   },
   statItem: {
@@ -405,14 +405,12 @@ const styles = StyleSheet.create({
   },
   statLabel: {
     fontSize: 12,
-    color: '#6B7280',
     marginTop: 4,
     marginBottom: 2,
   },
   statValue: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#1F2937',
   },
   insightSection: {
     marginBottom: 24,
@@ -420,12 +418,10 @@ const styles = StyleSheet.create({
   insightTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#1F2937',
     marginBottom: 8,
   },
   insightDescription: {
     fontSize: 14,
-    color: '#6B7280',
     lineHeight: 20,
   },
   recommendationsSection: {
@@ -434,7 +430,6 @@ const styles = StyleSheet.create({
   recommendationsTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#1F2937',
     marginBottom: 12,
   },
   recommendationItem: {
@@ -446,14 +441,26 @@ const styles = StyleSheet.create({
     width: 6,
     height: 6,
     borderRadius: 3,
-    backgroundColor: '#3B82F6',
     marginTop: 6,
     marginRight: 12,
   },
   recommendationText: {
     flex: 1,
     fontSize: 14,
-    color: '#374151',
     lineHeight: 18,
+  },
+  emptyStateContainer: {
+    padding: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emptyStateEmoji: {
+    fontSize: 48,
+    marginBottom: 12,
+  },
+  emptyStateText: {
+    fontSize: 14,
+    textAlign: 'center',
+    lineHeight: 20,
   },
 });

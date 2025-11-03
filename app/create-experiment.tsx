@@ -7,10 +7,13 @@ import {
   TouchableOpacity,
   Modal,
   Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { Stack, router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useAuth } from '@/contexts/AuthContext';
+import { ExperimentsService } from '@/services/experiments.service';
 import {
   ArrowLeft,
   Check,
@@ -25,6 +28,7 @@ import {
   Heart,
   Shield,
   Zap,
+  X,
 } from 'lucide-react-native';
 
 interface ExperimentStep {
@@ -122,6 +126,8 @@ const reminderTypes = [
 export default function CreateExperimentScreen() {
   const insets = useSafeAreaInsets();
   const { theme } = useTheme();
+  const { user } = useAuth();
+  const styles = createStyles(theme);
   const [currentStep, setCurrentStep] = useState(1);
   const [selectedActivity, setSelectedActivity] = useState<string>('');
   const [selectedOutcomes, setSelectedOutcomes] = useState<string[]>([]);
@@ -130,6 +136,7 @@ export default function CreateExperimentScreen() {
   const [selectedReminderType, setSelectedReminderType] = useState<string>('');
   const [reminderTime, setReminderTime] = useState('09:00');
   const [customActivity, setCustomActivity] = useState('');
+  const [isCreating, setIsCreating] = useState(false);
 
   const handleNext = () => {
     if (currentStep < 6) {
@@ -145,17 +152,84 @@ export default function CreateExperimentScreen() {
     }
   };
 
-  const handleSave = () => {
-    Alert.alert(
-      'Experiment Created!',
-      'Your experiment has been saved and is now active. You\'ll receive reminders to track your progress.',
-      [
-        {
-          text: 'OK',
-          onPress: () => router.back()
-        }
-      ]
-    );
+  const handleSave = async () => {
+    if (!user) {
+      Alert.alert('Error', 'You must be logged in to create an experiment.');
+      return;
+    }
+
+    setIsCreating(true);
+
+    try {
+      // Get activity details
+      const activity = activityOptions.find(a => a.id === selectedActivity);
+      if (!activity) {
+        throw new Error('Please select an activity');
+      }
+
+      // Calculate duration in days
+      const durationMap: { [key: string]: number } = {
+        '1-week': 7,
+        '2-weeks': 14,
+        '1-month': 30,
+      };
+      const durationDays = durationMap[selectedDuration] || 30;
+
+      // Calculate start and end dates
+      const startDate = new Date();
+      const endDate = new Date();
+      endDate.setDate(endDate.getDate() + durationDays);
+
+      // Format dates as YYYY-MM-DD
+      const formatDate = (date: Date) => date.toISOString().split('T')[0];
+
+      // Map outcome IDs to names
+      const outcomeNames = selectedOutcomes.map(id => 
+        outcomeOptions.find(o => o.id === id)?.name || id
+      );
+
+      // Create experiment
+      const { data, error } = await ExperimentsService.create({
+        activity_name: activity.name,
+        activity_emoji: activity.emoji,
+        outcomes: outcomeNames,
+        start_date: formatDate(startDate),
+        end_date: formatDate(endDate),
+        duration: durationDays,
+        status: 'active',
+        current_day: 1,
+        baseline_data: null,
+        results_data: null,
+        insights: null,
+      }, user.id);
+
+      if (error) {
+        throw new Error(error);
+      }
+
+      Alert.alert(
+        'Experiment Created! 🎉',
+        `Your ${activity.name} experiment is now active. Track your progress daily to see results!`,
+        [
+          {
+            text: 'View Experiments',
+            onPress: () => router.push('/experiments-hub')
+          },
+          {
+            text: 'Go Home',
+            onPress: () => router.replace('/')
+          }
+        ]
+      );
+    } catch (error) {
+      console.error('Error creating experiment:', error);
+      Alert.alert(
+        'Creation Failed',
+        error instanceof Error ? error.message : 'Failed to create experiment. Please try again.'
+      );
+    } finally {
+      setIsCreating(false);
+    }
   };
 
   const toggleOutcome = (outcomeId: string) => {
@@ -378,8 +452,36 @@ export default function CreateExperimentScreen() {
           headerStyle: { backgroundColor: theme.colors.card },
           headerTitleStyle: { color: theme.colors.text, fontWeight: '600' },
           headerLeft: () => (
-            <TouchableOpacity onPress={() => router.back()} style={styles.headerButton}>
+            <TouchableOpacity 
+              onPress={() => router.replace('/')} 
+              style={styles.headerButton}
+            >
               <ArrowLeft size={24} color={theme.colors.textSecondary} />
+              <Text style={[styles.headerButtonText, { color: theme.colors.textSecondary }]}>Home</Text>
+            </TouchableOpacity>
+          ),
+          headerRight: () => (
+            <TouchableOpacity 
+              onPress={() => {
+                Alert.alert(
+                  'Cancel Experiment Creation?',
+                  'Are you sure you want to cancel? All progress will be lost.',
+                  [
+                    {
+                      text: 'Continue Creating',
+                      style: 'cancel'
+                    },
+                    {
+                      text: 'Cancel',
+                      style: 'destructive',
+                      onPress: () => router.replace('/')
+                    }
+                  ]
+                );
+              }} 
+              style={styles.headerButton}
+            >
+              <X size={24} color={theme.colors.textSecondary} />
             </TouchableOpacity>
           ),
         }}
@@ -434,15 +536,21 @@ export default function CreateExperimentScreen() {
           <TouchableOpacity
             style={[
               styles.nextButton,
-              { backgroundColor: canProceed() ? theme.colors.primary : theme.colors.textSecondary }
+              { backgroundColor: canProceed() && !isCreating ? theme.colors.primary : theme.colors.textSecondary }
             ]}
             onPress={handleNext}
-            disabled={!canProceed()}
+            disabled={!canProceed() || isCreating}
           >
-            <Text style={styles.nextButtonText}>
-              {currentStep === 6 ? 'Create Experiment' : 'Next'}
-            </Text>
-            <ChevronRight size={20} color="#FFFFFF" />
+            {isCreating && currentStep === 6 ? (
+              <ActivityIndicator color="#FFFFFF" />
+            ) : (
+              <>
+                <Text style={styles.nextButtonText}>
+                  {currentStep === 6 ? 'Create Experiment' : 'Next'}
+                </Text>
+                <ChevronRight size={20} color="#FFFFFF" />
+              </>
+            )}
           </TouchableOpacity>
         </View>
       </View>
@@ -450,52 +558,59 @@ export default function CreateExperimentScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (theme: any) => StyleSheet.create({
   container: {
     flex: 1,
   },
   headerButton: {
-    padding: 8,
-    marginLeft: -8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: theme.spacing.sm,
+    marginHorizontal: theme.spacing.sm,
+  },
+  headerButtonText: {
+    ...theme.typography.body,
+    marginLeft: theme.spacing.xs,
+    fontWeight: '600' as const,
   },
   progressContainer: {
-    paddingHorizontal: 20,
-    paddingVertical: 16,
+    paddingHorizontal: theme.spacing.screenHorizontal,
+    paddingVertical: theme.spacing.md,
     borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
+    borderBottomColor: theme.colors.divider,
   },
   progressBar: {
     flexDirection: 'row',
-    gap: 8,
-    marginBottom: 8,
+    gap: theme.spacing.sm,
+    marginBottom: theme.spacing.sm,
   },
   progressStep: {
     flex: 1,
     height: 4,
-    backgroundColor: '#E5E7EB',
-    borderRadius: 2,
+    backgroundColor: theme.colors.surfaceVariant,
+    borderRadius: theme.radii.xs,
   },
   progressText: {
-    fontSize: 12,
+    ...theme.typography.caption,
     textAlign: 'center',
   },
   content: {
     flex: 1,
-    paddingHorizontal: 20,
+    paddingHorizontal: theme.spacing.screenHorizontal,
   },
   stepHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 24,
-    gap: 16,
+    paddingVertical: theme.spacing.sectionGap,
+    gap: theme.spacing.md,
   },
   stepNumber: {
     fontSize: 32,
     fontWeight: 'bold' as const,
     width: 48,
     height: 48,
-    borderRadius: 24,
-    backgroundColor: '#F3F4F6',
+    borderRadius: theme.radii.circle,
+    backgroundColor: theme.colors.surfaceVariant,
     textAlign: 'center',
     lineHeight: 48,
   },
@@ -503,12 +618,11 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   stepTitle: {
-    fontSize: 24,
-    fontWeight: 'bold' as const,
-    marginBottom: 4,
+    ...theme.typography.h2,
+    marginBottom: theme.spacing.xs,
   },
   stepDescription: {
-    fontSize: 16,
+    ...theme.typography.bodyLarge,
   },
   stepContent: {
     paddingBottom: 100,
@@ -516,200 +630,196 @@ const styles = StyleSheet.create({
   optionsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 12,
+    gap: theme.spacing.elementGap,
   },
   optionCard: {
     width: '48%',
-    padding: 16,
-    borderRadius: 12,
+    padding: theme.spacing.md,
+    borderRadius: theme.radii.md,
     alignItems: 'center',
     borderWidth: 1,
     borderColor: 'transparent',
   },
   optionEmoji: {
     fontSize: 32,
-    marginBottom: 8,
+    marginBottom: theme.spacing.sm,
   },
   optionName: {
-    fontSize: 16,
-    fontWeight: '600' as const,
+    ...theme.typography.h5,
     textAlign: 'center',
-    marginBottom: 4,
+    marginBottom: theme.spacing.xs,
   },
   optionDescription: {
-    fontSize: 12,
+    ...theme.typography.caption,
     textAlign: 'center',
-    marginBottom: 8,
+    marginBottom: theme.spacing.sm,
   },
   optionCategory: {
-    fontSize: 10,
+    ...theme.typography.captionSmall,
     fontWeight: '500' as const,
   },
   outcomesList: {
-    gap: 12,
+    gap: theme.spacing.elementGap,
   },
   outcomeCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 16,
-    borderRadius: 12,
+    padding: theme.spacing.md,
+    borderRadius: theme.radii.md,
     borderWidth: 1,
     borderColor: 'transparent',
   },
   outcomeEmoji: {
     fontSize: 24,
-    marginRight: 16,
+    marginRight: theme.spacing.md,
   },
   outcomeInfo: {
     flex: 1,
   },
   outcomeName: {
-    fontSize: 16,
-    fontWeight: '600' as const,
-    marginBottom: 4,
+    ...theme.typography.h5,
+    marginBottom: theme.spacing.xs,
   },
   outcomeDescription: {
-    fontSize: 14,
+    ...theme.typography.body,
   },
   durationList: {
-    gap: 12,
+    gap: theme.spacing.elementGap,
   },
   durationCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 16,
-    borderRadius: 12,
+    padding: theme.spacing.md,
+    borderRadius: theme.radii.md,
     borderWidth: 1,
     borderColor: 'transparent',
   },
   durationInfo: {
     flex: 1,
-    marginLeft: 16,
+    marginLeft: theme.spacing.md,
   },
   durationName: {
-    fontSize: 16,
-    fontWeight: '600' as const,
-    marginBottom: 4,
+    ...theme.typography.h5,
+    marginBottom: theme.spacing.xs,
   },
   durationDescription: {
-    fontSize: 14,
+    ...theme.typography.body,
   },
   frequencyList: {
-    gap: 12,
+    gap: theme.spacing.elementGap,
   },
   frequencyCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 16,
-    borderRadius: 12,
+    padding: theme.spacing.md,
+    borderRadius: theme.radii.md,
     borderWidth: 1,
     borderColor: 'transparent',
   },
   frequencyInfo: {
     flex: 1,
-    marginLeft: 16,
+    marginLeft: theme.spacing.md,
   },
   frequencyName: {
-    fontSize: 16,
-    fontWeight: '600' as const,
-    marginBottom: 4,
+    ...theme.typography.h5,
+    marginBottom: theme.spacing.xs,
   },
   frequencyDescription: {
-    fontSize: 14,
+    ...theme.typography.body,
   },
   reminderList: {
-    gap: 12,
-    marginBottom: 20,
+    gap: theme.spacing.elementGap,
+    marginBottom: theme.spacing.screenVertical,
   },
   reminderCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 16,
-    borderRadius: 12,
+    padding: theme.spacing.md,
+    borderRadius: theme.radii.md,
     borderWidth: 1,
     borderColor: 'transparent',
   },
   reminderInfo: {
     flex: 1,
-    marginLeft: 16,
+    marginLeft: theme.spacing.md,
   },
   reminderName: {
-    fontSize: 16,
-    fontWeight: '600' as const,
-    marginBottom: 4,
+    ...theme.typography.h5,
+    marginBottom: theme.spacing.xs,
   },
   reminderDescription: {
-    fontSize: 14,
+    ...theme.typography.body,
   },
   timePicker: {
-    padding: 16,
-    borderRadius: 12,
+    padding: theme.spacing.md,
+    borderRadius: theme.radii.md,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
   },
   timePickerLabel: {
-    fontSize: 16,
+    ...theme.typography.bodyLarge,
     fontWeight: '500' as const,
   },
   timePickerValue: {
-    fontSize: 16,
+    ...theme.typography.bodyLarge,
     fontWeight: '600' as const,
   },
   reviewCard: {
-    padding: 20,
-    borderRadius: 16,
-    marginTop: 20,
+    padding: theme.spacing.screenVertical,
+    borderRadius: theme.radii.lg,
+    marginTop: theme.spacing.screenVertical,
   },
   reviewTitle: {
-    fontSize: 18,
-    fontWeight: 'bold' as const,
-    marginBottom: 20,
+    ...theme.typography.h4,
+    marginBottom: theme.spacing.screenVertical,
   },
   reviewSection: {
-    marginBottom: 16,
+    marginBottom: theme.spacing.md,
   },
   reviewLabel: {
-    fontSize: 14,
-    marginBottom: 4,
+    ...theme.typography.body,
+    marginBottom: theme.spacing.xs,
   },
   reviewValue: {
-    fontSize: 16,
+    ...theme.typography.bodyLarge,
     fontWeight: '500' as const,
   },
   footer: {
-    paddingHorizontal: 20,
-    paddingVertical: 16,
+    paddingHorizontal: theme.spacing.screenHorizontal,
+    paddingVertical: theme.spacing.md,
     borderTopWidth: 1,
   },
   footerButtons: {
     flexDirection: 'row',
-    gap: 12,
+    gap: theme.spacing.elementGap,
   },
   backButton: {
     flex: 1,
-    paddingVertical: 16,
-    borderRadius: 12,
+    paddingVertical: theme.spacing.md,
+    borderRadius: theme.radii.md,
     borderWidth: 1,
     alignItems: 'center',
   },
   backButtonText: {
-    fontSize: 16,
-    fontWeight: '600' as const,
+    ...theme.typography.button,
   },
   nextButton: {
     flex: 2,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 16,
-    paddingHorizontal: 24,
-    borderRadius: 12,
-    gap: 8,
+    paddingVertical: theme.spacing.md,
+    paddingHorizontal: theme.spacing.sectionGap,
+    borderRadius: theme.radii.md,
+    gap: theme.spacing.sm,
   },
   nextButtonText: {
+    ...theme.typography.button,
     color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '600' as const,
+  },
+  stepSubtitle: {
+    ...theme.typography.body,
+    marginBottom: theme.spacing.md,
   },
 });

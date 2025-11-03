@@ -1,9 +1,31 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Switch, Modal, Alert } from 'react-native';
+import React, { useState, useEffect, useRef } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Switch, Modal, Alert, Animated } from 'react-native';
 import { Brain, Heart, Moon, Smile, Users, Shield, Trash2, Clock } from 'lucide-react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import type { ActiveHabit, HabitCategory } from '@/constants/mockData';
 import { useTheme } from '@/contexts/ThemeContext';
+
+type HabitCategory = 'MentalClarity' | 'Health' | 'Sleep' | 'Mood' | 'Intimacy' | 'Anxiety';
+
+interface ActiveHabit {
+  id: string;
+  name: string;
+  description: string;
+  category: HabitCategory;
+  quote?: string;
+  emoji?: string;
+  streak: number;
+  streak_goal?: number;
+  streakGoal?: number;
+  completedToday: boolean;
+  feedback?: 'good' | 'neutral' | 'bad';
+  currentDay?: number;
+  totalDays?: number;
+  total_days?: number;
+  progressPercentage?: number;
+  reminderEnabled?: boolean;
+  reminder_enabled?: boolean;
+  instruction?: string;
+}
 
 interface HabitCardProps {
   habit: ActiveHabit;
@@ -55,17 +77,61 @@ const getCategoryColor = (category: HabitCategory, theme: any): string => {
 
 export default function HabitCard({ habit, onToggleComplete, onFeedback, onToggleReminder, onDelete }: HabitCardProps) {
   const { theme } = useTheme();
+  const styles = createStyles(theme);
   const categoryColor = getCategoryColor(habit.category, theme);
   const [showTimePicker, setShowTimePicker] = useState(false);
   const [reminderTime, setReminderTime] = useState(new Date());
+  
+  // Animation value for border
+  const borderAnimation = useRef(new Animated.Value(1)).current;
+  
+  // Setup the bouncing animation
+  useEffect(() => {
+    if (!habit.completedToday) {
+      // Start gentle bouncing animation for incomplete habits
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(borderAnimation, {
+            toValue: 1.05,  // Reduced bounce height for less distraction
+            duration: 1500, // Slower animation
+            useNativeDriver: true,
+          }),
+          Animated.timing(borderAnimation, {
+            toValue: 1,
+            duration: 1500,
+            useNativeDriver: true,
+          }),
+        ])
+      ).start();
+    } else {
+      // Stop animation and reset to normal size for completed habits
+      Animated.timing(borderAnimation, {
+        toValue: 1,
+        duration: 300,
+        useNativeDriver: true,
+      }).start();
+    }
+  }, [habit.completedToday]);
 
   const handleDelete = () => {
+    console.log('Delete button pressed for habit:', habit.id); // Debug log
     Alert.alert(
       'Delete Habit',
-      'Are you sure you want to delete this habit? This action cannot be undone.',
+      `Are you sure you want to delete "${habit.name}"? This action cannot be undone.`,
       [
         { text: 'Cancel', style: 'cancel' },
-        { text: 'Delete', style: 'destructive', onPress: () => onDelete?.(habit.id) }
+        { 
+          text: 'Delete', 
+          style: 'destructive', 
+          onPress: () => {
+            console.log('Delete confirmed for habit:', habit.id); // Debug log
+            if (onDelete) {
+              onDelete(habit.id);
+            } else {
+              console.log('onDelete prop is not defined'); // Debug log
+            }
+          } 
+        }
       ]
     );
   };
@@ -78,15 +144,30 @@ export default function HabitCard({ habit, onToggleComplete, onFeedback, onToggl
   };
   
   return (
-    <View style={[styles.card, { backgroundColor: theme.colors.card }]}>
-      <View style={styles.cardHeader}>
+    <Animated.View style={[
+      styles.card, 
+      { 
+        backgroundColor: theme.colors.card,
+        borderColor: habit.completedToday ? theme.colors.success : theme.colors.border,
+        transform: [{ scale: borderAnimation }]
+      }
+    ]}>
+      <TouchableOpacity 
+        onPress={() => {
+          console.log('Delete button TouchableOpacity pressed'); // Debug log
+          handleDelete();
+        }} 
+        style={[styles.deleteButton, { position: 'absolute', right: 10, top: 10 }]}
+        activeOpacity={0.7}
+        hitSlop={{ top: 20, bottom: 20, left: 20, right: 20 }}
+      >
+        <Trash2 size={24} color={theme.colors.error} />
+      </TouchableOpacity>
+      <View style={[styles.cardHeader, { paddingRight: 40 }]}>
         <View style={[styles.categoryTag, { backgroundColor: categoryColor }]}>
           {getCategoryIcon(habit.category, theme)}
           <Text style={styles.categoryText}>{habit.category}</Text>
         </View>
-        <TouchableOpacity onPress={handleDelete} style={styles.deleteButton}>
-          <Trash2 size={16} color={theme.colors.error} />
-        </TouchableOpacity>
       </View>
 
       <Text style={[styles.habitName, { color: theme.colors.text }]}>{habit.name}</Text>
@@ -106,7 +187,7 @@ export default function HabitCard({ habit, onToggleComplete, onFeedback, onToggl
       <View style={styles.progressSection}>
         <View style={styles.progressInfo}>
           <Text style={[styles.progressText, { color: theme.colors.text }]}>
-            Day {habit.currentDay}/{habit.totalDays}
+            Day {(habit.currentDay || 1)}/{(habit.totalDays || habit.total_days || 30)}
           </Text>
           <Text style={[styles.streakText, { color: theme.colors.textSecondary }]}>🔥 {habit.streak} day streak</Text>
         </View>
@@ -114,7 +195,7 @@ export default function HabitCard({ habit, onToggleComplete, onFeedback, onToggl
           <View 
             style={[
               styles.progressBarFill, 
-              { width: `${habit.progressPercentage}%`, backgroundColor: categoryColor }
+              { width: `${habit.progressPercentage || 0}%`, backgroundColor: categoryColor }
             ]} 
           />
         </View>
@@ -176,7 +257,7 @@ export default function HabitCard({ habit, onToggleComplete, onFeedback, onToggl
       <View style={styles.reminderSection}>
         <View style={styles.reminderLeft}>
           <Text style={[styles.reminderText, { color: theme.colors.text }]}>Reminder</Text>
-          {habit.reminderEnabled && (
+          {(habit.reminderEnabled || habit.reminder_enabled) && (
             <TouchableOpacity 
               style={[styles.timeButton, { backgroundColor: theme.colors.primary }]}
               onPress={() => setShowTimePicker(true)}
@@ -189,7 +270,7 @@ export default function HabitCard({ habit, onToggleComplete, onFeedback, onToggl
           )}
         </View>
         <Switch
-          value={habit.reminderEnabled}
+          value={habit.reminderEnabled || habit.reminder_enabled || false}
           onValueChange={() => onToggleReminder?.(habit.id)}
           trackColor={{ false: theme.colors.textSecondary, true: theme.colors.primary }}
           thumbColor={theme.colors.background}
@@ -197,200 +278,200 @@ export default function HabitCard({ habit, onToggleComplete, onFeedback, onToggl
       </View>
 
       {showTimePicker && (
-        <DateTimePicker
-          value={reminderTime}
-          mode="time"
-          is24Hour={true}
-          display="default"
-          onChange={handleTimeChange}
-        />
-      )}
-    </View>
+          <DateTimePicker
+            value={reminderTime}
+            mode="time"
+            is24Hour={true}
+            display="default"
+            onChange={handleTimeChange}
+          />
+        )}
+      </Animated.View>
   );
 }
 
-const styles = StyleSheet.create({
+// Create theme-aware styles function
+const createStyles = (theme: any) => StyleSheet.create({
   card: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 16,
-    marginHorizontal: 20,
-    marginBottom: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 3,
+    ...theme.components.card,
+    marginHorizontal: theme.spacing.screenHorizontal,
+    marginBottom: theme.spacing.md,
     width: 280,
+    position: 'relative',
+    overflow: 'visible',
+    borderWidth: 2,
+    borderStyle: 'solid',
   },
   cardHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: theme.spacing.elementGap,
   },
   deleteButton: {
-    padding: 4,
+    padding: 12,
+    backgroundColor: 'rgba(255, 59, 48, 0.15)',
+    borderRadius: 25,
+    width: 50,
+    height: 50,
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 999,
+    elevation: 5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
   },
   categoryTag: {
     flexDirection: 'row',
     alignItems: 'center',
     alignSelf: 'flex-start',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 12,
-    marginBottom: 12,
-    gap: 6,
+    paddingHorizontal: theme.spacing.elementGap,
+    paddingVertical: theme.spacing.sm,
+    borderRadius: theme.radii.xl,
+    marginBottom: theme.spacing.elementGap,
+    gap: theme.spacing.chipGap - 2,
   },
   categoryText: {
+    ...theme.typography.captionSmall,
     color: '#FFFFFF',
-    fontSize: 12,
     fontWeight: '600' as const,
   },
   habitName: {
-    fontSize: 18,
-    fontWeight: 'bold' as const,
-    color: '#1F2937',
-    marginBottom: 4,
+    ...theme.typography.h4,
+    marginBottom: theme.spacing.xs,
   },
   habitDescription: {
-    fontSize: 14,
-    color: '#6B7280',
-    marginBottom: 8,
+    ...theme.typography.body,
+    marginBottom: theme.spacing.sm,
   },
   instructionText: {
-    fontSize: 12,
-    color: '#6B7280',
+    ...theme.typography.caption,
     fontStyle: 'italic' as const,
-    marginBottom: 12,
+    marginBottom: theme.spacing.elementGap,
   },
   quoteContainer: {
-    backgroundColor: '#D1FAE5',
-    padding: 12,
-    borderRadius: 8,
-    marginBottom: 12,
+    backgroundColor: theme.colors.moodCalm,
+    padding: theme.spacing.md - 2,
+    borderRadius: theme.radii.lg,
+    marginBottom: theme.spacing.elementGap,
   },
   quoteText: {
-    fontSize: 13,
-    color: '#065F46',
+    ...theme.typography.bodySmall,
+    color: theme.colors.textPrimary,
     fontStyle: 'italic' as const,
   },
   progressSection: {
-    marginBottom: 12,
+    marginBottom: theme.spacing.elementGap,
   },
   progressInfo: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 8,
+    marginBottom: theme.spacing.sm,
   },
   progressText: {
-    fontSize: 13,
-    color: '#4B5563',
+    ...theme.typography.bodySmall,
     fontWeight: '500' as const,
   },
   streakText: {
-    fontSize: 13,
-    color: '#F59E0B',
+    ...theme.typography.bodySmall,
+    color: theme.colors.warning,
     fontWeight: '600' as const,
   },
   progressBarContainer: {
     height: 8,
-    backgroundColor: '#E5E7EB',
-    borderRadius: 4,
+    backgroundColor: theme.colors.surfaceVariant,
+    borderRadius: theme.radii.md,
     overflow: 'hidden',
   },
   progressBarFill: {
     height: '100%',
-    borderRadius: 4,
+    borderRadius: theme.radii.md,
   },
   completedBadge: {
-    backgroundColor: '#D1FAE5',
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 8,
+    backgroundColor: theme.colors.success,
+    paddingVertical: theme.spacing.sm + 2,
+    paddingHorizontal: theme.spacing.md - 2,
+    borderRadius: theme.radii.lg,
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: theme.spacing.elementGap,
   },
   completedText: {
-    fontSize: 14,
-    color: '#065F46',
+    ...theme.typography.body,
+    color: theme.colors.textPrimary,
     fontWeight: '600' as const,
   },
   completeButton: {
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 8,
-    alignItems: 'center',
-    marginBottom: 12,
+    ...theme.components.buttonPrimary,
+    paddingVertical: theme.spacing.md - 2,
+    borderRadius: theme.radii.xl,
+    marginBottom: theme.spacing.elementGap,
   },
   completeButtonText: {
+    ...theme.typography.button,
     color: '#FFFFFF',
     fontSize: 14,
-    fontWeight: '600' as const,
   },
   feedbackSection: {
-    marginBottom: 12,
+    marginBottom: theme.spacing.elementGap,
   },
   feedbackLabel: {
-    fontSize: 13,
-    color: '#6B7280',
-    marginBottom: 8,
-    fontWeight: '500' as const,
+    ...theme.typography.label,
+    marginBottom: theme.spacing.sm,
   },
   feedbackButtons: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    gap: 8,
+    gap: theme.spacing.sm,
   },
   feedbackButton: {
     flex: 1,
     flexDirection: 'column',
     alignItems: 'center',
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 8,
-    backgroundColor: '#F3F4F6',
+    paddingVertical: theme.spacing.sm + 2,
+    paddingHorizontal: theme.spacing.elementGap,
+    borderRadius: theme.radii.lg,
+    backgroundColor: theme.colors.surfaceVariant,
     borderWidth: 2,
     borderColor: 'transparent',
   },
   feedbackButtonActive: {
-    borderColor: '#10B981',
-    backgroundColor: '#ECFDF5',
+    borderColor: theme.colors.primary,
+    backgroundColor: theme.colors.surface,
   },
   feedbackEmoji: {
     fontSize: 20,
-    marginBottom: 4,
+    marginBottom: theme.spacing.xs,
   },
   feedbackButtonText: {
-    fontSize: 12,
-    color: '#4B5563',
+    ...theme.typography.captionSmall,
     fontWeight: '500' as const,
   },
   reminderSection: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingTop: 12,
+    paddingTop: theme.spacing.elementGap,
     borderTopWidth: 1,
-    borderTopColor: '#E5E7EB',
+    borderTopColor: theme.colors.divider,
   },
   reminderLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: theme.spacing.sm,
   },
   reminderText: {
-    fontSize: 14,
-    color: '#4B5563',
+    ...theme.typography.body,
     fontWeight: '500' as const,
   },
   timeButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
-    gap: 4,
+    paddingHorizontal: theme.spacing.sm + 2,
+    paddingVertical: theme.spacing.chipGap - 2,
+    borderRadius: theme.radii.md,
+    gap: theme.spacing.xs,
   },
   timeButtonText: {
     color: '#FFFFFF',
@@ -398,3 +479,4 @@ const styles = StyleSheet.create({
     fontWeight: '500' as const,
   },
 });
+

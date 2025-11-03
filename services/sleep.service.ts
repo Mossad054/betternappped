@@ -1,5 +1,6 @@
-import { supabase } from '@/lib/supabase';
+import { SupabaseSafe } from '@/lib/supabaseSafe';
 import { Database } from '@/lib/supabase';
+import { isGuestMode, guestDataStore } from '@/lib/guestDataStore';
 
 type SleepLog = Database['public']['Tables']['sleep_logs']['Row'];
 type SleepLogInsert = Database['public']['Tables']['sleep_logs']['Insert'];
@@ -7,46 +8,27 @@ type SleepLogUpdate = Database['public']['Tables']['sleep_logs']['Update'];
 
 export class SleepService {
   static async create(data: Omit<SleepLogInsert, 'user_id'>, userId: string): Promise<{ data: SleepLog | null; error: any }> {
-    try {
-      const { data, error } = await supabase
-        .from('sleep_logs')
-        .insert({ ...data, user_id: userId })
-        .select()
-        .single();
-
-      return { data, error };
-    } catch (error) {
-      return { data: null, error };
+    if (await isGuestMode()) {
+      return guestDataStore.create('sleep', data);
     }
+    const result = await SupabaseSafe.insert('sleep_logs', data, userId);
+    return { data: result.data, error: result.error };
   }
 
   static async getAll(userId: string): Promise<{ data: SleepLog[] | null; error: any }> {
-    try {
-      const { data, error } = await supabase
-        .from('sleep_logs')
-        .select('*')
-        .eq('user_id', userId)
-        .order('date', { ascending: false });
-
-      return { data, error };
-    } catch (error) {
-      return { data: null, error };
+    if (await isGuestMode()) {
+      return guestDataStore.getAll('sleep');
     }
+    const result = await SupabaseSafe.select('sleep_logs', { order: { date: 'desc' } }, userId);
+    return { data: result.data, error: result.error };
   }
 
   static async getById(id: string, userId: string): Promise<{ data: SleepLog | null; error: any }> {
-    try {
-      const { data, error } = await supabase
-        .from('sleep_logs')
-        .select('*')
-        .eq('id', id)
-        .eq('user_id', userId)
-        .single();
-
-      return { data, error };
-    } catch (error) {
-      return { data: null, error };
+    if (await isGuestMode()) {
+      return guestDataStore.getById('sleep', id);
     }
+    const result = await SupabaseSafe.select('sleep_logs', { eq: { id } }, userId);
+    return { data: result.data?.[0] || null, error: result.error };
   }
 
   static async getByDateRange(
@@ -54,34 +36,23 @@ export class SleepService {
     startDate: string, 
     endDate: string
   ): Promise<{ data: SleepLog[] | null; error: any }> {
-    try {
-      const { data, error } = await supabase
-        .from('sleep_logs')
-        .select('*')
-        .eq('user_id', userId)
-        .gte('date', startDate)
-        .lte('date', endDate)
-        .order('date', { ascending: true });
-
-      return { data, error };
-    } catch (error) {
-      return { data: null, error };
+    if (await isGuestMode()) {
+      return guestDataStore.getByDateRange('sleep', startDate, endDate);
     }
+    const result = await SupabaseSafe.select('sleep_logs', { 
+      gte: { date: startDate },
+      lte: { date: endDate },
+      order: { date: 'asc' }
+    }, userId);
+    return { data: result.data, error: result.error };
   }
 
   static async getByDate(userId: string, date: string): Promise<{ data: SleepLog | null; error: any }> {
-    try {
-      const { data, error } = await supabase
-        .from('sleep_logs')
-        .select('*')
-        .eq('user_id', userId)
-        .eq('date', date)
-        .single();
-
-      return { data, error };
-    } catch (error) {
-      return { data: null, error };
+    if (await isGuestMode()) {
+      return guestDataStore.getByDate('sleep', date);
     }
+    const result = await SupabaseSafe.select('sleep_logs', { eq: { date } }, userId);
+    return { data: result.data?.[0] || null, error: result.error };
   }
 
   static async update(
@@ -89,84 +60,54 @@ export class SleepService {
     data: Omit<SleepLogUpdate, 'user_id'>, 
     userId: string
   ): Promise<{ data: SleepLog | null; error: any }> {
-    try {
-      const { data: updatedData, error } = await supabase
-        .from('sleep_logs')
-        .update(data)
-        .eq('id', id)
-        .eq('user_id', userId)
-        .select()
-        .single();
-
-      return { data: updatedData, error };
-    } catch (error) {
-      return { data: null, error };
+    if (await isGuestMode()) {
+      return guestDataStore.update('sleep', id, data);
     }
+    const result = await SupabaseSafe.update('sleep_logs', id, data, userId);
+    return { data: result.data, error: result.error };
   }
 
   static async delete(id: string, userId: string): Promise<{ error: any }> {
-    try {
-      const { error } = await supabase
-        .from('sleep_logs')
-        .delete()
-        .eq('id', id)
-        .eq('user_id', userId);
-
-      return { error };
-    } catch (error) {
-      return { error };
+    if (await isGuestMode()) {
+      return guestDataStore.delete('sleep', id);
     }
+    const result = await SupabaseSafe.delete('sleep_logs', id, userId);
+    return { error: result.error };
   }
 
   static async upsert(data: Omit<SleepLogInsert, 'user_id'>, userId: string): Promise<{ data: SleepLog | null; error: any }> {
-    try {
-      const { data: result, error } = await supabase
-        .from('sleep_logs')
-        .upsert({ ...data, user_id: userId })
-        .select()
-        .single();
-
-      return { data: result, error };
-    } catch (error) {
-      return { data: null, error };
+    // For upsert, we'll try to get existing record first, then update or insert
+    const existing = await this.getByDate(userId, data.date);
+    
+    if (existing.data) {
+      return await this.update(existing.data.id, data, userId);
+    } else {
+      return await this.create(data, userId);
     }
   }
 
   static async getAverageHours(userId: string, days: number = 7): Promise<{ data: number | null; error: any }> {
-    try {
-      const { data, error } = await supabase
-        .from('sleep_logs')
-        .select('hours')
-        .eq('user_id', userId)
-        .order('date', { ascending: false })
-        .limit(days);
+    const result = await SupabaseSafe.select('sleep_logs', { 
+      limit: days,
+      order: { date: 'desc' }
+    }, userId);
 
-      if (error) return { data: null, error };
+    if (result.error) return { data: null, error: result.error };
+    if (!result.data || result.data.length === 0) return { data: null, error: null };
 
-      if (!data || data.length === 0) return { data: null, error: null };
-
-      const average = data.reduce((sum, log) => sum + Number(log.hours), 0) / data.length;
-      return { data: Number(average.toFixed(1)), error: null };
-    } catch (error) {
-      return { data: null, error };
-    }
+    const average = result.data.reduce((sum, log) => sum + Number(log.hours), 0) / result.data.length;
+    return { data: Number(average.toFixed(1)), error: null };
   }
 
   static async getQualityTrend(userId: string, days: number = 7): Promise<{ data: number[] | null; error: any }> {
-    try {
-      const { data, error } = await supabase
-        .from('sleep_logs')
-        .select('quality')
-        .eq('user_id', userId)
-        .order('date', { ascending: true })
-        .limit(days);
+    const result = await SupabaseSafe.select('sleep_logs', { 
+      limit: days,
+      order: { date: 'asc' }
+    }, userId);
 
-      if (error) return { data: null, error };
+    if (result.error) return { data: null, error: result.error };
 
-      const trend = data?.map(log => log.quality) || [];
-      return { data: trend, error: null };
-    } catch (error) {
-      return { data: null, error };
-    }
+    const trend = result.data?.map(log => log.quality) || [];
+    return { data: trend, error: null };
   }
 }
