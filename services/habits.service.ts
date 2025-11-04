@@ -242,4 +242,33 @@ export class HabitsService {
     
     return { data: rate, error: null };
   }
+
+  /**
+   * Get all habit logs for a user within a date range
+   * Used for correlation analysis with wellness metrics
+   */
+  static async getHabitLogsByDateRange(
+    userId: string,
+    startDate: string,
+    endDate: string
+  ): Promise<{ data: HabitLog[] | null; error: any }> {
+    if (await isGuestMode()) {
+      // For guest mode, return empty array
+      return { data: [], error: null };
+    }
+
+    try {
+      const result = await SupabaseSafe.select('habit_logs', {
+        eq: { user_id: userId },
+        gte: { date: startDate },
+        lte: { date: endDate },
+        order: { date: 'desc' }
+      }, userId);
+
+      return { data: result.data || [], error: result.error };
+    } catch (error) {
+      console.error('Error fetching habit logs by date range:', error);
+      return { data: null, error };
+    }
+  }
 }

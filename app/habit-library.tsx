@@ -9,7 +9,7 @@ import {
   TextInput,
   Alert,
 } from 'react-native';
-import { Stack, router } from 'expo-router';
+import { Stack, router, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -33,18 +33,62 @@ export default function HabitLibraryScreen() {
   const insets = useSafeAreaInsets();
   const { theme } = useTheme();
   const { user } = useAuth();
+  const params = useLocalSearchParams();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<HabitCategory | 'All'>('All');
   const [selectedHabit, setSelectedHabit] = useState<HabitLibraryItem | null>(null);
   const [modalVisible, setModalVisible] = useState(false);
   const [activeHabits, setActiveHabits] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isFromPrefill, setIsFromPrefill] = useState(false);
 
   useEffect(() => {
     if (user) {
       loadActiveHabits();
     }
   }, [user]);
+
+  // Handle prefill from Impact Analysis
+  useEffect(() => {
+    if (params.prefill === 'true' && params.name) {
+      setIsFromPrefill(true);
+      console.log('📥 Prefill params received:', params);
+      
+      // Try to find matching habit in library
+      const allHabits = getAllHabits();
+      const matchingHabit = allHabits.find(
+        habit => habit.name.toLowerCase() === (params.name as string).toLowerCase()
+      );
+
+      if (matchingHabit) {
+        // Found matching habit, auto-select it
+        setSelectedHabit(matchingHabit);
+        setModalVisible(true);
+      } else {
+        // No matching habit, search by category or show as custom
+        if (params.category) {
+          const categoryHabits = allHabits.filter(
+            habit => habit.category.toLowerCase() === (params.category as string).toLowerCase()
+          );
+          if (categoryHabits.length > 0) {
+            // Show category habits
+            setSelectedCategory(params.category as HabitCategory);
+          }
+        }
+        // Could also create a custom habit here or show a message
+        console.log('💡 No exact match found, showing category or all habits');
+      }
+    }
+  }, [params]);
+
+  const getAllHabits = (): HabitLibraryItem[] => {
+    const habitLibraryData = getHabitLibraryData();
+    let allHabits: HabitLibraryItem[] = [];
+    Object.values(habitLibraryData).forEach(categoryHabits => {
+      allHabits = [...allHabits, ...categoryHabits];
+    });
+    return allHabits;
+  };
 
   const loadActiveHabits = async () => {
     if (!user) return;
@@ -107,11 +151,35 @@ export default function HabitLibraryScreen() {
         return;
       }
 
-      // Reload active habits
+      // Reload active habits to update the UI
       await loadActiveHabits();
       setModalVisible(false);
       setSelectedHabit(null);
-      Alert.alert('Success', 'Habit added successfully!');
+      
+      if (isFromPrefill) {
+        // Coming from Impact Analysis - show success and navigate back
+        Alert.alert(
+          'Success!', 
+          `${habit.name} has been converted to an active habit and is now tracking in your habits list.`,
+          [
+            {
+              text: 'View My Habits',
+              onPress: () => {
+                // Small delay to ensure real-time sync propagates
+                setTimeout(() => {
+                  router.push('/(tabs)/home');
+                }, 100);
+              },
+            },
+            {
+              text: 'OK',
+              style: 'cancel',
+            }
+          ]
+        );
+      } else {
+        Alert.alert('Success', 'Habit added successfully!');
+      }
     } catch (error) {
       console.error('Error adding habit:', error);
       Alert.alert('Error', 'Failed to add habit. Please try again.');
@@ -348,7 +416,9 @@ export default function HabitLibraryScreen() {
                       onPress={() => handleAddHabit(selectedHabit)}
                     >
                       <Plus size={20} color="#FFFFFF" />
-                      <Text style={styles.addHabitText}>Add to Active Habits</Text>
+                      <Text style={styles.addHabitText}>
+                        {isFromPrefill ? 'Convert to Active Habit' : 'Add to Active Habits'}
+                      </Text>
                     </TouchableOpacity>
                   )}
                 </View>

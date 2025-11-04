@@ -8,7 +8,7 @@ import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Plus, X } from 'lu
 import { AnalyticsService } from '@/services/analytics.service';
 import { useRealtimeMoods, useRealtimeActivities, useRealtimeSleep, useRealtimeHabits, useRealtimeExperiments } from '@/hooks/useRealtimeData';
 import DayDetailModal from '@/components/DayDetailModal';
-import type { DailyDetailData } from '@/services/analytics.service';
+import type { DailyDetailData, MonthlySummary, WellBeingLegend } from '@/services/analytics.service';
 
 export default function CalendarScreen() {
   const insets = useSafeAreaInsets();
@@ -26,6 +26,10 @@ export default function CalendarScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [loadingDetail, setLoadingDetail] = useState(false);
   const [lastFetchTime, setLastFetchTime] = useState<number>(0);
+  const [monthlySummary, setMonthlySummary] = useState<MonthlySummary | null>(null);
+  const [summaryLoading, setSummaryLoading] = useState(false);
+  const [wellBeingLegend, setWellBeingLegend] = useState<WellBeingLegend | null>(null);
+  const [legendLoading, setLegendLoading] = useState(false);
 
   const year = useMemo(() => currentDate.getFullYear(), [currentDate]);
   const month = useMemo(() => currentDate.getMonth() + 1, [currentDate]);
@@ -152,13 +156,69 @@ export default function CalendarScreen() {
     }
   }, [user, year, month, lastFetchTime]);
 
+  const loadMonthlySummary = useCallback(async () => {
+    if (!user) {
+      setMonthlySummary(null);
+      return;
+    }
+
+    setSummaryLoading(true);
+    try {
+      console.log(`📊 Loading monthly summary for ${year}-${month}`);
+      const { data, error } = await AnalyticsService.getMonthlySummary(user.id, year, month);
+      
+      if (error) {
+        console.error('Error loading monthly summary:', error);
+        setMonthlySummary(null);
+      } else {
+        setMonthlySummary(data);
+        console.log('📊 Monthly summary loaded:', data);
+      }
+    } catch (err) {
+      console.error('Error loading monthly summary:', err);
+      setMonthlySummary(null);
+    } finally {
+      setSummaryLoading(false);
+    }
+  }, [user, year, month]);
+
+  const loadWellBeingLegend = useCallback(async () => {
+    if (!user) {
+      setWellBeingLegend(null);
+      return;
+    }
+
+    setLegendLoading(true);
+    try {
+      console.log(`📊 Loading well-being legend for ${year}-${month}`);
+      const { data, error } = await AnalyticsService.getWellBeingLegend(user.id, year, month);
+      
+      if (error) {
+        console.error('Error loading well-being legend:', error);
+        setWellBeingLegend(null);
+      } else {
+        setWellBeingLegend(data);
+        console.log('📊 Well-being legend loaded:', data);
+      }
+    } catch (err) {
+      console.error('Error loading well-being legend:', err);
+      setWellBeingLegend(null);
+    } finally {
+      setLegendLoading(false);
+    }
+  }, [user, year, month]);
+
   useEffect(() => {
     if (user) {
       loadCalendarData(false);
+      loadMonthlySummary(); // Load monthly summary alongside calendar data
+      loadWellBeingLegend(); // Load well-being legend alongside calendar data
     } else {
       // If no user, ensure loading is false
       setLoading(false);
       setCalendarData({});
+      setMonthlySummary(null);
+      setWellBeingLegend(null);
     }
   }, [user, year, month]); // Removed loadCalendarData from deps to prevent infinite loop
 
@@ -178,9 +238,11 @@ export default function CalendarScreen() {
 
   // Set up real-time subscriptions - these will trigger loadCalendarData on changes
   const handleRealtimeUpdate = useCallback(() => {
-    console.log('Realtime update detected - refreshing calendar');
+    console.log('Realtime update detected - refreshing calendar, summary, and legend');
     loadCalendarData(true); // Force refresh on realtime updates
-  }, [loadCalendarData]);
+    loadMonthlySummary(); // Also refresh monthly summary
+    loadWellBeingLegend(); // Also refresh well-being legend
+  }, [loadCalendarData, loadMonthlySummary, loadWellBeingLegend]);
 
   useRealtimeMoods(user?.id || '', handleRealtimeUpdate);
   useRealtimeActivities(user?.id || '', handleRealtimeUpdate);
@@ -191,8 +253,10 @@ export default function CalendarScreen() {
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     await loadCalendarData(true); // Force refresh on manual pull-to-refresh
+    await loadMonthlySummary(); // Also refresh monthly summary
+    await loadWellBeingLegend(); // Also refresh well-being legend
     setRefreshing(false);
-  }, [loadCalendarData]);
+  }, [loadCalendarData, loadMonthlySummary, loadWellBeingLegend]);
 
   const selectedDayData = useMemo(() => {
     return selectedDayDetailData;
@@ -359,31 +423,42 @@ export default function CalendarScreen() {
           key={date}
           style={[
             styles.dayCell,
-            isToday && styles.todayCell,
-            hasData && { backgroundColor: dayData.color + '15' }, // Filled background for days with data
-            !hasData && !isToday && styles.emptyDateCell, // Dashed border for empty dates
           ]}
           onPress={() => handleDatePress(date)}
           activeOpacity={0.7}
         >
-          <View style={styles.dayContent}>
+          <View style={[
+            styles.dayCircle,
+            isToday && [
+              styles.todayCircle,
+              { 
+                borderColor: theme.colors.primary,
+                backgroundColor: theme.colors.primary + '10',
+              }
+            ],
+            hasData && [
+              styles.dataCircle,
+              { 
+                borderColor: '#86EFAC',
+                backgroundColor: theme.colors.success + '08',
+              }
+            ],
+            !hasData && !isToday && [
+              styles.emptyCircle,
+              { borderColor: theme.colors.border }
+            ],
+          ]}>
             <Text style={[
               styles.dayText,
-              isToday && styles.todayText,
-              { color: isToday ? theme.colors.primary : theme.colors.text }
+              { color: theme.colors.textSecondary },
+              isToday && [styles.todayText, { color: theme.colors.primary }],
+              hasData && [styles.dataText, { color: theme.colors.text }],
             ]}>
               {day}
             </Text>
             {hasData && dayData ? (
-              <View style={styles.moodIndicators}>
-                {/* Main well-being indicator ring */}
-                <View 
-                  style={[
-                    styles.wellBeingRing,
-                    { borderColor: dayData.color }
-                  ]} 
-                />
-                {/* Mood emoji overlay */}
+              <View style={styles.dataIndicators}>
+                {/* Mood emoji - primary indicator */}
                 {dayData.mood && (
                   <Text style={styles.moodEmoji}>
                     {dayData.mood.score >= 4 ? '😊' : dayData.mood.score >= 3 ? '😐' : '😕'}
@@ -391,7 +466,7 @@ export default function CalendarScreen() {
                 )}
                 {/* Micro-indicators for additional data types */}
                 {(dayData.sleep || dayData.activities || dayData.habits) && (
-                  <View style={styles.additionalIndicators}>
+                  <View style={styles.microIndicators}>
                     {dayData.sleep && (
                       <View style={[styles.microDot, { backgroundColor: '#3B82F6' }]} />
                     )}
@@ -407,7 +482,7 @@ export default function CalendarScreen() {
             ) : (
               !isToday && (
                 <View style={styles.emptyIndicator}>
-                  <Plus size={12} color={theme.colors.textSecondary} opacity={0.3} />
+                  <Plus size={10} color={theme.colors.textSecondary} opacity={0.25} />
                 </View>
               )
             )}
@@ -423,12 +498,21 @@ export default function CalendarScreen() {
     const dates = Object.keys(calendarData);
     const moodScores = dates.map(date => calendarData[date].mood?.score).filter(score => typeof score === 'number');
     
+    // Updated thresholds per requirements:
+    // Good Days: mood >= 4
+    // Neutral Days: mood between 2.5 and 3.9
+    // Tough Days: mood < 2.5
     const goodDays = moodScores.filter(score => score >= 4).length;
-    const neutralDays = moodScores.filter(score => score === 3).length;
-    const badDays = moodScores.filter(score => score <= 2).length;
+    const neutralDays = moodScores.filter(score => score >= 2.5 && score < 4).length;
+    const toughDays = moodScores.filter(score => score < 2.5).length;
     const avgMood = moodScores.length > 0 ? (moodScores.reduce((sum, score) => sum + score, 0) / moodScores.length) : 0;
 
-    return { goodDays, neutralDays, badDays, avgMood: avgMood.toFixed(1) };
+    return { 
+      goodDays, 
+      neutralDays, 
+      badDays: toughDays, // Keep 'badDays' key for backward compatibility with UI
+      avgMood: avgMood.toFixed(1) 
+    };
   };
 
   const getSummaryStats = () => {
@@ -515,27 +599,35 @@ export default function CalendarScreen() {
         {/* Month Stats */}
         <View style={[styles.statsContainer, { backgroundColor: theme.colors.card }]}>
           <Text style={[styles.statsTitle, { color: theme.colors.text }]}>This Month Overview</Text>
-          <View style={styles.statsRow}>
-            <View style={styles.statItem}>
-              <View style={[styles.statDot, { backgroundColor: theme.colors.primary }]} />
-              <Text style={[styles.statLabel, { color: theme.colors.textSecondary }]}>Good Days</Text>
-              <Text style={[styles.statValue, { color: theme.colors.text }]}>{moodStats.goodDays}</Text>
+          {moodStats.goodDays === 0 && moodStats.neutralDays === 0 && moodStats.badDays === 0 ? (
+            <View style={styles.overviewEmptyState}>
+              <Text style={[styles.overviewEmptyText, { color: theme.colors.textSecondary }]}>
+                No mood data available for this month.
+              </Text>
             </View>
-            <View style={styles.statItem}>
-              <View style={[styles.statDot, { backgroundColor: theme.colors.warning }]} />
-              <Text style={[styles.statLabel, { color: theme.colors.textSecondary }]}>Neutral Days</Text>
-              <Text style={[styles.statValue, { color: theme.colors.text }]}>{moodStats.neutralDays}</Text>
+          ) : (
+            <View style={styles.statsRow}>
+              <View style={styles.statItem}>
+                <View style={[styles.statDot, { backgroundColor: theme.colors.primary }]} />
+                <Text style={[styles.statLabel, { color: theme.colors.textSecondary }]}>Good Days</Text>
+                <Text style={[styles.statValue, { color: theme.colors.text }]}>{moodStats.goodDays}</Text>
+              </View>
+              <View style={styles.statItem}>
+                <View style={[styles.statDot, { backgroundColor: theme.colors.warning }]} />
+                <Text style={[styles.statLabel, { color: theme.colors.textSecondary }]}>Neutral Days</Text>
+                <Text style={[styles.statValue, { color: theme.colors.text }]}>{moodStats.neutralDays}</Text>
+              </View>
+              <View style={styles.statItem}>
+                <View style={[styles.statDot, { backgroundColor: theme.colors.error }]} />
+                <Text style={[styles.statLabel, { color: theme.colors.textSecondary }]}>Tough Days</Text>
+                <Text style={[styles.statValue, { color: theme.colors.text }]}>{moodStats.badDays}</Text>
+              </View>
+              <View style={styles.statItem}>
+                <Text style={[styles.statLabel, { color: theme.colors.textSecondary }]}>Avg Mood</Text>
+                <Text style={[styles.statValue, { color: theme.colors.text }]}>{moodStats.avgMood}/5</Text>
+              </View>
             </View>
-            <View style={styles.statItem}>
-              <View style={[styles.statDot, { backgroundColor: theme.colors.error }]} />
-              <Text style={[styles.statLabel, { color: theme.colors.textSecondary }]}>Tough Days</Text>
-              <Text style={[styles.statValue, { color: theme.colors.text }]}>{moodStats.badDays}</Text>
-            </View>
-            <View style={styles.statItem}>
-              <Text style={[styles.statLabel, { color: theme.colors.textSecondary }]}>Avg Mood</Text>
-              <Text style={[styles.statValue, { color: theme.colors.text }]}>{moodStats.avgMood}/5</Text>
-            </View>
-          </View>
+          )}
         </View>
 
         {/* Calendar */}
@@ -573,92 +665,167 @@ export default function CalendarScreen() {
         <View style={[styles.summaryCard, { backgroundColor: theme.colors.card }]}>
           <Text style={[styles.summaryTitle, { color: theme.colors.text }]}>Monthly Summary</Text>
           
-          <View style={styles.summaryGrid}>
-            <View style={styles.summaryItem}>
-              <Text style={styles.summaryEmoji}>🧠</Text>
-              <Text style={[styles.summaryLabel, { color: theme.colors.textSecondary }]}>Mental Clarity</Text>
-              <Text style={[styles.summaryValue, { color: theme.colors.text }]}>{summaryStats.avgMentalClarity}/10</Text>
-            </View>
-            
-            <View style={styles.summaryItem}>
-              <Text style={styles.summaryEmoji}>😴</Text>
-              <Text style={[styles.summaryLabel, { color: theme.colors.textSecondary }]}>Sleep Quality</Text>
-              <Text style={[styles.summaryValue, { color: theme.colors.text }]}>{summaryStats.avgSleep}h avg</Text>
-            </View>
-            
-            <View style={styles.summaryItem}>
-              <Text style={styles.summaryEmoji}>🔥</Text>
-              <Text style={[styles.summaryLabel, { color: theme.colors.textSecondary }]}>Habit Streak</Text>
-              <Text style={[styles.summaryValue, { color: theme.colors.text }]}>{summaryStats.avgHabitCompletion} avg</Text>
-            </View>
-          </View>
-          
-          <View style={styles.summaryInsights}>
-            <Text style={[styles.insightsTitle, { color: theme.colors.text }]}>Key Insights</Text>
-            <View style={styles.insightItem}>
-              <Text style={styles.insightBullet}>•</Text>
-              <Text style={[styles.insightText, { color: theme.colors.textSecondary }]}>
-                Your best mood days correlate with 8+ hours of sleep
+          {summaryLoading ? (
+            <View style={styles.summaryLoadingContainer}>
+              <ActivityIndicator size="small" color={theme.colors.primary} />
+              <Text style={[styles.summaryLoadingText, { color: theme.colors.textSecondary }]}>
+                Analyzing your wellness data...
               </Text>
             </View>
-            <View style={styles.insightItem}>
-              <Text style={styles.insightBullet}>•</Text>
-              <Text style={[styles.insightText, { color: theme.colors.textSecondary }]}>
-                Exercise days show 25% higher mental clarity scores
+          ) : monthlySummary ? (
+            <>
+              <View style={styles.summaryGrid}>
+                <View style={styles.summaryItem}>
+                  <Text style={styles.summaryEmoji}>😊</Text>
+                  <Text style={[styles.summaryLabel, { color: theme.colors.textSecondary }]}>Avg Mood</Text>
+                  <Text style={[styles.summaryValue, { color: theme.colors.text }]}>
+                    {monthlySummary.summary.avgMood > 0 ? `${monthlySummary.summary.avgMood}/5` : 'N/A'}
+                  </Text>
+                </View>
+                
+                <View style={styles.summaryItem}>
+                  <Text style={styles.summaryEmoji}>😴</Text>
+                  <Text style={[styles.summaryLabel, { color: theme.colors.textSecondary }]}>Avg Sleep</Text>
+                  <Text style={[styles.summaryValue, { color: theme.colors.text }]}>
+                    {monthlySummary.summary.avgSleep > 0 ? `${monthlySummary.summary.avgSleep}h` : 'N/A'}
+                  </Text>
+                </View>
+                
+                <View style={styles.summaryItem}>
+                  <Text style={styles.summaryEmoji}>🧠</Text>
+                  <Text style={[styles.summaryLabel, { color: theme.colors.textSecondary }]}>Avg Clarity</Text>
+                  <Text style={[styles.summaryValue, { color: theme.colors.text }]}>
+                    {monthlySummary.summary.avgClarity > 0 ? `${monthlySummary.summary.avgClarity}/10` : 'N/A'}
+                  </Text>
+                </View>
+              </View>
+              
+              <View style={styles.summaryInsights}>
+                <Text style={[styles.insightsTitle, { color: theme.colors.text }]}>Key Insights</Text>
+                {monthlySummary.insights.map((insight, index) => (
+                  <View key={index} style={styles.insightItem}>
+                    <Text style={styles.insightBullet}>•</Text>
+                    <Text style={[styles.insightText, { color: theme.colors.textSecondary }]}>
+                      {insight}
+                    </Text>
+                  </View>
+                ))}
+              </View>
+            </>
+          ) : (
+            <View style={styles.summaryEmptyState}>
+              <Text style={[styles.summaryEmptyText, { color: theme.colors.textSecondary }]}>
+                Start logging data to see your personalized monthly summary and insights.
               </Text>
             </View>
-            <View style={styles.insightItem}>
-              <Text style={styles.insightBullet}>•</Text>
-              <Text style={[styles.insightText, { color: theme.colors.textSecondary }]}>
-                Consistent meditation practice improves sleep quality
-              </Text>
-            </View>
-          </View>
+          )}
         </View>
 
-        {/* Enhanced Legend */}
+        {/* Enhanced Legend - Dynamic Well-Being Distribution */}
         <View style={[styles.legendContainer, { backgroundColor: theme.colors.card }]}>
           <Text style={[styles.legendTitle, { color: theme.colors.text }]}>Daily Well-Being Legend</Text>
-          <View style={styles.legendGrid}>
-            <View style={styles.legendItem}>
-              <View style={[styles.legendRing, { borderColor: theme.colors.success }]} />
-              <Text style={[styles.legendText, { color: theme.colors.textSecondary }]}>Great Day</Text>
-            </View>
-            <View style={styles.legendItem}>
-              <View style={[styles.legendRing, { borderColor: theme.colors.primary }]} />
-              <Text style={[styles.legendText, { color: theme.colors.textSecondary }]}>Good Day</Text>
-            </View>
-            <View style={styles.legendItem}>
-              <View style={[styles.legendRing, { borderColor: theme.colors.warning }]} />
-              <Text style={[styles.legendText, { color: theme.colors.textSecondary }]}>Fair Day</Text>
-            </View>
-            <View style={styles.legendItem}>
-              <View style={[styles.legendRing, { borderColor: theme.colors.error }]} />
-              <Text style={[styles.legendText, { color: theme.colors.textSecondary }]}>Tough Day</Text>
-            </View>
-          </View>
           
-          <View style={[styles.legendDivider, { backgroundColor: theme.colors.border }]} />
-          
-          <Text style={[styles.legendSubtitle, { color: theme.colors.textSecondary }]}>Data Indicators</Text>
-          <View style={styles.legendGrid}>
-            <View style={styles.legendItem}>
-              <View style={[styles.microDot, { backgroundColor: '#3B82F6' }]} />
-              <Text style={[styles.legendTextSmall, { color: theme.colors.textSecondary }]}>Sleep</Text>
+          {legendLoading ? (
+            <View style={styles.legendLoadingContainer}>
+              <ActivityIndicator size="small" color={theme.colors.primary} />
+              <Text style={[styles.legendLoadingText, { color: theme.colors.textSecondary }]}>
+                Analyzing your month's well-being...
+              </Text>
             </View>
-            <View style={styles.legendItem}>
-              <View style={[styles.microDot, { backgroundColor: '#A855F7' }]} />
-              <Text style={[styles.legendTextSmall, { color: theme.colors.textSecondary }]}>Activities</Text>
+          ) : wellBeingLegend && wellBeingLegend.summary.totalDays > 0 ? (
+            <>
+              {/* Day Classification Grid with Counts and Percentages */}
+              <View style={styles.legendGrid}>
+                <View style={styles.legendItem}>
+                  <View style={[styles.legendRing, { borderColor: theme.colors.success }]} />
+                  <Text style={[styles.legendText, { color: theme.colors.textSecondary }]}>Great Day</Text>
+                  <Text style={[styles.legendCount, { color: theme.colors.text }]}>
+                    {wellBeingLegend.summary.greatDays}
+                  </Text>
+                  <Text style={[styles.legendPercentage, { color: theme.colors.success }]}>
+                    {wellBeingLegend.percentages.greatDays}%
+                  </Text>
+                </View>
+                <View style={styles.legendItem}>
+                  <View style={[styles.legendRing, { borderColor: theme.colors.primary }]} />
+                  <Text style={[styles.legendText, { color: theme.colors.textSecondary }]}>Good Day</Text>
+                  <Text style={[styles.legendCount, { color: theme.colors.text }]}>
+                    {wellBeingLegend.summary.goodDays}
+                  </Text>
+                  <Text style={[styles.legendPercentage, { color: theme.colors.primary }]}>
+                    {wellBeingLegend.percentages.goodDays}%
+                  </Text>
+                </View>
+                <View style={styles.legendItem}>
+                  <View style={[styles.legendRing, { borderColor: theme.colors.warning }]} />
+                  <Text style={[styles.legendText, { color: theme.colors.textSecondary }]}>Fair Day</Text>
+                  <Text style={[styles.legendCount, { color: theme.colors.text }]}>
+                    {wellBeingLegend.summary.fairDays}
+                  </Text>
+                  <Text style={[styles.legendPercentage, { color: theme.colors.warning }]}>
+                    {wellBeingLegend.percentages.fairDays}%
+                  </Text>
+                </View>
+                <View style={styles.legendItem}>
+                  <View style={[styles.legendRing, { borderColor: theme.colors.error }]} />
+                  <Text style={[styles.legendText, { color: theme.colors.textSecondary }]}>Tough Day</Text>
+                  <Text style={[styles.legendCount, { color: theme.colors.text }]}>
+                    {wellBeingLegend.summary.toughDays}
+                  </Text>
+                  <Text style={[styles.legendPercentage, { color: theme.colors.error }]}>
+                    {wellBeingLegend.percentages.toughDays}%
+                  </Text>
+                </View>
+              </View>
+              
+              <View style={[styles.legendDivider, { backgroundColor: theme.colors.border }]} />
+              
+              {/* Impact Insights */}
+              <Text style={[styles.legendSubtitle, { color: theme.colors.text }]}>Impact Insights</Text>
+              <View style={styles.impactInsightsContainer}>
+                {wellBeingLegend.impactInsights.map((insight, index) => (
+                  <View key={index} style={styles.impactInsightItem}>
+                    <Text style={[styles.impactInsightBullet, { color: theme.colors.primary }]}>•</Text>
+                    <Text style={[styles.impactInsightText, { color: theme.colors.textSecondary }]}>
+                      {insight}
+                    </Text>
+                  </View>
+                ))}
+              </View>
+              
+              <View style={[styles.legendDivider, { backgroundColor: theme.colors.border }]} />
+              
+              {/* Data Indicators */}
+              <Text style={[styles.legendSubtitle, { color: theme.colors.textSecondary }]}>Data Indicators</Text>
+              <View style={styles.legendGrid}>
+                <View style={styles.legendItem}>
+                  <View style={[styles.microDot, { backgroundColor: '#3B82F6' }]} />
+                  <Text style={[styles.legendTextSmall, { color: theme.colors.textSecondary }]}>Sleep</Text>
+                </View>
+                <View style={styles.legendItem}>
+                  <View style={[styles.microDot, { backgroundColor: '#A855F7' }]} />
+                  <Text style={[styles.legendTextSmall, { color: theme.colors.textSecondary }]}>Activities</Text>
+                </View>
+                <View style={styles.legendItem}>
+                  <View style={[styles.microDot, { backgroundColor: '#10B981' }]} />
+                  <Text style={[styles.legendTextSmall, { color: theme.colors.textSecondary }]}>Habits</Text>
+                </View>
+              </View>
+              
+              <Text style={[styles.legendSubtext, { color: theme.colors.textSecondary }]}>
+                Tap any date to see detailed insights • Colors reflect combined mood, sleep & clarity scores
+              </Text>
+            </>
+          ) : (
+            <View style={styles.legendEmptyState}>
+              <Text style={[styles.legendEmptyText, { color: theme.colors.textSecondary }]}>
+                No mood data available for this month yet.
+              </Text>
+              <Text style={[styles.legendEmptySubtext, { color: theme.colors.textSecondary }]}>
+                Start logging to see your well-being distribution and impact insights.
+              </Text>
             </View>
-            <View style={styles.legendItem}>
-              <View style={[styles.microDot, { backgroundColor: '#10B981' }]} />
-              <Text style={[styles.legendTextSmall, { color: theme.colors.textSecondary }]}>Habits</Text>
-            </View>
-          </View>
-          
-          <Text style={[styles.legendSubtext, { color: theme.colors.textSecondary }]}>
-            Tap any date to see detailed insights • Colors reflect combined mood, sleep & clarity scores
-          </Text>
+          )}
         </View>
       </ScrollView>
 
@@ -822,6 +989,17 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#1F2937',
   },
+  overviewEmptyState: {
+    paddingVertical: 20,
+    paddingHorizontal: 16,
+    alignItems: 'center',
+  },
+  overviewEmptyText: {
+    fontSize: 14,
+    color: '#6B7280',
+    textAlign: 'center',
+    lineHeight: 20,
+  },
   calendarContainer: {
     backgroundColor: '#FFFFFF',
     marginHorizontal: 20,
@@ -862,79 +1040,70 @@ const styles = StyleSheet.create({
   dayCell: {
     width: '13.8%',
     aspectRatio: 1,
-    padding: 2,
-    borderRadius: 12,
+    padding: 3,
     margin: 1,
-    overflow: 'hidden',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  emptyDateCell: {
-    borderWidth: 1,
-    borderColor: '#F3F4F6',
-    borderStyle: 'dashed',
+  dayCircle: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 12, // Moderate rounded corners (mobile-friendly)
+    borderWidth: 1.5,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'transparent',
   },
-  todayCell: {
-    backgroundColor: '#EBF5FF',
+  emptyCircle: {
+    borderStyle: 'solid',
+  },
+  dataCircle: {
     borderWidth: 2,
-    borderColor: '#3B82F6',
+  },
+  todayCircle: {
+    borderWidth: 2.5,
     shadowColor: '#3B82F6',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
+    shadowOpacity: 0.15,
     shadowRadius: 4,
-    elevation: 2,
-  },
-  dayContent: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 4,
+    elevation: 3,
   },
   emptyIndicator: {
-    marginTop: 2,
-    opacity: 0.5,
+    marginTop: 4,
+    opacity: 0.4,
   },
   dayText: {
-    fontSize: 15,
+    fontSize: 14,
+    fontWeight: '500',
+    letterSpacing: -0.2,
+  },
+  dataText: {
     fontWeight: '600',
-    color: '#374151',
-    marginBottom: 4,
   },
   todayText: {
-    color: '#3B82F6',
     fontWeight: '700',
+    fontSize: 15,
   },
-  moodIndicators: {
+  dataIndicators: {
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  wellBeingRing: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    borderWidth: 2.5,
-    position: 'absolute',
-    top: -2,
-  },
-  moodDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    marginBottom: 2,
-  },
-  moodEmoji: {
-    fontSize: 12,
     marginTop: 2,
   },
-  additionalIndicators: {
+  moodEmoji: {
+    fontSize: 14,
+    marginTop: 1,
+  },
+  microIndicators: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 4,
+    marginTop: 3,
     gap: 3,
   },
   microDot: {
-    width: 5,
-    height: 5,
-    borderRadius: 2.5,
+    width: 4,
+    height: 4,
+    borderRadius: 2,
   },
   indicatorDot: {
     width: 4,
@@ -984,6 +1153,65 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
     minWidth: '45%',
+  },
+  legendCount: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#1F2937',
+    marginLeft: 'auto',
+  },
+  legendPercentage: {
+    fontSize: 12,
+    fontWeight: '600',
+    marginLeft: 4,
+  },
+  legendLoadingContainer: {
+    paddingVertical: 30,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  legendLoadingText: {
+    marginTop: 12,
+    fontSize: 14,
+    color: '#6B7280',
+  },
+  legendEmptyState: {
+    paddingVertical: 30,
+    paddingHorizontal: 20,
+    alignItems: 'center',
+  },
+  legendEmptyText: {
+    fontSize: 14,
+    color: '#6B7280',
+    textAlign: 'center',
+    lineHeight: 20,
+    marginBottom: 8,
+  },
+  legendEmptySubtext: {
+    fontSize: 12,
+    color: '#9CA3AF',
+    textAlign: 'center',
+    lineHeight: 18,
+  },
+  impactInsightsContainer: {
+    marginBottom: 12,
+  },
+  impactInsightItem: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: 10,
+  },
+  impactInsightBullet: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginRight: 10,
+    marginTop: 1,
+  },
+  impactInsightText: {
+    flex: 1,
+    fontSize: 13,
+    color: '#6B7280',
+    lineHeight: 20,
   },
   legendRing: {
     width: 18,
@@ -1100,6 +1328,27 @@ const styles = StyleSheet.create({
     color: '#6B7280',
     lineHeight: 20,
     fontWeight: '400',
+  },
+  summaryLoadingContainer: {
+    paddingVertical: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  summaryLoadingText: {
+    marginTop: 12,
+    fontSize: 14,
+    color: '#6B7280',
+  },
+  summaryEmptyState: {
+    paddingVertical: 30,
+    paddingHorizontal: 20,
+    alignItems: 'center',
+  },
+  summaryEmptyText: {
+    fontSize: 14,
+    color: '#6B7280',
+    textAlign: 'center',
+    lineHeight: 20,
   },
   loadingText: {
     marginTop: 16,

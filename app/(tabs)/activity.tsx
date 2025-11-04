@@ -11,11 +11,11 @@ import { ExperimentsService } from '@/services/experiments.service';
 import { AnalyticsService } from '@/services/analytics.service';
 import { useRealtimeMoods, useRealtimeActivities, useRealtimeSleep, useRealtimeHabits, useRealtimeExperiments } from '@/hooks/useRealtimeData';
 import TimeFilter from '@/components/TimeFilter';
-import MoodTracking from '@/components/MoodTracking';
-import ActivityTracking from '@/components/ActivityTracking';
-import SleepTracking from '@/components/SleepTracking';
-import HabitTracking from '@/components/HabitTracking';
-import ExperimentResults from '@/components/ExperimentResults';
+import MoodScoreCard from '@/components/MoodScoreCard';
+import ActivityImpactCard from '@/components/ActivityImpactCard';
+import SleepDashboard from '@/components/SleepDashboard';
+import HabitTrackingCard from '@/components/HabitTrackingCard';
+import ExperimentResultsCard from '@/components/ExperimentResultsCard';
 import ImpactAnalysis from '@/components/ImpactAnalysis';
 import MoreInsights from '@/components/MoreInsights';
 export default function ActivityStatsScreen() {
@@ -214,17 +214,33 @@ export default function ActivityStatsScreen() {
         </View>
 
         <TimeFilter 
-          selectedRange={selectedRange} 
+          selectedRange={selectedRange as 'today' | 'week' | 'month' | 'year'} 
           onRangeChange={handleRangeChange} 
         />
 
         <Animated.View style={[styles.sectionsContainer, { opacity: fadeAnim }]}>
-          <ImpactAnalysis userId={user?.id || ''} timeRange={selectedRange} />
-          <MoodTracking data={moodData} timeRange={selectedRange} />
-          <ActivityTracking data={activityData} timeRange={selectedRange} />
-          <SleepTracking data={sleepData} timeRange={selectedRange} />
-          <HabitTracking data={habitData} timeRange={selectedRange} />
-          <ExperimentResults data={experimentData} />
+          <ImpactAnalysis userId={user?.id || ''} timeRange={selectedRange as any} />
+          <MoodScoreCard 
+            userId={user?.id || ''} 
+            period={selectedRange as 'today' | 'week' | 'month' | 'year'} 
+          />
+          <ActivityImpactCard 
+            userId={user?.id || ''} 
+            period={selectedRange as 'today' | 'week' | 'month' | 'year'} 
+          />
+          <SleepDashboard 
+            userId={user?.id || ''} 
+            period={selectedRange === 'today' ? 'week' : selectedRange as 'week' | 'month' | 'year'}
+            sleepTarget={8.0}
+          />
+          <HabitTrackingCard 
+            userId={user?.id || ''} 
+            period={selectedRange === 'today' ? 'week' : selectedRange === 'year' ? 'all' : selectedRange as 'week' | 'month' | 'all'}
+          />
+          <ExperimentResultsCard 
+            userId={user?.id || ''} 
+            filter="all"
+          />
           <MoreInsights />
         </Animated.View>
       </ScrollView>

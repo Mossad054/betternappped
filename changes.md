@@ -36,6 +36,1261 @@ Copy this template when adding a new entry:
 
 ## 📝 Change History
 
+### [Date: 2025-11-04] - Mood Score Card: Car Speedometer Design with Complete Gauge
+
+**Feature/Area**: Activity Page - Mood Tracking Redesign  
+**Type**: Feature Addition + UI/UX Enhancement  
+**Reason**: Replace hard-coded Mood Tracking component with dynamic, data-driven Mood Score Card featuring car speedometer-style gauge chart, trend analysis, and actionable insights
+
+**Files Modified**:
+- services/analytics.service.ts (added MoodScoreAnalysis interface + getMoodScoreAnalysis method)
+- components/MoodScoreCard.tsx (new minimalist component with speedometer gauge)
+- app/(tabs)/activity.tsx (replaced MoodTracking with MoodScoreCard)
+
+**Description**:
+
+#### Backend: Comprehensive Mood Analysis Engine
+1. **New Interface: MoodScoreAnalysis**:
+   ```typescript
+   {
+     averageMood: number;           // 0-5 average score
+     trend: 'up' | 'down' | 'stable';
+     moodDistribution: {            // Count by category
+       great: number;               // Score 5
+       good: number;                // Score 4
+       fair: number;                // Score 3
+       tough: number;               // Score 1-2
+     };
+     bestMoodDay: { date, score, emoji } | null;
+     lowestMoodDay: { date, score, emoji } | null;
+     period: string;                // "October 2024", "This Week", etc.
+     totalEntries: number;
+     weekComparison: {              // Only for month/year periods
+       thisWeekAvg: number;
+       lastWeekAvg: number;
+       change: number;
+     } | null;
+     insights: string[];            // Top 3 insights
+   }
+   ```
+
+2. **New Method: getMoodScoreAnalysis()**:
+   - Parameters: `userId`, `period` ('week' | 'month' | 'year')
+   - Fetches mood logs from Supabase via `MoodsService.getByDateRange()`
+   - Calculates:
+     - **Average mood**: Sum of all scores / total entries
+     - **Trend detection**: Compares first half vs second half of period
+     - **Mood distribution**: Counts by score range (5=great, 4=good, 3=fair, 1-2=tough)
+     - **Best/worst days**: Finds highest/lowest scoring days with emoji
+     - **Week comparison**: Compares last 7 days vs previous 7 days
+   - Generates **dynamic insights**:
+     - Trend-based: "Your mood is improving! Average 3.8/5 and trending upward."
+     - Week comparison: "This week feels better than last (+0.8 points)."
+     - Distribution: "65% of days were great! Excellent well-being."
+     - Best day: "Your best day was Friday, Oct 27 😊"
+   - Returns top 3 insights for display
+
+#### Frontend: Car Speedometer Mood Score Card
+1. **Visual Design**:
+   - **Speedometer Gauge Chart**: SVG-based semicircular gauge (300x200px)
+     - **Complete gauge background**: Light gray arc showing full range
+     - **5 Color-coded segments** (36° each, 180° total):
+       - 🔴 **Red** (#FF4444): Score 1.0-1.8 (Awful)
+       - 🟠 **Orange** (#FF8C42): Score 1.8-2.6 (Bad)
+       - 🟡 **Yellow** (#FFD93D): Score 2.6-3.4 (Okay)
+       - 🟢 **Light Green** (#95E1D3): Score 3.4-4.2 (Good)
+       - 🟢 **Green** (#38E54D): Score 4.2-5.0 (Great)
+     - **Needle pointer**: Dynamic angle calculation `((score - 1) / 4) * 180`
+       - Needle base: 10px circle at center
+       - Needle line: 5px stroke, rounded cap
+       - Needle tip: 6px circle at end
+       - Moves smoothly from bad (left) to great (right)
+     - **Emojis inside gauge**: Aligned within the colored segments
+       - 😢 (Awful), 😕 (Bad), 😐 (Okay), 🙂 (Good), 😊 (Great)
+       - Positioned at mid-angle of each segment
+       - 8px inside the gauge bar for proper alignment
+   - **Mood Labels Below Gauge**: Horizontal row of mood descriptions
+     - Color dot indicator matching segment color
+     - Text label: "Awful", "Bad", "Okay", "Good", "Great"
+     - Evenly spaced across card width
+   - **Large Score Display**: Centered below labels
+     - "3.8 / 5.0" format
+     - 36px bold value, 18px secondary label
+   - **Trend Badge**: Pill-shaped badge with icon and text
+     - ↑ Improving (green background)
+     - ↓ Declining (red background)
+     - → Stable (yellow background)
+   - **Stats Row**: 3 quick metrics
+     - Total entries count
+     - Week comparison (+/- change)
+     - Best mood day emoji
+   - **Insights Section**: 2-3 dynamic insight cards with subtle background
+   - **Mood Distribution Bars**: Color-coded horizontal bars matching speedometer
+     - 😊 Great (#38E54D), 🙂 Good (#95E1D3), 😐 Fair (#FFD93D), � Tough (#FF8C42)
+     - Filled percentage bars with count labels
+     - Colors match exact speedometer segments
+
+2. **Animations**:
+   - Fade-in on load (600ms duration)
+   - Smooth color transitions for theme switching
+   - No jarring animations - subtle and calm
+
+3. **Empty State**:
+   - Large 📊 emoji
+   - "No mood data yet" title
+   - "Start tracking today!" message
+   - Clean, encouraging design
+
+4. **Loading State**:
+   - Centered spinner with "Analyzing your mood..." text
+   - Same card structure for consistency
+
+5. **Theme Support**:
+   - Fully adaptive to light/dark mode
+   - Uses `theme.colors.*` for text and backgrounds
+   - Gauge colors remain consistent (color-coded system)
+   - Border colors adjust for readability
+
+#### Key Features
+- ✅ **Real Supabase Data**: Fetches from `mood_logs` table
+- ✅ **Period Flexibility**: Week/Month/Year analysis
+- ✅ **Car Speedometer Design**: Complete semicircular gauge with needle
+- ✅ **Color-Coded Segments**: 5 mood ranges with distinct colors
+- ✅ **Emojis Inside Gauge**: Aligned within colored bars
+- ✅ **Descriptive Labels**: Text descriptions below gauge for clarity
+- ✅ **Dynamic Needle**: Moves based on average mood score
+- ✅ **Trend Analysis**: Compares data halves for trend detection
+- ✅ **Week-over-Week**: Tracks weekly changes for month/year views
+- ✅ **Dynamic Insights**: AI-generated insights from data patterns
+- ✅ **Color-Coded Distribution**: Bars match speedometer colors
+- ✅ **Empty/Loading States**: Graceful fallbacks
+- ✅ **Theme Adaptive**: Light/dark mode support
+- ✅ **Smooth Animations**: Fade-in on data load
+
+#### Integration
+- Replaces old `<MoodTracking>` component on Activity page
+- Positioned after Impact Analysis card
+- Automatically updates when time range changes
+- Maps 'today' period to 'week' (minimum data requirement)
+
+**Breaking Changes**: No  
+(Component is drop-in replacement with backward-compatible props)
+
+**Related Issues**: Activity Page Redesign, Mood Analytics
+
+**Testing Notes**:
+1. **Data Loading**:
+   - Verify mood data fetches from Supabase
+   - Check loading spinner appears during fetch
+   - Confirm fade-in animation after load
+
+2. **Circular Chart**:
+   - Test score calculation accuracy (avg = sum/count)
+   - Verify color changes based on score:
+     - 5.0 → Green
+     - 4.0 → Blue
+     - 3.0 → Yellow
+     - 2.0 → Orange
+     - 1.0 → Red
+   - Check circle fills correctly (proportional to score/5)
+
+3. **Trend Detection**:
+   - Log moods with improving pattern → verify ↑ badge
+   - Log moods with declining pattern → verify ↓ badge
+   - Log consistent moods → verify → badge
+   - Check badge colors match trend
+
+4. **Insights Generation**:
+   - Verify 2-3 insights display
+   - Check insight text changes based on data
+   - Confirm insights are relevant to period
+
+5. **Mood Distribution**:
+   - Log 5-score mood → verify "Great" bar fills
+   - Log 1-score mood → verify "Tough" bar fills
+   - Check emoji labels match categories
+   - Verify percentages add to 100%
+
+6. **Week Comparison** (Month/Year only):
+   - Log moods for 2 weeks
+   - Verify "vs Last Week" stat appears
+   - Check +/- change calculation
+   - Confirm green (positive) / red (negative) colors
+
+7. **Empty State**:
+   - Clear all mood data
+   - Verify empty state shows
+   - Check encouragement message displays
+
+8. **Theme Switching**:
+   - Toggle light → dark mode
+   - Verify all colors adapt correctly
+   - Check chart stroke visibility
+   - Confirm text readability
+
+9. **Period Changes**:
+   - Switch today → week → month → year
+   - Verify data refetches
+   - Check period label updates
+   - Confirm insights change appropriately
+
+10. **Edge Cases**:
+    - Only 1 mood log → verify no crash
+    - All same scores → verify flat trend
+    - No data for 2nd week → week comparison null
+    - 100% great days → verify positive insight
+
+**Performance**:
+- Single Supabase query per period change
+- Efficient calculation (O(n) for all metrics)
+- Indexed queries on (user_id, date)
+- Memoized chart renders (via React)
+
+**Design Inspiration**:
+- Circular progress: Apple Health, Fitbit-style
+- Color coding: Traffic light system (green=good, red=bad)
+- Clean spacing: 20px card padding, 12px gaps
+- Subtle shadows: elevation: 3
+- Rounded corners: 20px borderRadius
+
+---
+
+### [Date: 2025-11-04] - Habit Library: "Convert to Active Habit" from Impact Analysis
+
+**Feature/Area**: Habit Library Integration  
+**Type**: Feature Addition  
+**Reason**: Enable seamless conversion of activities from Impact Analysis to active habits with pre-filled data and custom button text
+
+**Files Modified**:
+- app/habit-library.tsx (added prefill parameter support, custom button text, navigation enhancement)
+
+**Description**:
+
+#### URL Parameter Support
+1. **Added useLocalSearchParams()**: Import and use Expo Router's search params
+2. **Prefill Detection**: Check for `params.prefill === 'true'` and `params.name`
+3. **Auto-Selection**: Automatically find and select matching habit from library
+4. **Category Filtering**: If no exact match, filter by category from params
+
+#### Smart Habit Matching
+1. **getAllHabits() Helper**: New function to flatten all library habits
+2. **Name Matching**: Case-insensitive comparison of activity name to habit name
+3. **Auto-Open Modal**: If match found, automatically open detail modal
+4. **Fallback to Category**: If no match, show habits in same category
+
+#### Button Text Enhancement
+1. **isFromPrefill State**: Track whether user came from Impact Analysis
+2. **Dynamic Button Text**:
+   - From prefill: "Convert to Active Habit" ✨
+   - Normal flow: "Add to Active Habits"
+3. **Icon Consistency**: Plus icon shown in both cases
+
+#### Success Navigation
+1. **Enhanced Alert**: When converting from Impact Analysis:
+   - Success message: "{habit.name} has been converted to an active habit"
+   - Two options:
+     - "View My Habits" → Navigate to home tab (with 100ms delay for sync)
+     - "OK" → Stay in habit library
+2. **Normal Flow**: Simple "Success" alert (no navigation)
+3. **Real-time Sync**: Home tab automatically refreshes via `useRealtimeHabits` hook
+4. **Immediate Rendering**: New habit appears in "My Active Habits" section with:
+   - HabitCard component (same as other habits)
+   - Streak tracking (starts at 0)
+   - Toggle complete functionality
+   - Reminder settings
+   - Delete option
+
+#### User Flow
+```
+User in Impact Analysis
+  → Taps "Convert to Habit" on high-impact activity
+  → Redirected to Habit Library with params:
+    - prefill=true
+    - name="Morning Run"
+    - category="Health"
+    - emoji="🏃"
+  → Habit Library auto-finds "Morning Run" in library
+  → Modal opens automatically
+  → Button shows "Convert to Active Habit"
+  → User taps button
+  → Habit added to active habits via HabitsService.create()
+  → Success alert with navigation options
+  → Habit now appears in home tab with tracking
+```
+
+**Breaking Changes**: No
+
+**Related Issues**: Impact Analysis Refactor (Phase D action buttons)
+
+**Testing Notes**:
+1. **Prefill Flow**: 
+   - Go to Activity tab → Impact Analysis
+   - Tap activity card → "Convert to Habit"
+   - Verify habit library opens with modal auto-shown
+   - Verify button says "Convert to Active Habit"
+   - Tap button → verify success alert with navigation
+   - **Tap "View My Habits"** → verify navigation to home tab
+   - **Verify habit appears in "My Active Habits" section**
+   - **Verify habit is rendered with HabitCard component**
+   - **Verify habit has streak counter (starts at 0)**
+   - **Verify can toggle complete on new habit**
+   - **Verify habit persists after app restart**
+
+2. **Normal Flow**:
+   - Navigate to Habit Library directly
+   - Browse and select habit
+   - Verify button says "Add to Active Habits"
+   - Add habit → verify simple success alert
+   - Go to home tab → verify habit appears
+
+3. **Edge Cases**:
+   - Activity name doesn't match any habit → shows category habits
+   - Activity already active → shows "Already Active" badge
+   - No matching category → shows all habits
+   - Add multiple habits in quick succession → all appear correctly
+   - Real-time sync works across tabs
+
+4. **Habit Rendering Verification**:
+   - New habit shows same UI as existing habits
+   - Emoji displays correctly
+   - Category badge shows
+   - Streak counter initializes at 0
+   - Can mark as complete immediately
+   - Can set reminders
+   - Can delete habit
+   - Shows in first 3 habits or "More" section if >3 total
+
+**Performance**:
+- O(n) search for matching habit (negligible for <100 habits)
+- Single database insert via HabitsService
+- Automatic refresh of active habits list
+
+---
+
+### [Date: 2025-11-04] - Impact Analysis Complete Refactor with Dynamic Correlations
+
+**Feature/Area**: Activity Impact Analysis  
+**Type**: Feature Addition + Complete Refactor  
+**Reason**: Replace hard-coded category-level impact analysis with comprehensive, data-driven individual activity correlation system across all wellness metrics (mood, sleep, clarity, productivity)
+
+**Files Modified**:
+- services/analytics.service.ts (added ActivityImpactData, ActivityImpactResult interfaces + getActivityImpact method)
+- components/ImpactAnalysis.tsx (complete rewrite - 681 lines)
+- impacts.md (comprehensive documentation created)
+
+**Description**:
+
+#### Backend Enhancements (analytics.service.ts)
+1. **New Interfaces**:
+   - `ActivityImpactData`: Per-activity metrics with frequency%, trend, confidence, correlations
+   - `ActivityImpactResult`: Wrapper with activities array, insights, period, totalActivities
+
+2. **New Method: getActivityImpact()**:
+   - Individual activity tracking (not grouped by category)
+   - Calculates before/after changes for mood/sleep/clarity/productivity
+   - Uses Pearson correlation algorithm for each metric
+   - Determines confidence levels: high (≥20 data points), medium (10-19), low (<10)
+   - Generates dynamic insights (top positive/negative, most frequent, boosters)
+   - Composite impact score calculation (0-100)
+   - Trend detection: up (>0.5), down (<-0.5), flat (else)
+
+#### Frontend Transformation (ImpactAnalysis.tsx)
+1. **Dynamic Data Loading**:
+   - Replaced hard-coded category data with API call to getActivityImpact()
+   - Real-time refresh on timeRange changes (today/week/month/year)
+   - Loading state with spinner, empty state with insights
+
+2. **Activity List View**:
+   - Individual activity cards with emoji + name
+   - Frequency percentage and total occurrences
+   - Color-coded impact badges: Green (≥60), Yellow (45-59), Red (<45)
+   - Mini metrics showing mood/sleep/clarity/productivity changes
+   - Low confidence warning badges
+   - Sort toggle: Impact Score (default) or Frequency
+   - Show more/less functionality (5 default, expand to all)
+
+3. **Detail Modal**:
+   - Full activity breakdown with category badge
+   - Impact score with color-coded badge
+   - Confidence level & trend indicator with icons
+   - Frequency percentage display
+   - Low confidence warning box
+   - 4-metric grid (avg changes for mood/sleep/clarity/productivity)
+   - Correlation visualization bars (mood/sleep/clarity/productivity)
+   - Action buttons:
+     - **Convert to Habit**: Navigates to `/habit-library` with prefill params (name, category, emoji)
+     - **Run Experiment**: Navigates to `/create-experiment` with prefill params (activity, category)
+   - Activity stats (total occurrences)
+   - ScrollView for full content access
+
+4. **Theme Support**:
+   - All colors use theme.colors.* for light/dark mode
+   - Dynamic impact colors (success/warning/error)
+   - Adaptive text hierarchy (text, textSecondary)
+
+#### Key Features
+- ✅ Per-activity granularity (not category-level)
+- ✅ 4-metric correlation analysis (mood, sleep, clarity, productivity)
+- ✅ Confidence levels with warnings
+- ✅ Trend detection with icons
+- ✅ Dynamic insight generation
+- ✅ Sort by impact or frequency
+- ✅ Actionable navigation (Convert to Habit, Run Experiment)
+- ✅ Empty/loading/error state handling
+- ✅ Theme-adaptive design
+
+**Breaking Changes**: No  
+(Activity page already passes correct props; backward compatible)
+
+**Related Issues**: Phase A-E Implementation Plan
+
+**Testing Notes**:
+1. **Data Loading**: Verify fetch on timeRange change, loading spinner, empty state
+2. **Activity List**: Check impact badge colors, frequency percentages, mini metrics
+3. **Sort/Filter**: Toggle impact/frequency sort, show more/less button
+4. **Detail Modal**: Tap activity → modal opens → all metrics display → close works
+5. **Navigation**: Test "Convert to Habit" and "Run Experiment" buttons with prefill
+6. **Theme**: Test light/dark mode color contrast and readability
+7. **Responsive**: Test on phone (375px) and tablet (768px) screens
+
+**Performance**:
+- 5 parallel database queries with Promise.all()
+- O(n) activity grouping algorithm
+- Lazy rendering (5 activities initially)
+- All queries indexed on (user_id, date)
+
+**Documentation**:
+- Created impacts.md with full implementation details
+- Includes testing guide, sample data verification, future enhancements
+
+---
+
+### [Date: 2025-11-03] - Calendar Card UI Redesign: Minimalist Rounded Square Day Indicators
+
+**Feature/Area**: Calendar Card - Visual Design System  
+**Type**: UI/UX Enhancement  
+**Reason**: Redesign calendar with minimalist rounded square day indicators for improved visual clarity, better day separation, and cleaner aesthetic while maintaining mobile-friendly sizing
+
+**Files Modified**:
+- app/(tabs)/calendar.tsx (updated renderCalendarDays and styles for rounded square design)
+
+**Description**:
+
+#### 1. Design Philosophy
+- **Minimalist Approach**: Remove visual clutter, emphasize breathing room
+- **Rounded Squares**: Each date enclosed in subtle rounded square border (12px corners) for clear day separation
+- **Mobile-Friendly**: Moderate corner radius (not too round, not too sharp) optimized for touch targets
+- **Theme Adaptive**: Full support for light and dark modes with appropriate color adjustments
+- **Data-First**: Day data (mood, sleep, activities) shown via minimal emoji and micro-dots inside containers
+- **Interaction Preserved**: All existing tap/press functionality maintained
+
+#### 2. Visual Changes
+
+**Before (Old Design)**:
+- Rectangle/rounded rectangle day cells
+- Filled background colors for days with data
+- Dashed borders for empty days
+- Large well-being rings around mood indicators
+- Background tinting based on data
+
+**After (New Rounded Square Design)**:
+- Rounded square day indicators (borderRadius: 12px)
+- Transparent backgrounds with subtle border colors
+- Thin, elegant borders (1.5-2.5px width)
+- Minimal data indicators inside squares
+- Clean, breathable spacing
+
+#### 3. Square States & Colors
+
+**Empty Days** (no data logged):
+- Border: Light grey (`theme.colors.border`)
+- Background: Transparent
+- Content: Small "+" icon (10px, 25% opacity)
+- Weight: 1.5px border
+- Corner radius: 12px
+
+**Days with Data**:
+- Border: Soft green (#86EFAC)
+- Background: Very subtle green tint (`theme.colors.success + '08'`)
+- Content: Date number + mood emoji + micro-dots
+- Weight: 2px border
+- Corner radius: 12px
+- Typography: Bold (600 weight)
+
+**Today**:
+- Border: Theme primary color (blue `theme.colors.primary`)
+- Background: Theme primary + 10% opacity
+- Content: Date number (larger, bold 700)
+- Weight: 2.5px border
+- Corner radius: 12px
+- Shadow: Soft blue glow (shadowOpacity: 0.15, shadowRadius: 4px)
+- Elevation: 3 (Android)
+
+#### 4. Data Indicators (Inside Circles)
+
+**Date Number**:
+- Empty days: 14px, weight 500, secondary text color
+- Data days: 14px, weight 600, primary text color
+- Today: 15px, weight 700, theme primary color
+- Letter spacing: -0.2 for tighter appearance
+
+**Mood Emoji** (Primary indicator):
+- Size: 14px
+- Position: Below date number (marginTop: 1px)
+- Mapping:
+  * Score >= 4: 😊 (happy)
+  * Score >= 3: 😐 (neutral)
+  * Score < 3: 😕 (sad)
+
+**Micro-Dots** (Secondary indicators):
+- Size: 4x4px circles
+- Position: Below mood emoji (marginTop: 3px)
+- Horizontal layout with 3px gap
+- Colors:
+  * Sleep: #3B82F6 (blue)
+  * Activities: #A855F7 (purple)
+  * Habits: #10B981 (green)
+
+#### 5. Theme Adaptivity
+
+**Light Mode**:
+- Empty circle borders: `#E5E7EB` (light grey)
+- Data circle borders: `#86EFAC` (soft green)
+- Data circle background: `success + '08'` (barely visible green tint)
+- Today border: `#3B82F6` (primary blue)
+- Today background: `primary + '10'` (light blue tint)
+- Text: Standard dark greys
+
+**Dark Mode** (automatically adapts):
+- Empty circle borders: `theme.colors.border` (adjusted for dark bg)
+- Data circle borders: `#86EFAC` (same green, good contrast)
+- Data circle background: `success + '08'` (subtle on dark)
+- Today border: Theme primary (FFD97D gold in dark mode)
+- Today background: `primary + '10'` (subtle gold tint)
+- Text: White/light greys from theme
+
+#### 6. Layout & Spacing
+- **Day Cell**: 13.8% width, aspect ratio 1:1, 3px padding, 1px margin
+- **Rounded Square**: 100% width/height of cell, 12px corner radius (mobile-friendly)
+- **Content Centering**: All elements centered horizontally and vertically
+- **Indicator Stacking**:
+  1. Date number (top)
+  2. Mood emoji (2px below)
+  3. Micro-dots (3px below emoji)
+
+#### 7. Removed Elements
+- ❌ `wellBeingRing` (large colored ring) - redundant with square border
+- ❌ `additionalIndicators` style - renamed to `microIndicators`
+- ❌ Background color fills (e.g., `dayData.color + '15'`)
+- ❌ Dashed border style for empty dates
+- ❌ `todayCell` rectangle styling
+- ❌ `dayContent` wrapper (merged into `dayCircle`)
+
+#### 8. Responsive Behavior
+- **Square Scaling**: Automatically adjusts with aspect ratio
+- **Corner Radius**: 12px provides optimal balance between round and sharp on all screen sizes
+- **Content Alignment**: Always centered regardless of screen size
+- **Touch Target**: Full square is tappable (activeOpacity: 0.7), minimum 44x44pt hit area
+- **Mobile**: Micro-dots remain visible even on smaller screens (4px size)
+
+#### 9. Interaction States
+- **Press**: 70% opacity (activeOpacity: 0.7)
+- **Today Highlight**: Automatic shadow/glow effect
+- **Hover** (web): Inherits from TouchableOpacity
+- **Future Enhancement**: Could add scale animation on press
+
+#### 10. Performance Optimizations
+- Inline styles for theme colors (prevents style sheet recalculation)
+- Minimal style objects (removed redundant/unused styles)
+- No additional re-renders (theme-aware colors applied directly)
+
+**Breaking Changes**: No  
+No breaking changes - all existing functionality (date press, modal display, navigation) preserved
+
+**Related Issues**: None  
+UI/UX enhancement request for cleaner, more minimalist calendar design
+
+**Testing Notes**:
+1. **Visual Consistency Test**:
+   - View calendar in light mode
+   - Toggle to dark mode
+   - Verify rounded square borders are visible and elegant in both modes
+   - Verify text colors have sufficient contrast
+
+2. **Square State Test**:
+   - View empty days (should show grey rounded square with + icon)
+   - View days with data (should show green rounded square with emoji + dots)
+   - View today (should show blue rounded square with shadow/glow)
+   - Verify all squares have consistent 12px corner radius
+
+3. **Data Indicator Test**:
+   - Log mood only → verify emoji appears
+   - Log sleep only → verify blue dot appears
+   - Log activities only → verify purple dot appears
+   - Log habits only → verify green dot appears
+   - Log all → verify emoji + all 3 dots appear
+
+4. **Typography Test**:
+   - Empty day text: Should be lighter/thinner (weight 500)
+   - Data day text: Should be bolder (weight 600)
+   - Today text: Should be boldest and slightly larger (weight 700, 15px)
+
+5. **Spacing Test**:
+   - Zoom in on calendar grid
+   - Verify rounded squares don't overlap
+   - Verify comfortable spacing between days
+   - Verify content is centered in each square
+   - Verify 12px corner radius looks consistent across all cells
+
+6. **Interaction Test**:
+   - Tap empty day → should show "Log Data" modal
+   - Tap data day → should show day detail modal
+   - Verify press feedback (70% opacity)
+   - Verify no visual glitches during press
+
+7. **Theme Transition Test**:
+   - Toggle theme while viewing calendar
+   - Verify smooth color transitions
+   - Verify no flickering or layout shifts
+   - Verify all colors update appropriately
+
+8. **Month Navigation Test**:
+   - Navigate between months
+   - Verify rounded squares render correctly for all months
+   - Verify today indicator moves appropriately
+   - Verify first/last week rendering
+
+9. **Edge Cases**:
+   - Month with 28 days (February)
+   - Month with 31 days
+   - Verify empty leading days render correctly
+   - Verify proper grid wrapping
+
+10. **Cross-Device Test**:
+    - Test on mobile (iOS/Android)
+    - Test on tablet
+    - Test on web (if applicable)
+    - Verify micro-dots are visible on all screen sizes
+    - Verify 12px corner radius scales appropriately
+
+**Design Rationale**:
+- **Rounded Squares**: More versatile than circles; easier to fit content while maintaining elegance
+- **12px Corner Radius**: Sweet spot - not too rounded (childish), not too sharp (harsh)
+- **Mobile-Friendly**: Balanced design that works well on touch screens without being oversized
+- **Minimal Borders**: Thin borders (1.5-2.5px) keep focus on content, not chrome
+- **Transparent Backgrounds**: Cleaner look; let the card background show through
+- **Green for Data**: Positive association (growth, health, progress)
+- **Blue for Today**: Standard convention; high visibility without being jarring
+- **Micro-Dots**: Efficient space usage; clear color coding for data types
+- **Centered Content**: Balanced, symmetric, easy to scan
+
+**User Feedback Considerations**:
+- If corners feel too round, can reduce to 10px
+- If corners feel too sharp, can increase to 14px
+- If squares feel too sparse, can increase border width to 2px for empty days
+- If green feels too "positive" for all data, can use neutral grey and only green for good days
+- If micro-dots are too small, can increase to 5px
+- If spacing feels cramped, can reduce day cell width from 13.8% to 13%
+
+**Future Enhancements**:
+- Add subtle scale animation on press (transform: scale(1.05))
+- Add ripple effect on Android for press feedback
+- Add gradient border for special days (experiments, milestones)
+- Add optional "streak" indicator (small flame emoji for consecutive data days)
+- Add hover state for web (subtle border glow)
+- Consider slight rounding adjustment based on user feedback (10-14px range)
+
+---
+
+### [Date: 2025-11-03] - Daily Well-Being Legend: Dynamic Distribution with Impact Insights
+
+**Feature/Area**: Daily Well-Being Legend Card - Calendar Page  
+**Type**: Feature Enhancement  
+**Reason**: Transform static legend into data-driven component that calculates and displays monthly emotional distribution with activity-mood correlations and personalized insights
+
+**Files Modified**:
+- services/analytics.service.ts (added WellBeingLegend interface and getWellBeingLegend method)
+- app/(tabs)/calendar.tsx (integrated dynamic well-being legend with loading/error states)
+
+**Description**:
+
+#### 1. Analytics Service Enhancement
+- **New WellBeingLegend Interface**:
+  ```typescript
+  interface WellBeingLegend {
+    summary: {
+      greatDays: number;    // mood >= 4.5
+      goodDays: number;     // 3.5 <= mood < 4.5
+      fairDays: number;     // 2.5 <= mood < 3.5
+      toughDays: number;    // mood < 2.5
+      totalDays: number;    // total days with mood data
+    };
+    percentages: {
+      greatDays: number;    // percentage (1 decimal)
+      goodDays: number;
+      fairDays: number;
+      toughDays: number;
+    };
+    impactInsights: string[];  // top 3 personalized insights
+  }
+  ```
+
+- **New getWellBeingLegend() Method**:
+  * Fetches calendar data for specified month from Supabase
+  * Classifies each day based on mood score:
+    - **Great Day**: mood >= 4.5 (🟢 green)
+    - **Good Day**: 3.5 <= mood < 4.5 (🔵 blue)
+    - **Fair Day**: 2.5 <= mood < 3.5 (🟡 yellow)
+    - **Tough Day**: mood < 2.5 (🔴 red)
+  * Counts occurrences of each classification
+  * Calculates percentages (1 decimal place precision)
+  * Generates 3 personalized impact insights based on:
+    - **Activity-Mood Correlations**: Analyzes frequent activities (≥5 occurrences) and their dominant mood classifications
+    - **Sleep-Mood Patterns**: Compares average sleep on great days vs tough days
+    - **Overall Distribution**: Highlights months with >40% great days or >30% tough days
+  * Returns structured WellBeingLegend object
+
+- **Impact Insight Generation Logic**:
+  ```typescript
+  // Activity correlation example:
+  "10 days of exercise correlated with great mood (75%)."
+  "meditation appeared on 8 good mood days."
+  "social media present on 6 tough days - consider alternatives."
+  
+  // Sleep pattern example:
+  "Great days averaged 7.8h sleep vs 5.2h on tough days."
+  "Low sleep (<6h) increased tough days by 40%."
+  
+  // Distribution example:
+  "Excellent month! 45% great days shows strong well-being."
+  "8 tough days detected. Consider focusing on self-care activities."
+  "72% positive days - great consistency!"
+  ```
+
+#### 2. Calendar Frontend Integration
+- **State Management**:
+  * Added `wellBeingLegend` state (WellBeingLegend | null)
+  * Added `legendLoading` state for loading indicator
+  * Imported WellBeingLegend type from analytics.service.ts
+
+- **Data Loading**:
+  * Created `loadWellBeingLegend()` function to fetch legend data
+  * Integrated with existing `useEffect` to load alongside calendar/summary data
+  * Added to `handleRealtimeUpdate()` to refresh when new data is logged
+  * Added to `onRefresh()` for manual pull-to-refresh support
+
+- **UI Components**:
+  * **Loading State**: Shows spinner with "Analyzing your month's well-being..." message
+  * **Loaded State - Day Classifications**:
+    - Grid layout with 4 classification types
+    - Each shows: colored ring, label, count, and percentage
+    - Color-coded percentages (green for great, blue for good, yellow for fair, red for tough)
+  * **Impact Insights Section**:
+    - Displays up to 3 personalized bullet-point insights
+    - Uses primary color for bullets
+    - Dynamic content based on actual data patterns
+  * **Data Indicators Section**: (preserved from original)
+    - Sleep, Activities, Habits mini-dots
+    - Explanatory subtext
+  * **Empty State**: Shows message when no mood data exists
+
+- **Dynamic Legend Grid Structure**:
+  ```tsx
+  <View style={styles.legendGrid}>
+    <View style={styles.legendItem}>
+      <View style={legendRing} /> {/* Colored ring */}
+      <Text>Great Day</Text>
+      <Text style={legendCount}>8</Text> {/* Count */}
+      <Text style={legendPercentage}>28.6%</Text> {/* Percentage */}
+    </View>
+    {/* ... similar for Good, Fair, Tough ... */}
+  </View>
+  ```
+
+- **New Styles Added**:
+  ```typescript
+  legendCount          // Bold count number (right-aligned)
+  legendPercentage     // Color-coded percentage
+  legendLoadingContainer  // Centered spinner container
+  legendLoadingText    // Loading message text
+  legendEmptyState     // Empty state container
+  legendEmptyText      // Primary empty message
+  legendEmptySubtext   // Secondary empty message
+  impactInsightsContainer  // Insights section wrapper
+  impactInsightItem    // Individual insight row
+  impactInsightBullet  // Colored bullet point
+  impactInsightText    // Insight text content
+  ```
+
+#### 3. Real-Time Auto-Refresh
+- Legend automatically refreshes when:
+  * Component mounts or date range changes
+  * User returns to calendar screen (via useFocusEffect)
+  * Real-time data updates detected (moods, activities, sleep)
+  * User manually pulls to refresh
+  * Month navigation occurs
+
+#### 4. Correlation Analysis Algorithms
+
+- **Activity-Mood Correlation**:
+  1. Build activity frequency map with mood classifications
+  2. Filter for frequent activities (≥5 occurrences)
+  3. Calculate dominant mood classification per activity
+  4. Generate insight if dominance ≥60%
+  5. Prioritize great/tough correlations over neutral
+
+- **Sleep-Mood Correlation**:
+  1. Filter days with both sleep and mood data (minimum 5 days)
+  2. Calculate average sleep for great days
+  3. Calculate average sleep for tough days
+  4. If difference >1 hour, generate comparative insight
+  5. If tough days have <6h sleep, generate warning insight
+
+- **Distribution Analysis**:
+  1. Calculate percentage of great days
+  2. Calculate percentage of tough days
+  3. Calculate combined positive days (great + good)
+  4. Generate insight based on thresholds:
+     - >40% great → "Excellent month"
+     - >30% tough → "Focus on self-care"
+     - >60% positive → "Great consistency"
+
+#### 5. Edge Cases Handled
+- **No Data**: Returns empty summary with instructional message
+- **Sparse Data**: (<5 days) Shows counts/percentages but limits insights
+- **No Activities**: Skips activity correlation, focuses on sleep/distribution
+- **No Sleep Data**: Skips sleep analysis, focuses on activity/distribution
+- **Weak Correlations**: (<60% dominance) Skips insight generation
+- **Guest Mode**: Handled via existing isGuestMode() check
+
+#### 6. UI/UX Enhancements
+- **Color Coding**: Each classification uses theme colors (success, primary, warning, error)
+- **Percentage Display**: 1 decimal precision for accuracy
+- **Theme Adaptive**: All colors respect light/dark mode
+- **Minimalist Design**: Soft shadows, rounded corners, clean spacing
+- **Responsive Layout**: Grid wraps gracefully on smaller screens
+- **Loading States**: Spinner prevents UI jumping during data fetch
+- **Empty States**: Clear messaging guides users to log data
+
+**Breaking Changes**: No  
+No breaking changes - existing calendar functionality preserved and enhanced
+
+**Related Issues**: None  
+Feature request to make Daily Well-Being Legend data-driven
+
+**Testing Notes**:
+1. **Full Month Test (20+ days logged)**:
+   - Verify all 4 classifications show correct counts
+   - Verify percentages sum to ~100% (allow for rounding)
+   - Verify 3 impact insights are relevant and specific
+   - Example: "10 days of exercise correlated with great mood (75%)"
+
+2. **Sparse Data Test (5-10 days)**:
+   - Verify counts/percentages are accurate
+   - Verify insights are limited or generic
+   - Verify no crashes with low sample size
+
+3. **No Data Test**:
+   - Verify empty state displays: "No mood data available for this month yet"
+   - Verify subtext: "Start logging to see your well-being distribution"
+
+4. **Activity Correlation Test**:
+   - Log "exercise" activity on multiple great mood days
+   - Verify insight appears: "X days of exercise correlated with great mood"
+   - Log "social media" on tough days
+   - Verify insight appears: "social media present on X tough days - consider alternatives"
+
+5. **Sleep Pattern Test**:
+   - Log 7-8h sleep on great days
+   - Log <6h sleep on tough days
+   - Verify insight: "Great days averaged Xh sleep vs Yh on tough days"
+
+6. **Real-Time Refresh Test**:
+   - Navigate to add-entry
+   - Log new mood entry
+   - Return to calendar
+   - Verify legend updates automatically (counts, percentages, insights)
+
+7. **Month Navigation Test**:
+   - Navigate to previous month
+   - Verify legend shows that month's data
+   - Navigate to future month (empty)
+   - Verify empty state displays
+
+8. **Theme Test**:
+   - Toggle light/dark mode
+   - Verify all colors are readable
+   - Verify percentages maintain color coding
+   - Verify empty state text is visible
+
+9. **Percentage Accuracy Test**:
+   - Log exactly 10 days: 5 great, 3 good, 2 fair, 0 tough
+   - Verify: 50.0% great, 30.0% good, 20.0% fair, 0.0% tough
+
+10. **Classification Threshold Test**:
+    - Log mood scores: 4.5, 4.4, 3.5, 3.4, 2.5, 2.4
+    - Verify classification:
+      * 4.5 → Great (1 day)
+      * 4.4 → Good (1 day)
+      * 3.5 → Good (1 day)
+      * 3.4 → Fair (1 day)
+      * 2.5 → Fair (1 day)
+      * 2.4 → Tough (1 day)
+
+**Debug Output**:
+- Console logs added for legend generation:
+  * "📊 Generating well-being legend for user X, YYYY-MM"
+  * "📊 Found X days with mood data"
+  * "📊 Generated X impact insights"
+  * "📊 Loading well-being legend for YYYY-MM"
+  * "📊 Well-being legend loaded: [data]"
+
+**Performance Considerations**:
+- Legend loads in parallel with calendar data and monthly summary (non-blocking)
+- Classification algorithm is O(n) where n = days in month (max 31)
+- Activity correlation is O(n*m) where m = activities per day (typically <10)
+- Insight generation limited to top 3 to prevent UI clutter
+- All calculations use existing calendarData (no additional DB queries)
+
+**Future Enhancements**:
+- Add progress bars for each percentage (visual distribution)
+- Add tap-to-drill-down: tap "Great Days" to see list of those dates
+- Add trend indicators (↑ or ↓ compared to last month)
+- Add export functionality (share distribution as image)
+- Add filtering: show only great/tough days on calendar when tapped
+- Add historical comparison (this month vs last 3 months average)
+- Add machine learning predictions: "Based on patterns, next week looks promising"
+
+---
+
+### [Date: 2025-11-03] - This Month Overview Card: Enhanced Mood Categorization & Empty State
+
+**Feature/Area**: This Month Overview Card - Calendar Page  
+**Type**: Enhancement & Bug Fix  
+**Reason**: Update mood categorization thresholds to match requirements and add empty state handling when no mood data exists
+
+**Files Modified**:
+- app/(tabs)/calendar.tsx (updated getMoodStats function and added empty state UI)
+
+**Description**:
+
+#### 1. Updated Mood Categorization Thresholds
+- **Previous Logic**:
+  * Good Days: `mood >= 4` ✅ (correct)
+  * Neutral Days: `mood === 3` ❌ (too restrictive)
+  * Tough Days: `mood <= 2` ❌ (wrong threshold)
+
+- **New Logic** (per requirements):
+  * Good Days: `mood >= 4` (scores 4-5)
+  * Neutral Days: `2.5 <= mood < 4` (scores 2.5-3.9)
+  * Tough Days: `mood < 2.5` (scores below 2.5)
+
+- **Code Changes**:
+  ```typescript
+  const goodDays = moodScores.filter(score => score >= 4).length;
+  const neutralDays = moodScores.filter(score => score >= 2.5 && score < 4).length;
+  const toughDays = moodScores.filter(score => score < 2.5).length;
+  ```
+
+- **Impact**: More accurate categorization that better reflects the mood score spectrum (1-5 scale)
+
+#### 2. Empty State Handling
+- **Added Conditional Rendering**:
+  * When no mood data exists (all categories = 0), shows message: "No mood data available for this month."
+  * Replaces stat display with centered empty state text
+  * Uses theme-aware text color (`theme.colors.textSecondary`)
+
+- **UI Structure**:
+  ```tsx
+  {moodStats.goodDays === 0 && moodStats.neutralDays === 0 && moodStats.badDays === 0 ? (
+    <View style={styles.overviewEmptyState}>
+      <Text style={[styles.overviewEmptyText, { color: theme.colors.textSecondary }]}>
+        No mood data available for this month.
+      </Text>
+    </View>
+  ) : (
+    // ... existing stat display ...
+  )}
+  ```
+
+#### 3. New Styles Added
+- **overviewEmptyState**:
+  * Centered container with vertical padding (20px) and horizontal padding (16px)
+  * Ensures empty message is visually balanced within card
+
+- **overviewEmptyText**:
+  * Font size: 14px
+  * Color: #6B7280 (light grey, theme-aware via inline style)
+  * Center-aligned with line height 20px
+  * Consistent with other empty state messages in app
+
+#### 4. Data Source Verification
+- **Already Dynamic**: The `getMoodStats()` function already pulls from `calendarData`, which is populated from Supabase via `AnalyticsService.getCalendarData()`
+- **Auto-Refresh**: Already implemented via:
+  * Real-time subscriptions (`useRealtimeMoods`, etc.) trigger `handleRealtimeUpdate()`
+  * `useFocusEffect` refreshes data when screen comes into focus
+  * Pull-to-refresh via `onRefresh()`
+  * Month navigation triggers `useEffect` with `[user, year, month]` dependencies
+
+- **No Additional Backend Changes Needed**: The existing implementation already queries Supabase daily logs and aggregates mood data dynamically
+
+#### 5. Performance & Caching
+- **Already Implemented**:
+  * `calendarData` state caches results for current month
+  * `lastFetchTime` prevents excessive API calls (2-second debounce)
+  * Data only refetches on month change, user change, or explicit refresh
+
+**Breaking Changes**: No  
+No breaking changes - existing functionality enhanced with better thresholds and empty state handling
+
+**Related Issues**: None  
+Requirements specified for "This Month Overview" dynamic implementation
+
+**Testing Notes**:
+1. **Threshold Accuracy Test**:
+   - Log moods with scores: 1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 5.0
+   - Verify categorization:
+     * Tough Days: 1.5, 2.0 (count = 2)
+     * Neutral Days: 2.5, 3.0, 3.5 (count = 3)
+     * Good Days: 4.0, 5.0 (count = 2)
+   - Verify Avg Mood displays correct average (e.g., 3.1/5)
+
+2. **Empty State Test**:
+   - Navigate to calendar for a month with no mood data
+   - Verify "No mood data available for this month" displays
+   - Verify stat dots and values are hidden
+   - Verify message is centered and readable in both light/dark themes
+
+3. **Auto-Refresh Test**:
+   - Navigate to Add Entry screen
+   - Log a new mood entry
+   - Return to Calendar tab
+   - Verify "This Month Overview" updates immediately (no manual refresh needed)
+
+4. **Theme Compatibility Test**:
+   - Toggle between light and dark themes
+   - Verify empty state text is readable in both modes
+   - Verify stat colors (green dot for Good, yellow for Neutral, red for Tough) are visible
+
+5. **Edge Cases**:
+   - Month with only 1 mood entry (verify avg calculation)
+   - Month with all good days (verify neutral and tough = 0)
+   - Month with all tough days (verify good and neutral = 0)
+   - Decimal mood scores (e.g., 2.7, 3.8) - verify correct categorization
+
+6. **Cross-Month Test**:
+   - Log mood data in November
+   - Navigate to December (empty month)
+   - Verify empty state shows
+   - Navigate back to November
+   - Verify stats display correctly
+
+**Debug Output**:
+- No new console logs added (existing logs from `loadCalendarData` already track data fetching)
+- TypeScript may show temporary errors until file is saved and recompiled
+
+**Performance Considerations**:
+- Mood stat calculation is O(n) where n = days in month (max 31)
+- No additional API calls introduced
+- Filtering operations are lightweight and run on component render (memoized via existing state)
+
+**Implementation Notes**:
+- The "This Month Overview" card was **already dynamic** - it fetches real Supabase data via `AnalyticsService.getCalendarData()`
+- The main change was **correcting the threshold logic** to match requirements
+- The empty state is a **UX improvement** that was previously missing
+- No backend changes were needed (no Edge Functions or new endpoints required)
+
+---
+
+### [Date: 2025-01-XX] - Dynamic Monthly Summary with Personalized Insights
+
+**Feature/Area**: Monthly Summary Card - Analytics Service  
+**Type**: Feature Addition  
+**Reason**: Transform hard-coded Monthly Summary card into dynamic, data-driven component with real-time Supabase data and AI-generated insights based on user behavior patterns
+
+**Files Modified**:
+- services/analytics.service.ts (added MonthlySummary interface and getMonthlySummary method)
+- app/(tabs)/calendar.tsx (integrated dynamic monthly summary with loading/error states)
+
+**Description**:
+
+#### 1. Analytics Service Enhancement
+- **New MonthlySummary Interface**:
+  ```typescript
+  interface MonthlySummary {
+    summary: {
+      avgMood: number;        // Average mood score (0-5)
+      avgSleep: number;       // Average sleep hours
+      avgClarity: number;     // Average mental clarity (0-10)
+      avgProductivity: number; // Average productivity rating
+      topActivities: string[]; // Top 3 most frequent activities
+      totalDaysLogged: number;
+      bestMoodDays: number;    // Days with score >= 4
+      worstMoodDays: number;   // Days with score <= 2
+    };
+    insights: string[];        // Personalized natural language insights
+    correlations: {
+      sleepMoodCorrelation: number;      // -1 to 1
+      exerciseMoodCorrelation: number;   // -1 to 1
+      sleepClarityCorrelation: number;   // -1 to 1
+    };
+  }
+  ```
+
+- **New getMonthlySummary() Method**:
+  * Fetches all wellness data for specified month (mood, sleep, mental clarity, productivity, activities)
+  * Calculates statistical averages and aggregations
+  * Performs correlation analysis using Pearson correlation coefficient
+  * Generates 3-5 personalized insights based on patterns:
+    - Sleep-Mood correlation: "Your mood improves by X% on days with 7+ hours of sleep"
+    - Exercise-Mood correlation: "Exercise days show X% higher mood scores"
+    - Sleep-Clarity correlation: "Mental clarity dips significantly when sleep drops below 6 hours"
+    - Consistency insights: "Great consistency! You've logged data for X days this month"
+    - Mood trend insights: "This was a great month! You had X days with excellent mood"
+    - Top activity insights: "Your most frequent activities: X, Y"
+  * Handles edge cases (no data, insufficient data for correlations, guest mode)
+  * Returns properly typed MonthlySummary object with error handling
+
+- **New calculateCorrelation() Helper Method**:
+  * Implements Pearson correlation coefficient algorithm
+  * Validates input arrays (equal length, non-empty)
+  * Returns correlation value between -1 and 1 (or 0 if invalid)
+
+#### 2. Calendar Frontend Integration
+- **State Management**:
+  * Added `monthlySummary` state (MonthlySummary | null)
+  * Added `summaryLoading` state for loading indicator
+  * Imported MonthlySummary type from analytics.service.ts
+
+- **Data Loading**:
+  * Created `loadMonthlySummary()` function to fetch monthly summary
+  * Integrated with existing `useEffect` to load alongside calendar data
+  * Added to `handleRealtimeUpdate()` to refresh when new data is logged
+  * Added to `onRefresh()` for manual pull-to-refresh support
+
+- **UI Components**:
+  * **Loading State**: Shows spinner with "Analyzing your wellness data..." message
+  * **Loaded State**: Displays 3 metric cards (Avg Mood, Avg Sleep, Avg Clarity) with emoji icons
+  * **Dynamic Insights**: Maps through `insights` array to render personalized bullet points
+  * **Empty State**: Shows "Start logging data to see personalized monthly summary" when no data
+  * Replaced all 3 hard-coded insights with dynamic content
+  * Maintains existing card styling and animations
+
+- **New Styles**:
+  ```typescript
+  summaryLoadingContainer  // Centered spinner with padding
+  summaryLoadingText       // Grey text below spinner
+  summaryEmptyState        // Centered empty state container
+  summaryEmptyText         // Grey text for empty message
+  ```
+
+#### 3. Real-Time Auto-Refresh
+- Monthly summary automatically refreshes when:
+  * Component mounts or date range changes
+  * User returns to calendar screen (via useFocusEffect)
+  * Real-time data updates detected (moods, sleep, activities, habits, experiments)
+  * User manually pulls to refresh
+- Prevents stale insights after logging new data
+
+#### 4. Correlation Analysis Logic
+- **Sleep-Mood Correlation**:
+  * Requires minimum 3 days with both sleep and mood data
+  * If correlation > 0.3: Compares avg mood on 7+ hour sleep days vs <6 hour sleep days
+  * Generates insight with percentage improvement if significant
+  * Detects negative correlations (< -0.3) and flags for investigation
+
+- **Exercise-Mood Correlation**:
+  * Detects exercise activities (keywords: exercise, workout, gym, run, yoga)
+  * Requires minimum 2 exercise days
+  * Compares avg mood on exercise days vs non-exercise days
+  * Generates insight if mood improvement > 0.5 points
+
+- **Sleep-Clarity Correlation**:
+  * Requires minimum 3 days with both sleep and mental clarity data
+  * If correlation > 0.3: Identifies clarity dips when sleep < 6 hours
+  * Generates warning insight if avg clarity on low sleep < 6/10
+
+#### 5. Data Aggregation
+- Filters out empty days (days with no mood, sleep, or activities)
+- Calculates totals and averages across all wellness metrics
+- Counts activity frequencies to determine top 3 activities
+- Categorizes mood days into best (>=4) and worst (<=2)
+- Handles partial data gracefully (shows N/A for missing metrics)
+
+**Breaking Changes**: No  
+No breaking changes - existing UI preserved, only enhanced with dynamic data
+
+**Related Issues**: None  
+Feature request to eliminate hard-coded insights in Monthly Summary card
+
+**Testing Notes**:
+1. **Full Month Data Test**:
+   - Log mood, sleep, mental clarity, and activities for 20+ days
+   - Vary sleep hours (some 7+, some <6) to trigger correlation insights
+   - Include exercise activities on some days
+   - Navigate to Calendar tab and verify:
+     * Monthly Summary shows correct averages
+     * Insights reflect actual patterns (e.g., "mood improves by X% on 7+ hours of sleep")
+     * Top activities list matches most frequent activities
+     * Good/bad mood day counts are accurate
+
+2. **Partial Data Test**:
+   - Log only mood for a few days
+   - Verify metrics show "N/A" for missing data
+   - Verify insights still generated based on available data
+
+3. **No Data Test**:
+   - Clear all data for current month
+   - Verify empty state message displays
+   - Verify no errors or crashes
+
+4. **Real-Time Refresh Test**:
+   - Navigate to add-entry screen
+   - Log new mood/sleep/activity data
+   - Return to calendar screen
+   - Verify Monthly Summary refreshes automatically with new data
+
+5. **Correlation Threshold Test**:
+   - Test with data that has weak correlations (should see generic insights)
+   - Test with data that has strong correlations (should see specific percentage-based insights)
+
+6. **Loading State Test**:
+   - Slow network simulation to observe loading spinner
+   - Verify loading text displays correctly
+
+7. **Month Navigation Test**:
+   - Change month via chevron buttons
+   - Verify Monthly Summary updates for new month
+   - Verify previous/future months show appropriate data or empty state
+
+8. **Guest Mode Test**:
+   - Test without authentication
+   - Verify no crashes and appropriate empty state handling
+
+**Debug Output**:
+- Console logs added for monthly summary generation:
+  * "📊 Generating monthly summary for user X, YYYY-MM"
+  * "📊 Found X days with data"
+  * "📊 Generated X insights"
+  * "📊 Loading monthly summary for YYYY-MM"
+  * "📊 Monthly summary loaded: [data]"
+
+**Performance Considerations**:
+- Monthly summary loads in parallel with calendar data (not blocking)
+- Correlation calculations are O(n) where n = days in month (max 31)
+- Caching via state prevents repeated API calls on re-renders
+- Loading state prevents UI blocking during analysis
+
+**Future Enhancements**:
+- Add more correlation types (habits↔mood, productivity↔sleep, etc.)
+- Implement ML-based insight generation for more complex patterns
+- Add trend detection (improving vs declining over time)
+- Allow users to drill into specific correlations (e.g., tap "sleep-mood" to see graph)
+- Cache monthly summaries in local storage for offline viewing
+- Add export functionality (PDF report of monthly insights)
+
+---
+
 ### [Date: 2025-11-03] - Calendar Refinements: Enhanced Data Sync & UI Behavior
 
 **Feature/Area**: Calendar Page - Data Sync & Conditional Logic Improvements  
