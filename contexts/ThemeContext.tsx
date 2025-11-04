@@ -2,6 +2,9 @@ import React, { createContext, useContext, useState, useEffect, ReactNode, useMe
 import { useColorScheme } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as designSystem from '@/themes/design';
+import { getPaletteColors, type ColorPalette } from '@/themes/colorPalettes';
+import { getIconPalette, type IconPalette, type IconStyle } from '@/themes/iconPalettes';
+import { getEmojiPalette, getEmojiSet, getEmojiOpacity, type EmojiPalette, type EmojiSet } from '@/themes/emojiPalettes';
 
 export type ThemeMode = 'light' | 'dark';
 
@@ -119,7 +122,7 @@ const darkColors = {
   shadowMedium: 'rgba(0, 0, 0, 0.5)',
   shadowStrong: 'rgba(0, 0, 0, 0.6)',
   
-  overlay: 'rgba(0, 0, 0, 0.6)',
+  overlay: 'rgba(0, 0, 0, 0.2)',
   overlayLight: 'rgba(0, 0, 0, 0.4)',
   overlayMedium: 'rgba(0, 0, 0, 0.5)',
   overlayStrong: 'rgba(0, 0, 0, 0.7)',
@@ -227,20 +230,39 @@ export interface Theme {
 interface ThemeContextType {
   theme: Theme;
   themeMode: ThemeMode;
+  colorPalette: string;
+  iconPalette: string;
+  iconStyle: IconStyle;
+  emojiPalette: string;
+  emojiSet: EmojiSet;
+  emojiOpacity: number;
   setThemeMode: (mode: ThemeMode) => void;
+  setColorPalette: (paletteId: string) => void;
+  setIconPalette: (paletteId: string) => void;
+  setEmojiPalette: (paletteId: string) => void;
   toggleTheme: () => void;
+  getEmoji: (key: keyof EmojiSet) => string;
 }
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
 const THEME_STORAGE_KEY = '@app_theme_mode';
+const COLOR_PALETTE_STORAGE_KEY = '@app_color_palette';
+const ICON_PALETTE_STORAGE_KEY = '@app_icon_palette';
+const EMOJI_PALETTE_STORAGE_KEY = '@app_emoji_palette';
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const systemColorScheme = useColorScheme();
   const [themeMode, setThemeModeState] = useState<ThemeMode>('light');
+  const [colorPalette, setColorPaletteState] = useState<string>('default');
+  const [iconPalette, setIconPaletteState] = useState<string>('default');
+  const [emojiPalette, setEmojiPaletteState] = useState<string>('apple');
 
   useEffect(() => {
     loadThemePreference();
+    loadColorPalettePreference();
+    loadIconPalettePreference();
+    loadEmojiPalettePreference();
   }, []);
 
   const loadThemePreference = async () => {
@@ -256,6 +278,39 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const loadColorPalettePreference = async () => {
+    try {
+      const storedPalette = await AsyncStorage.getItem(COLOR_PALETTE_STORAGE_KEY);
+      if (storedPalette) {
+        setColorPaletteState(storedPalette);
+      }
+    } catch (error) {
+      console.error('Failed to load color palette preference:', error);
+    }
+  };
+
+  const loadIconPalettePreference = async () => {
+    try {
+      const storedIconPalette = await AsyncStorage.getItem(ICON_PALETTE_STORAGE_KEY);
+      if (storedIconPalette) {
+        setIconPaletteState(storedIconPalette);
+      }
+    } catch (error) {
+      console.error('Failed to load icon palette preference:', error);
+    }
+  };
+
+  const loadEmojiPalettePreference = async () => {
+    try {
+      const storedEmojiPalette = await AsyncStorage.getItem(EMOJI_PALETTE_STORAGE_KEY);
+      if (storedEmojiPalette) {
+        setEmojiPaletteState(storedEmojiPalette);
+      }
+    } catch (error) {
+      console.error('Failed to load emoji palette preference:', error);
+    }
+  };
+
   const setThemeMode = useCallback(async (mode: ThemeMode) => {
     try {
       await AsyncStorage.setItem(THEME_STORAGE_KEY, mode);
@@ -265,12 +320,87 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  const setColorPalette = useCallback(async (paletteId: string) => {
+    try {
+      await AsyncStorage.setItem(COLOR_PALETTE_STORAGE_KEY, paletteId);
+      setColorPaletteState(paletteId);
+    } catch (error) {
+      console.error('Failed to save color palette preference:', error);
+    }
+  }, []);
+
+  const setIconPalette = useCallback(async (paletteId: string) => {
+    try {
+      await AsyncStorage.setItem(ICON_PALETTE_STORAGE_KEY, paletteId);
+      setIconPaletteState(paletteId);
+    } catch (error) {
+      console.error('Failed to save icon palette preference:', error);
+    }
+  }, []);
+
+  const setEmojiPalette = useCallback(async (paletteId: string) => {
+    try {
+      await AsyncStorage.setItem(EMOJI_PALETTE_STORAGE_KEY, paletteId);
+      setEmojiPaletteState(paletteId);
+    } catch (error) {
+      console.error('Failed to save emoji palette preference:', error);
+    }
+  }, []);
+
   const toggleTheme = useCallback(() => {
     setThemeMode(themeMode === 'light' ? 'dark' : 'light');
   }, [themeMode, setThemeMode]);
 
+  // Get current icon style based on selected palette
+  const iconStyle = useMemo(() => {
+    const palette = getIconPalette(iconPalette);
+    return palette.style;
+  }, [iconPalette]);
+
+  // Get current emoji set based on selected palette
+  const emojiSet = useMemo(() => {
+    return getEmojiSet(emojiPalette);
+  }, [emojiPalette]);
+
+  // Get emoji opacity for current theme mode
+  const emojiOpacity = useMemo(() => {
+    return getEmojiOpacity(emojiPalette, themeMode);
+  }, [emojiPalette, themeMode]);
+
+  // Helper function to get emoji by key
+  const getEmoji = useCallback((key: keyof EmojiSet) => {
+    return emojiSet[key];
+  }, [emojiSet]);
+
+  // Merge color palette with base colors
+  const getCustomColors = useCallback(() => {
+    const baseColors = themeMode === 'light' ? lightColors : darkColors;
+    
+    // If using default palette, return base colors
+    if (colorPalette === 'default') {
+      return baseColors;
+    }
+
+    // Get custom palette colors
+    const paletteColors = getPaletteColors(colorPalette, themeMode);
+    
+    // Merge palette colors with base, giving palette priority for main colors
+    return {
+      ...baseColors,
+      primary: paletteColors.primary,
+      secondary: paletteColors.secondary,
+      accent: paletteColors.accent,
+      success: paletteColors.success,
+      warning: paletteColors.warning,
+      error: paletteColors.error,
+      danger: paletteColors.error,
+      info: paletteColors.info,
+      // Keep other base colors for compatibility
+    };
+  }, [themeMode, colorPalette]);
+
   const theme: Theme = useMemo(() => ({
-    colors: themeMode === 'light' ? lightColors : darkColors,
+    colors: getCustomColors(),
     gradients,
     typography,
     spacing,
@@ -287,14 +417,24 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     getShadow: designSystem.getShadow,
     getSpacing: designSystem.getSpacing,
     withOpacity: designSystem.withOpacity,
-  }), [themeMode]);
+  }), [themeMode, getCustomColors]);
 
   const value = useMemo(() => ({
     theme,
     themeMode,
+    colorPalette,
+    iconPalette,
+    iconStyle,
+    emojiPalette,
+    emojiSet,
+    emojiOpacity,
     setThemeMode,
+    setColorPalette,
+    setIconPalette,
+    setEmojiPalette,
     toggleTheme,
-  }), [theme, themeMode, setThemeMode, toggleTheme]);
+    getEmoji,
+  }), [theme, themeMode, colorPalette, iconPalette, iconStyle, emojiPalette, emojiSet, emojiOpacity, setThemeMode, setColorPalette, setIconPalette, setEmojiPalette, toggleTheme, getEmoji]);
 
   return (
     <ThemeContext.Provider value={value}>

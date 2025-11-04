@@ -2875,4 +2875,279 @@ export class AnalyticsService {
 
     return insights.slice(0, 4); // Top 4 insights
   }
+
+  /**
+   * Get Comprehensive Insights
+   * Analyzes all available metrics for the More Insights card
+   */
+  static async getComprehensiveInsights(
+    userId: string
+  ): Promise<{
+    data: {
+      mentalClarity: {
+        avgScore: number;
+        trend: string;
+        weeklyTests: number;
+        change: number;
+        topFactors: string[];
+      };
+      productivity: {
+        avgRating: number;
+        focusedHours: number;
+        weeklyLogs: number;
+        trend: string;
+        change: number;
+        topFactors: string[];
+      };
+      intimacy: {
+        weeklyCount: number;
+        avgMoodImprovement: number;
+        soloVsCouple: { solo: number; couple: number };
+        avgTimeToSleep: number;
+        trend: string;
+      };
+      habits: {
+        activeCount: number;
+        avgCompletionRate: number;
+        totalStreakDays: number;
+        bestStreak: number;
+        topCategory: string;
+      };
+      overall: {
+        totalDataPoints: number;
+        trackingConsistency: number;
+        wellnessScore: number;
+        topImprovement: string;
+      };
+    } | null;
+    error: any;
+  }> {
+    try {
+      console.log('📊 Generating comprehensive insights...');
+
+      const now = new Date();
+      const sevenDaysAgo = new Date(now);
+      sevenDaysAgo.setDate(now.getDate() - 7);
+      const fourteenDaysAgo = new Date(now);
+      fourteenDaysAgo.setDate(now.getDate() - 14);
+
+      const startDate = sevenDaysAgo.toISOString().split('T')[0];
+      const endDate = now.toISOString().split('T')[0];
+      const prevStartDate = fourteenDaysAgo.toISOString().split('T')[0];
+      const prevEndDate = sevenDaysAgo.toISOString().split('T')[0];
+
+      // Fetch all data in parallel
+      const [
+        mentalClarityResult,
+        prevMentalClarityResult,
+        productivityResult,
+        prevProductivityResult,
+        intimacyResult,
+        habitsResult,
+        moodsResult,
+        sleepResult,
+      ] = await Promise.all([
+        MentalClarityService.getByDateRange(userId, startDate, endDate),
+        MentalClarityService.getByDateRange(userId, prevStartDate, prevEndDate),
+        ProductivityService.getByDateRange(userId, startDate, endDate),
+        ProductivityService.getByDateRange(userId, prevStartDate, prevEndDate),
+        IntimacyService.getByDateRange(userId, startDate, endDate),
+        HabitsService.getAll(userId),
+        MoodsService.getByDateRange(userId, startDate, endDate),
+        SleepService.getByDateRange(userId, startDate, endDate),
+      ]);
+
+      const mentalClarityLogs = mentalClarityResult.data || [];
+      const prevMentalClarityLogs = prevMentalClarityResult.data || [];
+      const productivityLogs = productivityResult.data || [];
+      const prevProductivityLogs = prevProductivityResult.data || [];
+      const intimacyLogs = intimacyResult.data || [];
+      const habits = habitsResult.data || [];
+      const moods = moodsResult.data || [];
+      const sleeps = sleepResult.data || [];
+
+      // Mental Clarity Analysis
+      const mentalClarityScores = mentalClarityLogs.map(m => m.score || 0);
+      const prevMentalClarityScores = prevMentalClarityLogs.map(m => m.score || 0);
+      const avgMentalClarity = mentalClarityScores.length > 0 
+        ? mentalClarityScores.reduce((sum, s) => sum + s, 0) / mentalClarityScores.length 
+        : 0;
+      const prevAvgMentalClarity = prevMentalClarityScores.length > 0
+        ? prevMentalClarityScores.reduce((sum, s) => sum + s, 0) / prevMentalClarityScores.length
+        : 0;
+      const mentalClarityChange = prevAvgMentalClarity > 0
+        ? ((avgMentalClarity - prevAvgMentalClarity) / prevAvgMentalClarity) * 100
+        : 0;
+      const mentalClarityTrend = mentalClarityChange > 5 ? 'up' : mentalClarityChange < -5 ? 'down' : 'stable';
+
+      // Extract top factors from mental clarity
+      const clarityFactorsMap = new Map<string, number>();
+      mentalClarityLogs.forEach(log => {
+        const factors = (log.factors as string[]) || [];
+        factors.forEach(factor => {
+          clarityFactorsMap.set(factor, (clarityFactorsMap.get(factor) || 0) + 1);
+        });
+      });
+      const topClarityFactors = Array.from(clarityFactorsMap.entries())
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 3)
+        .map(([factor]) => factor);
+
+      // Productivity Analysis
+      const productivityRatings = productivityLogs.map(p => p.rating || 0);
+      const prevProductivityRatings = prevProductivityLogs.map(p => p.rating || 0);
+      const avgProductivity = productivityRatings.length > 0
+        ? productivityRatings.reduce((sum, r) => sum + r, 0) / productivityRatings.length
+        : 0;
+      const prevAvgProductivity = prevProductivityRatings.length > 0
+        ? prevProductivityRatings.reduce((sum, r) => sum + r, 0) / prevProductivityRatings.length
+        : 0;
+      const productivityChange = prevAvgProductivity > 0
+        ? ((avgProductivity - prevAvgProductivity) / prevAvgProductivity) * 100
+        : 0;
+      const productivityTrend = productivityChange > 5 ? 'up' : productivityChange < -5 ? 'down' : 'stable';
+
+      const totalFocusedHours = productivityLogs.reduce((sum, p) => sum + (Number(p.focused_hours) || 0), 0);
+
+      // Extract top factors from productivity
+      const productivityFactorsMap = new Map<string, number>();
+      productivityLogs.forEach(log => {
+        const factors = (log.factors as string[]) || [];
+        factors.forEach(factor => {
+          productivityFactorsMap.set(factor, (productivityFactorsMap.get(factor) || 0) + 1);
+        });
+      });
+      const topProductivityFactors = Array.from(productivityFactorsMap.entries())
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 3)
+        .map(([factor]) => factor);
+
+      // Intimacy Analysis
+      const soloCount = intimacyLogs.filter(log => log.type === 'solo').length;
+      const coupleCount = intimacyLogs.filter(log => log.type === 'couple').length;
+      const moodImprovements = intimacyLogs.map(log => (log.mood_after || 0) - (log.mood_before || 0));
+      const avgMoodImprovement = moodImprovements.length > 0
+        ? moodImprovements.reduce((sum, i) => sum + i, 0) / moodImprovements.length
+        : 0;
+      const avgTimeToSleep = intimacyLogs.length > 0
+        ? intimacyLogs.reduce((sum, log) => sum + (log.time_to_sleep || 0), 0) / intimacyLogs.length
+        : 0;
+
+      // Habits Analysis
+      const activeHabits = habits.filter(h => (h.streak || 0) > 0);
+      const habitCompletionRates = await Promise.all(
+        habits.map(async (h) => {
+          const { data } = await HabitsService.getHabitCompletionRate(h.id, userId, 7);
+          return data || 0;
+        })
+      );
+      const avgHabitCompletion = habitCompletionRates.length > 0
+        ? habitCompletionRates.reduce((sum, r) => sum + r, 0) / habitCompletionRates.length
+        : 0;
+      const totalStreakDays = habits.reduce((sum, h) => sum + (h.streak || 0), 0);
+      const bestStreak = habits.length > 0 
+        ? Math.max(...habits.map(h => h.streak || 0))
+        : 0;
+
+      // Find top habit category
+      const categoryMap = new Map<string, number>();
+      habits.forEach(h => {
+        const category = h.category || 'Other';
+        categoryMap.set(category, (categoryMap.get(category) || 0) + 1);
+      });
+      const topCategory = categoryMap.size > 0
+        ? Array.from(categoryMap.entries()).sort((a, b) => b[1] - a[1])[0][0]
+        : '';
+
+      // Overall Wellness Score
+      const totalDataPoints = 
+        mentalClarityLogs.length + 
+        productivityLogs.length + 
+        intimacyLogs.length + 
+        moods.length + 
+        sleeps.length;
+
+      // Tracking consistency (how many days out of 7 have at least one entry)
+      const daysWithData = new Set();
+      [...mentalClarityLogs, ...productivityLogs, ...intimacyLogs, ...moods, ...sleeps].forEach(log => {
+        daysWithData.add(log.date);
+      });
+      const trackingConsistency = Math.round((daysWithData.size / 7) * 100);
+
+      // Calculate overall wellness score (weighted average)
+      const moodScore = moods.length > 0
+        ? (moods.reduce((sum, m) => sum + m.score, 0) / moods.length / 10) * 100
+        : 0;
+      const sleepScore = sleeps.length > 0
+        ? (sleeps.reduce((sum, s) => sum + (Number(s.hours) >= 7 ? 1 : 0), 0) / sleeps.length) * 100
+        : 0;
+      const clarityScore = (avgMentalClarity / 5) * 100;
+      const productivityScore = (avgProductivity / 5) * 100;
+      const habitScore = avgHabitCompletion;
+
+      const wellnessScore = Math.round(
+        (moodScore * 0.25 + 
+         sleepScore * 0.25 + 
+         clarityScore * 0.2 + 
+         productivityScore * 0.15 + 
+         habitScore * 0.15)
+      );
+
+      // Determine top improvement area
+      const improvements = [
+        { name: 'Mental Clarity', change: mentalClarityChange },
+        { name: 'Productivity', change: productivityChange },
+        { name: 'Mood', change: 0 }, // Would need previous week comparison
+        { name: 'Sleep', change: 0 }, // Would need previous week comparison
+      ];
+      const topImprovement = improvements.sort((a, b) => b.change - a.change)[0];
+      const topImprovementName = topImprovement.change > 5 ? topImprovement.name : '';
+
+      console.log('✅ Comprehensive insights generated');
+
+      return {
+        data: {
+          mentalClarity: {
+            avgScore: avgMentalClarity,
+            trend: mentalClarityTrend,
+            weeklyTests: mentalClarityLogs.length,
+            change: mentalClarityChange,
+            topFactors: topClarityFactors,
+          },
+          productivity: {
+            avgRating: avgProductivity,
+            focusedHours: totalFocusedHours,
+            weeklyLogs: productivityLogs.length,
+            trend: productivityTrend,
+            change: productivityChange,
+            topFactors: topProductivityFactors,
+          },
+          intimacy: {
+            weeklyCount: intimacyLogs.length,
+            avgMoodImprovement,
+            soloVsCouple: { solo: soloCount, couple: coupleCount },
+            avgTimeToSleep: Math.round(avgTimeToSleep),
+            trend: 'stable',
+          },
+          habits: {
+            activeCount: activeHabits.length,
+            avgCompletionRate: avgHabitCompletion,
+            totalStreakDays,
+            bestStreak,
+            topCategory,
+          },
+          overall: {
+            totalDataPoints,
+            trackingConsistency,
+            wellnessScore,
+            topImprovement: topImprovementName,
+          },
+        },
+        error: null,
+      };
+    } catch (error) {
+      console.error('❌ Error generating comprehensive insights:', error);
+      return { data: null, error };
+    }
+  }
 }

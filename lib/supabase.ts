@@ -57,6 +57,64 @@ export type Database = {
           metadata?: any;
         };
       };
+      profiles: {
+        Row: {
+          id: string;
+          full_name: string | null;
+          email: string | null;
+          profile_picture: string | null;
+          pin_code_hash: string | null;
+          pin_enabled: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id: string;
+          full_name?: string | null;
+          email?: string | null;
+          profile_picture?: string | null;
+          pin_code_hash?: string | null;
+          pin_enabled?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          full_name?: string | null;
+          email?: string | null;
+          profile_picture?: string | null;
+          pin_code_hash?: string | null;
+          pin_enabled?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
+      user_preferences: {
+        Row: {
+          id: string;
+          color_theme: string;
+          theme_mode: string;
+          icon_pack: string;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id: string;
+          color_theme?: string;
+          theme_mode?: string;
+          icon_pack?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          color_theme?: string;
+          theme_mode?: string;
+          icon_pack?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
       mood_logs: {
         Row: {
           id: string;
@@ -422,6 +480,167 @@ export type Database = {
           date?: string;
           score?: number;
           factors?: any[];
+          created_at?: string;
+        };
+      };
+      notification_preferences: {
+        Row: {
+          id: string;
+          user_id: string;
+          type: string;
+          channels: any[];
+          frequency: string;
+          priority: string;
+          time_of_day?: string;
+          quiet_hours_start?: string;
+          quiet_hours_end?: string;
+          enabled: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          type: string;
+          channels?: any[];
+          frequency?: string;
+          priority?: string;
+          time_of_day?: string;
+          quiet_hours_start?: string;
+          quiet_hours_end?: string;
+          enabled?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          type?: string;
+          channels?: any[];
+          frequency?: string;
+          priority?: string;
+          time_of_day?: string;
+          quiet_hours_start?: string;
+          quiet_hours_end?: string;
+          enabled?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
+      item_notification_overrides: {
+        Row: {
+          id: string;
+          user_id: string;
+          item_id: string;
+          item_type: string;
+          channels: any[];
+          frequency: string;
+          time_of_day?: string;
+          weekdays: any[];
+          enabled: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          item_id: string;
+          item_type: string;
+          channels?: any[];
+          frequency?: string;
+          time_of_day?: string;
+          weekdays?: any[];
+          enabled?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          item_id?: string;
+          item_type?: string;
+          channels?: any[];
+          frequency?: string;
+          time_of_day?: string;
+          weekdays?: any[];
+          enabled?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
+      notifications: {
+        Row: {
+          id: string;
+          user_id: string;
+          type: string;
+          channel: string;
+          status: string;
+          payload: any;
+          send_after: string;
+          sent_at?: string;
+          delivered_at?: string;
+          read_at?: string;
+          error_message?: string;
+          retry_count: number;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          type: string;
+          channel: string;
+          status?: string;
+          payload: any;
+          send_after?: string;
+          sent_at?: string;
+          delivered_at?: string;
+          read_at?: string;
+          error_message?: string;
+          retry_count?: number;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          type?: string;
+          channel?: string;
+          status?: string;
+          payload?: any;
+          send_after?: string;
+          sent_at?: string;
+          delivered_at?: string;
+          read_at?: string;
+          error_message?: string;
+          retry_count?: number;
+          created_at?: string;
+        };
+      };
+      user_devices: {
+        Row: {
+          id: string;
+          user_id: string;
+          device_token: string;
+          platform: string;
+          push_enabled: boolean;
+          last_seen: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          device_token: string;
+          platform: string;
+          push_enabled?: boolean;
+          last_seen?: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          device_token?: string;
+          platform?: string;
+          push_enabled?: boolean;
+          last_seen?: string;
           created_at?: string;
         };
       };
