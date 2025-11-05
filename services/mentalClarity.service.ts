@@ -36,6 +36,9 @@ export class MentalClarityService {
     startDate: string, 
     endDate: string
   ): Promise<{ data: MentalClarityTest[] | null; error: any }> {
+    if (await isGuestMode()) {
+      return guestDataStore.getAll('mentalClarity');
+    }
     const result = await SupabaseSafe.select('mental_clarity_tests', { 
       gte: { date: startDate },
       lte: { date: endDate },
@@ -45,6 +48,11 @@ export class MentalClarityService {
   }
 
   static async getByDate(userId: string, date: string): Promise<{ data: MentalClarityTest | null; error: any }> {
+    if (await isGuestMode()) {
+      const allData = await guestDataStore.getAll('mentalClarity');
+      const filtered = allData.data?.find((item: any) => item.date === date);
+      return { data: filtered || null, error: allData.error };
+    }
     const result = await SupabaseSafe.select('mental_clarity_tests', { eq: { date } }, userId);
     return { data: result.data?.[0] || null, error: result.error };
   }
@@ -81,19 +89,52 @@ export class MentalClarityService {
   }
 
   static async getAverageScore(userId: string, days: number = 7): Promise<{ data: number | null; error: any }> {
-    const result = await SupabaseSafe.select('mental_clarity_tests', { 
-      limit: days,
-      order: { date: 'desc' }
+    if (await isGuestMode()) {
+      const allData = await guestDataStore.getAll('mentalClarity');
+      if (allData.error || !allData.data || allData.data.length === 0) {
+        return { data: null, error: allData.error };
+      }
+      
+      const startDate = new Date();
+      startDate.setDate(startDate.getDate() - days);
+      const startDateStr = startDate.toISOString().split('T')[0];
+      
+      const recentTests = allData.data.filter((test: any) => test.date >= startDateStr);
+      if (recentTests.length === 0) {
+        return { data: null, error: null };
+      }
+      
+      const average = recentTests.reduce((sum: number, test: any) => sum + test.clarity_score, 0) / recentTests.length;
+      return { data: Math.round(average * 10) / 10, error: null };
+    }
+
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - days);
+    
+    const result = await SupabaseSafe.select('mental_clarity_tests', {
+      gte: { date: startDate.toISOString().split('T')[0] }
     }, userId);
 
-    if (result.error) return { data: null, error: result.error };
-    if (!result.data || result.data.length === 0) return { data: null, error: null };
+    if (result.error || !result.data || result.data.length === 0) {
+      return { data: null, error: result.error };
+    }
 
-    const average = result.data.reduce((sum, test) => sum + test.score, 0) / result.data.length;
-    return { data: Number(average.toFixed(1)), error: null };
+    const average = result.data.reduce((sum: number, test: any) => sum + test.clarity_score, 0) / result.data.length;
+    return { data: Math.round(average * 10) / 10, error: null };
   }
 
   static async getScoreTrend(userId: string, days: number = 7): Promise<{ data: number[] | null; error: any }> {
+    if (await isGuestMode()) {
+      const allData = await guestDataStore.getAll('mentalClarity');
+      if (allData.error || !allData.data || allData.data.length === 0) {
+        return { data: [], error: allData.error };
+      }
+      
+      const recentTests = allData.data.slice(-days);
+      const trend = recentTests.map((test: any) => test.score || 0);
+      return { data: trend, error: null };
+    }
+
     const result = await SupabaseSafe.select('mental_clarity_tests', { 
       limit: days,
       order: { date: 'asc' }
@@ -101,11 +142,38 @@ export class MentalClarityService {
 
     if (result.error) return { data: null, error: result.error };
 
-    const trend = result.data?.map(test => test.score) || [];
+    const trend = result.data?.map((test: any) => test.score) || [];
     return { data: trend, error: null };
   }
 
   static async getTopFactors(userId: string, days: number = 30): Promise<{ data: { factor: string; count: number }[] | null; error: any }> {
+    if (await isGuestMode()) {
+      const allData = await guestDataStore.getAll('mentalClarity');
+      if (allData.error || !allData.data || allData.data.length === 0) {
+        return { data: [], error: allData.error };
+      }
+      
+      const recentTests = allData.data.slice(-days);
+      
+      // Count factor occurrences
+      const factorCounts: { [key: string]: number } = {};
+      recentTests.forEach((test: any) => {
+        if (test.factors && Array.isArray(test.factors)) {
+          test.factors.forEach((factor: string) => {
+            factorCounts[factor] = (factorCounts[factor] || 0) + 1;
+          });
+        }
+      });
+
+      // Convert to array and sort by count
+      const topFactors = Object.entries(factorCounts)
+        .map(([factor, count]) => ({ factor, count }))
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 5);
+
+      return { data: topFactors, error: null };
+    }
+
     const result = await SupabaseSafe.select('mental_clarity_tests', { 
       limit: days,
       order: { date: 'desc' }
@@ -116,7 +184,7 @@ export class MentalClarityService {
 
     // Count factor occurrences
     const factorCounts: { [key: string]: number } = {};
-    result.data.forEach(test => {
+    result.data.forEach((test: any) => {
       if (test.factors && Array.isArray(test.factors)) {
         test.factors.forEach((factor: string) => {
           factorCounts[factor] = (factorCounts[factor] || 0) + 1;

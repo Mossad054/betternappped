@@ -1,88 +1,107 @@
 /**
- * design.ts - Wellness App Design System
- * Extracted from wellness UI design (theme.md)
- * Date: 2025-10-30
- * All colors, gradients, typography, and components follow the original style
+ * design.ts - Betternapped Design System
+ * Inspired by mindful wellness app aesthetics
+ * Date: 2025-11-05
+ * Soft pastels, generous spacing, playful yet calming
  */
 
 // ============================================================================
-// COLORS
+// COLORS - PASTEL WELLNESS PALETTE
 // ============================================================================
 
 export const colors = {
-  // Primary backgrounds
-  background: '#F5EFE1',              // main app background (dull cream)
-  backgroundGradientStart: '#F5EFE1',
-  backgroundGradientEnd: '#E8DBC5',
-  surface: '#FAF5EB',                 // cards, containers (warm cream, no white)
-  surfaceVariant: '#F7F1E3',          // slight variant for depth
+  // Primary backgrounds - Soft mint greens
+  background: '#F0FAED',              // bright mint background
+  backgroundGradientStart: '#F0FAED',
+  backgroundGradientEnd: '#E0F4DB',
+  surface: '#FFFFFF',                 // pure white cards
+  surfaceVariant: '#F8FBF7',          // subtle off-white
   
-  // Primary accent colors
-  primary: '#F9CF73',                 // soft warm yellow accent (buttons, highlights)
-  primaryDark: '#F5C55F',             // darker yellow shade
-  secondary: '#FFDFAE',               // lighter accent shade
-  accent: '#FFB870',                  // warm orange accent
+  // Secondary backgrounds - Warm peach/coral
+  backgroundAlt: '#FFE8DC',           // soft peach background
+  backgroundAltStart: '#FFE8DC',
+  backgroundAltEnd: '#FFDCC8',
   
-  // Text colors
-  textPrimary: '#2E2E2E',             // dark text
-  textSecondary: '#6B6B6B',           // muted text
-  textTertiary: '#9A9A9A',            // light muted text
-  textLight: '#B8B8B8',               // very light text
+  // Primary accent colors - Warm coral/orange
+  primary: '#FFB088',                 // vibrant coral accent
+  primaryDark: '#FF9B6E',             // deeper coral
+  primaryLight: '#FFC5A3',            // lighter coral
+  secondary: '#D4EDD1',               // soft mint green
+  accent: '#FF8866',                  // bright coral accent
   
-  // Functional colors
-  success: '#A5D6A7',                 // calm green (e.g., progress)
-  danger: '#E57373',                  // soft red (mood icons)
-  warning: '#FFB74D',
-  info: '#81D4FA',
+  // Text colors - High contrast on pastels
+  textPrimary: '#1C1C1E',             // near black
+  textSecondary: '#3A3A3C',           // dark gray
+  textTertiary: '#6B6B6B',            // medium gray
+  textLight: '#9A9A9A',               // light gray
+  textOnPrimary: '#FFFFFF',           // white text on coral
+  
+  // Functional colors - Soft pastels
+  success: '#A5D6A7',                 // soft green
+  danger: '#FF8B8B',                  // soft red
+  warning: '#FFD97D',                 // soft yellow
+  info: '#81D4FA',                    // soft blue
   
   // UI elements
-  divider: '#E0D5C3',                 // subtle line color (warmer)
+  divider: 'rgba(0, 0, 0, 0.08)',     // subtle divider
   border: 'rgba(0, 0, 0, 0.06)',
   borderLight: 'rgba(0, 0, 0, 0.04)',
-  icon: '#3A3A3A',                    // general icon tint
-  iconActive: '#2E2E2E',              // active icon color
-  iconInactive: '#9A9A9A',            // inactive icon color
+  icon: '#2C2C2E',                    // dark icon tint
+  iconActive: '#FFB088',              // coral active icons
+  iconInactive: '#B8B8B8',            // light gray inactive
   
-  // Mood colors
-  moodHappy: '#FCE38A',               // yellow happy mood
-  moodCalm: '#A8E6CF',                // green calm mood
-  moodAngry: '#F38181',               // red/pink angry mood
-  moodSad: '#81D4FA',                 // blue sad mood
-  moodNeutral: '#DCEDC1',             // neutral green-yellow
-  moodExcited: '#FFE29F',             // excited yellow-orange
+  // Mood colors - Playful pastels
+  moodHappy: '#FFE29F',               // bright yellow
+  moodCalm: '#A8E6CF',                // mint green
+  moodAngry: '#FF9999',               // soft red
+  moodSad: '#9FC5E8',                 // soft blue
+  moodNeutral: '#F0E68C',             // neutral yellow
+  moodExcited: '#FFCC80',             // orange excited
   
-  // Mood palette for charts
-  moodPalette: ['#FCE38A', '#A8E6CF', '#F38181', '#81D4FA', '#DCEDC1', '#FFE29F'],
+  // Mood palette for charts - Soft pastels
+  moodPalette: ['#FFE29F', '#A8E6CF', '#FF9999', '#9FC5E8', '#F0E68C', '#FFCC80'],
   
-  // Overlay colors
-  cardShadow: 'rgba(0, 0, 0, 0.05)',
-  overlay: 'rgba(0, 0, 0, 0.04)',
-  overlayMedium: 'rgba(0, 0, 0, 0.08)',
-  overlayStrong: 'rgba(0, 0, 0, 0.16)',
-  overlayLight: 'rgba(0, 0, 0, 0.02)',
+  // Overlay colors - Minimal, clean
+  cardShadow: 'rgba(0, 0, 0, 0.04)',
+  overlay: 'rgba(0, 0, 0, 0.02)',
+  overlayMedium: 'rgba(0, 0, 0, 0.06)',
+  overlayStrong: 'rgba(0, 0, 0, 0.12)',
+  overlayLight: 'rgba(0, 0, 0, 0.01)',
+  
+  // Glass/Frosted effects
+  glassTint: 'rgba(255, 255, 255, 0.85)',
+  glassBlur: 20,
   
   // Basic colors
-  white: '#FAF5EB',                   // off-white cream (no pure white)
+  white: '#FFFFFF',                   // pure white
   black: '#000000',
   transparent: 'transparent',
 };
 
 // ============================================================================
-// GRADIENTS
+// GRADIENTS - SOFT PASTEL TRANSITIONS
 // ============================================================================
 
 export const gradients = {
-  // Background gradient (enriched warm cream to golden beige)
+  // Background gradient - Soft mint to deeper mint
   background: {
-    colors: ['#F5EFE1', '#E8DBC5', '#DCC9A7'],
+    colors: ['#F0FAED', '#E0F4DB', '#D4EDD1'],
     start: { x: 0.5, y: 0 },
     end: { x: 0.5, y: 1 },
     angle: 180,
   },
   
-  // Button gradient (enriched warm yellow to coral/pink)
+  // Alternate background - Warm peach gradient
+  backgroundAlt: {
+    colors: ['#FFE8DC', '#FFDCC8', '#FFD0B5'],
+    start: { x: 0.5, y: 0 },
+    end: { x: 0.5, y: 1 },
+    angle: 180,
+  },
+  
+  // Button gradient - Coral to deeper coral
   button: {
-    colors: ['#FFD97D', '#FF9F85', '#FF8D8D'],
+    colors: ['#FFC5A3', '#FFB088', '#FF9B6E'],
     start: { x: 0, y: 0.5 },
     end: { x: 1, y: 0.5 },
     angle: 90,
@@ -90,39 +109,39 @@ export const gradients = {
   
   // Highlight alias
   highlight: {
-    colors: ['#FFD97D', '#FF9F85', '#FF8D8D'],
+    colors: ['#FFC5A3', '#FFB088', '#FF9B6E'],
     start: { x: 0, y: 0.5 },
     end: { x: 1, y: 0.5 },
     angle: 90,
   },
   
-  // Happy mood gradient (enriched golden to coral)
+  // Happy mood gradient - Warm yellow
   moodHappy: {
-    colors: ['#FFD966', '#FF9966', '#FF7F7F'],
+    colors: ['#FFF4C4', '#FFE29F', '#FFD97D'],
     start: { x: 0, y: 0.5 },
     end: { x: 1, y: 0.5 },
     angle: 90,
   },
   
-  // Calm mood gradient (enriched sage to mint)
+  // Calm mood gradient - Mint green
   moodCalm: {
-    colors: ['#9FD9BD', '#B8E6A8', '#D5EDB8'],
+    colors: ['#C8E6C9', '#A8E6CF', '#8FD6BD'],
     start: { x: 0, y: 0.5 },
     end: { x: 1, y: 0.5 },
     angle: 90,
   },
   
-  // Primary accent gradient (enriched golden honey)
+  // Primary accent gradient - Coral flow
   primary: {
-    colors: ['#F5C55A', '#FFD17D', '#FFE0A3'],
+    colors: ['#FFD0B5', '#FFC5A3', '#FFB088'],
     start: { x: 0, y: 0.5 },
     end: { x: 1, y: 0.5 },
     angle: 90,
   },
   
-  // Card subtle gradient (warm cream to beige)
+  // Card subtle gradient - White to hint of mint
   card: {
-    colors: ['#FAF5EB', '#F7F1E3', '#F0E9D8'],
+    colors: ['#FFFFFF', '#FAFBFA', '#F8FBF7'],
     start: { x: 0.5, y: 0 },
     end: { x: 0.5, y: 1 },
     angle: 180,
@@ -130,39 +149,39 @@ export const gradients = {
 };
 
 // ============================================================================
-// TYPOGRAPHY
+// TYPOGRAPHY - CLEAN, MODERN, SPACIOUS
 // ============================================================================
 
 export const typography = {
-  fontFamily: 'System',              // Primary font family
-  fontFamilySystem: 'System',         // Fallback to system font
+  fontFamily: 'System',              // SF Pro on iOS, Roboto on Android
+  fontFamilySystem: 'System',
   
-  // Display/Hero text
+  // Display/Hero text - Larger, bolder
   h1: {
     fontFamily: 'System',
-    fontSize: 28,
+    fontSize: 32,
     fontWeight: '700' as const,
-    lineHeight: 34,
-    letterSpacing: -0.3,
+    lineHeight: 40,
+    letterSpacing: -0.5,
     color: colors.textPrimary,
   },
   
-  // Large heading
+  // Large heading - More spacious
   h2: {
     fontFamily: 'System',
-    fontSize: 22,
-    fontWeight: '600' as const,
-    lineHeight: 28,
-    letterSpacing: -0.2,
+    fontSize: 26,
+    fontWeight: '700' as const,
+    lineHeight: 32,
+    letterSpacing: -0.3,
     color: colors.textPrimary,
   },
   
   // Section heading
   h3: {
     fontFamily: 'System',
-    fontSize: 20,
-    fontWeight: '600' as const,
-    lineHeight: 24,
+    fontSize: 22,
+    fontWeight: '700' as const,
+    lineHeight: 28,
     letterSpacing: -0.2,
     color: colors.textPrimary,
   },
@@ -170,9 +189,9 @@ export const typography = {
   // Card heading
   h4: {
     fontFamily: 'System',
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: '600' as const,
-    lineHeight: 22,
+    lineHeight: 26,
     letterSpacing: 0,
     color: colors.textPrimary,
   },
@@ -180,9 +199,9 @@ export const typography = {
   // Small heading
   h5: {
     fontFamily: 'System',
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: '600' as const,
-    lineHeight: 20,
+    lineHeight: 24,
     letterSpacing: 0,
     color: colors.textPrimary,
   },
@@ -190,9 +209,9 @@ export const typography = {
   // Smallest heading
   h6: {
     fontFamily: 'System',
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: '600' as const,
-    lineHeight: 18,
+    lineHeight: 22,
     letterSpacing: 0,
     color: colors.textPrimary,
   },
@@ -200,20 +219,20 @@ export const typography = {
   // Body text - large
   bodyLarge: {
     fontFamily: 'System',
-    fontSize: 16,
-    fontWeight: '400' as const,
-    lineHeight: 22,
-    letterSpacing: 0,
+    fontSize: 17,
+    fontWeight: '500' as const,
+    lineHeight: 24,
+    letterSpacing: -0.2,
     color: colors.textSecondary,
   },
   
   // Body text - regular
   body: {
     fontFamily: 'System',
-    fontSize: 14,
-    fontWeight: '400' as const,
-    lineHeight: 20,
-    letterSpacing: 0,
+    fontSize: 15,
+    fontWeight: '500' as const,
+    lineHeight: 22,
+    letterSpacing: -0.1,
     color: colors.textSecondary,
   },
   
@@ -221,7 +240,7 @@ export const typography = {
   bodySmall: {
     fontFamily: 'System',
     fontSize: 13,
-    fontWeight: '400' as const,
+    fontWeight: '500' as const,
     lineHeight: 18,
     letterSpacing: 0,
     color: colors.textSecondary,
@@ -230,9 +249,9 @@ export const typography = {
   // Caption text
   caption: {
     fontFamily: 'System',
-    fontSize: 13,
-    fontWeight: '400' as const,
-    lineHeight: 18,
+    fontSize: 12,
+    fontWeight: '500' as const,
+    lineHeight: 16,
     letterSpacing: 0,
     color: colors.textTertiary,
   },
@@ -241,7 +260,7 @@ export const typography = {
   captionSmall: {
     fontFamily: 'System',
     fontSize: 11,
-    fontWeight: '400' as const,
+    fontWeight: '500' as const,
     lineHeight: 14,
     letterSpacing: 0.2,
     color: colors.textTertiary,
@@ -250,29 +269,29 @@ export const typography = {
   // Button text
   button: {
     fontFamily: 'System',
-    fontSize: 16,
-    fontWeight: '600' as const,
-    lineHeight: 20,
-    letterSpacing: 0,
-    color: colors.textPrimary,
+    fontSize: 17,
+    fontWeight: '700' as const,
+    lineHeight: 22,
+    letterSpacing: -0.2,
+    color: colors.textOnPrimary,
   },
   
   // Label text
   label: {
     fontFamily: 'System',
-    fontSize: 13,
-    fontWeight: '500' as const,
-    lineHeight: 18,
-    letterSpacing: 0.1,
+    fontSize: 14,
+    fontWeight: '600' as const,
+    lineHeight: 20,
+    letterSpacing: 0,
     color: colors.textSecondary,
   },
   
   // Overline text
   overline: {
     fontFamily: 'System',
-    fontSize: 10,
-    fontWeight: '600' as const,
-    lineHeight: 14,
+    fontSize: 11,
+    fontWeight: '700' as const,
+    lineHeight: 16,
     letterSpacing: 1.5,
     textTransform: 'uppercase' as const,
     color: colors.textTertiary,
@@ -280,7 +299,7 @@ export const typography = {
 };
 
 // ============================================================================
-// SPACING
+// SPACING - GENEROUS, BREATHABLE
 // ============================================================================
 
 export const spacing = {
@@ -289,81 +308,81 @@ export const spacing = {
   md: 16,
   lg: 24,
   xl: 32,
-  xxl: 40,
-  xxxl: 48,
+  xxl: 48,
+  xxxl: 64,
   
-  // Semantic spacing
-  screenHorizontal: 20,
-  screenVertical: 20,
-  cardPadding: 16,
-  sectionGap: 24,
-  elementGap: 12,
-  chipGap: 8,
+  // Semantic spacing - More generous
+  screenHorizontal: 24,
+  screenVertical: 24,
+  cardPadding: 20,
+  sectionGap: 32,
+  elementGap: 16,
+  chipGap: 12,
 };
 
 // ============================================================================
-// BORDER RADIUS
+// BORDER RADIUS - SOFT, ROUNDED
 // ============================================================================
 
 export const radii = {
   none: 0,
-  xs: 4,
-  sm: 6,
-  md: 12,
-  lg: 16,
-  xl: 20,
-  xxl: 24,
-  xxxl: 28,
-  card: 24,
+  xs: 6,
+  sm: 12,
+  md: 16,
+  lg: 24,
+  xl: 28,
+  xxl: 32,
+  xxxl: 40,
+  card: 28,        // More rounded cards
   pill: 999,
   circle: 9999,
   
-  // Component-specific
-  button: 12,
-  chip: 16,
-  modal: 28,
-  bottomNav: 32,
+  // Component-specific - Softer corners
+  button: 16,
+  chip: 20,
+  modal: 32,
+  bottomNav: 36,
 };
 
 // ============================================================================
-// SHADOWS & ELEVATION
+// SHADOWS & ELEVATION - SUBTLE, SOFT
 // ============================================================================
 
 export const shadows = {
-  // iOS shadow styles
+  // iOS shadow styles - More subtle
   ios: {
     small: {
       shadowColor: '#000000',
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.05,
-      shadowRadius: 4,
+      shadowOffset: { width: 0, height: 1 },
+      shadowOpacity: 0.03,
+      shadowRadius: 3,
     },
     medium: {
       shadowColor: '#000000',
-      shadowOffset: { width: 0, height: 4 },
-      shadowOpacity: 0.08,
-      shadowRadius: 8,
+      shadowOffset: { width: 0, height: 3 },
+      shadowOpacity: 0.05,
+      shadowRadius: 6,
     },
     large: {
       shadowColor: '#000000',
-      shadowOffset: { width: 0, height: 8 },
-      shadowOpacity: 0.12,
-      shadowRadius: 16,
+      shadowOffset: { width: 0, height: 6 },
+      shadowOpacity: 0.08,
+      shadowRadius: 12,
     },
     xlarge: {
       shadowColor: '#000000',
-      shadowOffset: { width: 0, height: 12 },
-      shadowOpacity: 0.16,
-      shadowRadius: 24,
+      shadowOffset: { width: 0, height: 10 },
+      shadowOpacity: 0.10,
+      shadowRadius: 20,
     },
   },
   
   // Android elevation mapping
   android: {
-    small: 2,
-    medium: 4,
-    large: 8,
-    xlarge: 12,
+    small: 1,
+    medium: 3,
+    large: 6,
+    xlarge: 10,
   },
 };
 
@@ -395,11 +414,55 @@ export const opacity = {
   disabled: 0.4,
   muted: 0.6,
   subtle: 0.8,
-  overlay: 0.04,
-  overlayMedium: 0.08,
-  overlayStrong: 0.16,
-  pressed: 0.12,
-  hover: 0.06,
+  overlay: 0.02,
+  overlayMedium: 0.06,
+  overlayStrong: 0.12,
+  pressed: 0.10,
+  hover: 0.04,
+  glass: 0.15,          // Glassmorphism backdrop
+  glowSubtle: 0.3,      // Subtle glow effect
+  glowMedium: 0.5,      // Medium glow
+  glowStrong: 0.7,      // Strong glow for dark mode
+};
+
+// ============================================================================
+// DARK MODE EFFECTS - Glassmorphism & Glow
+// ============================================================================
+
+export const darkModeEffects = {
+  // Glassmorphism for elevated surfaces
+  glass: {
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    backdropFilter: 'blur(20px)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  
+  // Subtle glow for interactive elements
+  glowPrimary: {
+    shadowColor: '#FFB088',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.4,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  
+  glowAccent: {
+    shadowColor: '#6EE7B7',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.3,
+    shadowRadius: 10,
+    elevation: 6,
+  },
+  
+  // Card with subtle depth
+  cardGlow: {
+    shadowColor: 'rgba(255, 255, 255, 0.1)',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.8,
+    shadowRadius: 8,
+    elevation: 4,
+  },
 };
 
 // ============================================================================
@@ -449,31 +512,31 @@ export const icons = {
 // ============================================================================
 
 export const components = {
-  // Card variants
+  // Card variants - Softer, more spacious
   card: {
     backgroundColor: colors.surface,
-    borderRadius: radii.lg,
-    padding: spacing.md,
+    borderRadius: radii.card,
+    padding: spacing.cardPadding,
     ...elevation.small,
   },
   
   cardElevated: {
     backgroundColor: colors.surface,
-    borderRadius: radii.lg,
-    padding: spacing.md,
+    borderRadius: radii.card,
+    padding: spacing.cardPadding,
     ...elevation.medium,
   },
   
   cardFlat: {
     backgroundColor: colors.surface,
-    borderRadius: radii.lg,
-    padding: spacing.md,
+    borderRadius: radii.card,
+    padding: spacing.cardPadding,
   },
   
-  // Button variants
+  // Button variants - More rounded
   buttonPrimary: {
     backgroundColor: colors.primary,
-    borderRadius: radii.md,
+    borderRadius: radii.button,
     paddingVertical: spacing.md,
     paddingHorizontal: spacing.lg,
     ...elevation.small,
@@ -481,7 +544,7 @@ export const components = {
   
   buttonSecondary: {
     backgroundColor: colors.surface,
-    borderRadius: radii.md,
+    borderRadius: radii.button,
     paddingVertical: spacing.md,
     paddingHorizontal: spacing.lg,
     ...elevation.small,
@@ -489,14 +552,14 @@ export const components = {
   
   buttonOutlined: {
     backgroundColor: colors.transparent,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radii.md,
-    paddingVertical: spacing.md - 1,
-    paddingHorizontal: spacing.lg - 1,
+    borderWidth: 2,
+    borderColor: colors.primary,
+    borderRadius: radii.button,
+    paddingVertical: spacing.md - 2,
+    paddingHorizontal: spacing.lg - 2,
   },
   
-  // Text input
+  // Text input - Cleaner
   textInput: {
     backgroundColor: colors.surface,
     borderColor: colors.divider,
@@ -517,18 +580,17 @@ export const components = {
     color: colors.textPrimary,
   },
   
-  // Chip/pill
+  // Chip/pill - More rounded
   chip: {
-    backgroundColor: colors.surface,
-    borderRadius: radii.pill,
+    backgroundColor: colors.surfaceVariant,
+    borderRadius: radii.chip,
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.md,
-    ...elevation.small,
   },
   
   chipActive: {
     backgroundColor: colors.primary,
-    borderRadius: radii.pill,
+    borderRadius: radii.chip,
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.md,
     ...elevation.small,
@@ -562,7 +624,7 @@ export const components = {
     marginBottom: spacing.sm,
   },
   
-  // Bottom navigation
+  // Bottom navigation - More rounded
   bottomNav: {
     container: {
       backgroundColor: colors.surface,
@@ -590,13 +652,96 @@ export const components = {
     },
   },
   
-  // Mood circle
+  // Mood circle - Larger, more prominent
   moodCircle: {
-    size: 56,
+    size: 60,
     borderRadius: radii.circle,
     justifyContent: 'center' as const,
     alignItems: 'center' as const,
     ...elevation.small,
+  },
+  
+  // Dark mode specific components - vibrant & glowing
+  darkMode: {
+    cardGlass: {
+      backgroundColor: 'rgba(255, 255, 255, 0.08)',
+      borderRadius: radii.card,
+      padding: spacing.cardPadding,
+      borderWidth: 1,
+      borderColor: 'rgba(255, 255, 255, 0.12)',
+    },
+    
+    buttonPrimaryGlow: {
+      backgroundColor: colors.primary,
+      borderRadius: radii.button,
+      paddingVertical: spacing.md,
+      paddingHorizontal: spacing.lg,
+      shadowColor: '#FFB088',
+      shadowOffset: { width: 0, height: 0 },
+      shadowOpacity: 0.6,
+      shadowRadius: 20,
+      elevation: 10,
+    },
+    
+    cardElevatedGlow: {
+      backgroundColor: '#0F0F0F',
+      borderRadius: radii.card,
+      padding: spacing.cardPadding,
+      borderWidth: 1,
+      borderColor: 'rgba(255, 255, 255, 0.15)',
+      shadowColor: 'rgba(255, 255, 255, 0.2)',
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.9,
+      shadowRadius: 16,
+      elevation: 8,
+    },
+    
+    iconGlow: {
+      shadowColor: '#6EE7B7',
+      shadowOffset: { width: 0, height: 0 },
+      shadowOpacity: 0.5,
+      shadowRadius: 10,
+    },
+    
+    // True Black variants for deepest contrast
+    trueBlack: {
+      cardDeep: {
+        backgroundColor: '#000000',
+        borderRadius: radii.card,
+        padding: spacing.cardPadding,
+        borderWidth: 1,
+        borderColor: 'rgba(255, 255, 255, 0.2)',
+      },
+      
+      surfaceElevated: {
+        backgroundColor: '#0F0F0F',
+        borderRadius: radii.card,
+        padding: spacing.cardPadding,
+        borderWidth: 1,
+        borderColor: 'rgba(255, 255, 255, 0.18)',
+      },
+      
+      buttonIntense: {
+        backgroundColor: colors.primary,
+        borderRadius: radii.button,
+        paddingVertical: spacing.md,
+        paddingHorizontal: spacing.lg,
+        shadowColor: '#FFB088',
+        shadowOffset: { width: 0, height: 0 },
+        shadowOpacity: 0.8,
+        shadowRadius: 24,
+        elevation: 12,
+        borderWidth: 1,
+        borderColor: 'rgba(255, 255, 255, 0.1)',
+      },
+      
+      textGlow: {
+        color: '#FFFFFF',
+        textShadowColor: 'rgba(255, 255, 255, 0.3)',
+        textShadowOffset: { width: 0, height: 0 },
+        textShadowRadius: 4,
+      },
+    },
   },
 };
 
@@ -606,9 +751,6 @@ export const components = {
 
 /**
  * Convert hex color to rgba
- * @param {string} hex - Hex color code
- * @param {number} alpha - Alpha value (0-1)
- * @returns {string} RGBA color string
  */
 export function hexToRgba(hex: string, alpha: number = 1): string {
   const r = parseInt(hex.slice(1, 3), 16);
@@ -619,8 +761,6 @@ export function hexToRgba(hex: string, alpha: number = 1): string {
 
 /**
  * Get linear gradient configuration
- * @param {string} name - Gradient name from gradients object
- * @returns {object} Gradient configuration
  */
 export function getLinearGradientProps(name: keyof typeof gradients) {
   const gradient = gradients[name];
@@ -641,8 +781,6 @@ export function getLinearGradientProps(name: keyof typeof gradients) {
 
 /**
  * Get platform-appropriate shadow style
- * @param {string} size - Shadow size (small, medium, large, xlarge)
- * @returns {object} Platform-specific shadow styles
  */
 export function getShadow(size: keyof typeof elevation = 'small') {
   return elevation[size] || elevation.small;
@@ -650,8 +788,6 @@ export function getShadow(size: keyof typeof elevation = 'small') {
 
 /**
  * Get spacing value by multiplier
- * @param {number} multiplier - Spacing multiplier
- * @returns {number} Calculated spacing
  */
 export function getSpacing(multiplier: number): number {
   return spacing.sm * multiplier;
@@ -659,9 +795,6 @@ export function getSpacing(multiplier: number): number {
 
 /**
  * Apply opacity to a color
- * @param {string} color - Base color
- * @param {number} opacityValue - Opacity (0-1)
- * @returns {string} Color with opacity
  */
 export function withOpacity(color: string, opacityValue: number): string {
   if (color.startsWith('#')) {
@@ -695,6 +828,3 @@ const theme = {
 };
 
 export default theme;
-
-
-

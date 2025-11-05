@@ -1,11 +1,13 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { useTheme } from '@/contexts/ThemeContext';
+import { router } from 'expo-router';
 
 interface DayData {
   date: string;
   completedHabits: number;
   totalHabits: number;
+  hasData?: boolean; // Indicates if any data is logged for this date
   feedback: {
     good: number;
     neutral: number;
@@ -15,13 +17,38 @@ interface DayData {
 
 interface Props {
   data: DayData[];
+  onDateSelect?: (date: string) => void; // Optional callback for date selection
 }
 
-export default function MiniCalendar({ data }: Props) {
+export default function MiniCalendar({ data, onDateSelect }: Props) {
   const { theme } = useTheme();
 
+  /**
+   * Handle date selection
+   * When a user taps a day, navigate to add-entry with the selected date
+   */
+  const handleDayPress = (dateString: string, hasData: boolean) => {
+    // Parse date to ensure proper formatting
+    const selectedDate = new Date(dateString);
+    const formattedDate = selectedDate.toISOString().split('T')[0]; // YYYY-MM-DD
+    
+    console.log('📅 Date selected from calendar:', formattedDate);
+    console.log('📅 Has existing data:', hasData);
+    
+    // Call optional callback if provided
+    if (onDateSelect) {
+      onDateSelect(formattedDate);
+    }
+    
+    // Navigate to add-entry with date parameter
+    router.push(`/add-entry?date=${formattedDate}`);
+  };
+
   const getDayColor = (day: DayData) => {
-    if (!day.totalHabits) return theme.colors.border; // Gray if no habits
+    // Check if there's any data logged for this day
+    const hasAnyData = day.hasData || day.totalHabits > 0;
+    
+    if (!hasAnyData) return theme.colors.border; // Gray if no data logged
     
     const completionRate = day.completedHabits / day.totalHabits;
     const hasBadFeedback = day.feedback.bad > 0;
@@ -45,43 +72,52 @@ export default function MiniCalendar({ data }: Props) {
       {data.map((day, index) => {
         const { weekday, day: dayNumber } = formatDate(day.date);
         const isToday = index === data.length - 1;
+        const hasData = day.hasData || day.totalHabits > 0;
         
         return (
-          <View 
-            key={day.date} 
-            style={[
-              styles.dayColumn,
-              isToday && styles.todayColumn
-            ]}
+          <TouchableOpacity
+            key={day.date}
+            onPress={() => handleDayPress(day.date, hasData)}
+            activeOpacity={0.7}
           >
-            <Text style={[
-              styles.weekday,
-              { color: theme.colors.textSecondary }
-            ]}>
-              {weekday}
-            </Text>
-            
-            <Text style={[
-              styles.dayNumber,
-              { color: theme.colors.text }
-            ]}>
-              {dayNumber}
-            </Text>
-            
-            <View style={[
-              styles.activityIndicator,
-              {
-                backgroundColor: getDayColor(day),
-                borderColor: isToday ? theme.colors.primary : 'transparent'
-              }
-            ]}>
-              {day.completedHabits > 0 && (
-                <Text style={styles.completionCount}>
-                  {day.completedHabits}/{day.totalHabits}
-                </Text>
-              )}
+            <View 
+              style={[
+                styles.dayColumn,
+                isToday && styles.todayColumn
+              ]}
+            >
+              <Text style={[
+                styles.weekday,
+                { color: theme.colors.textSecondary }
+              ]}>
+                {weekday}
+              </Text>
+              
+              <Text style={[
+                styles.dayNumber,
+                { color: theme.colors.text }
+              ]}>
+                {dayNumber}
+              </Text>
+              
+              <View style={[
+                styles.activityIndicator,
+                {
+                  backgroundColor: getDayColor(day),
+                  borderColor: isToday ? theme.colors.primary : 'transparent'
+                }
+              ]}>
+                {day.completedHabits > 0 && (
+                  <Text style={styles.completionCount}>
+                    {day.completedHabits}/{day.totalHabits}
+                  </Text>
+                )}
+                {!hasData && (
+                  <Text style={styles.noDataIndicator}>+</Text>
+                )}
+              </View>
             </View>
-          </View>
+          </TouchableOpacity>
         );
       })}
     </View>
@@ -123,5 +159,11 @@ const styles = StyleSheet.create({
     fontSize: 10,
     color: '#FFFFFF',
     fontWeight: '600',
-  }
+  },
+  noDataIndicator: {
+    fontSize: 14,
+    color: '#FFFFFF',
+    fontWeight: '600',
+    opacity: 0.6,
+  },
 });

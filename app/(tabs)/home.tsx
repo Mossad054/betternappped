@@ -60,50 +60,51 @@ interface PredefinedHabit {
   category: HabitCategory;
   emoji: string;
   totalDays: number;
+  instruction: string;
 }
 
 const PREDEFINED_HABITS: PredefinedHabit[] = [
   // Mental Clarity
-  { name: 'Morning Meditation', description: 'Start your day with 10 minutes of mindfulness', category: 'MentalClarity', emoji: '🧘', totalDays: 30 },
-  { name: 'Journaling', description: 'Write down your thoughts and reflections', category: 'MentalClarity', emoji: '📝', totalDays: 30 },
-  { name: 'Digital Detox Hour', description: 'One hour without screens', category: 'MentalClarity', emoji: '📵', totalDays: 21 },
-  { name: 'Reading 30 Minutes', description: 'Read books to expand your mind', category: 'MentalClarity', emoji: '📚', totalDays: 30 },
-  { name: 'Brain Training', description: 'Puzzles, games, or learning something new', category: 'MentalClarity', emoji: '🧩', totalDays: 30 },
+  { name: 'Morning Meditation', description: 'Start your day with 10 minutes of mindfulness', category: 'MentalClarity', emoji: '🧘', totalDays: 30, instruction: 'Find a quiet space, sit comfortably, close your eyes, and focus on your breath for 10 minutes.' },
+  { name: 'Journaling', description: 'Write down your thoughts and reflections', category: 'MentalClarity', emoji: '📝', totalDays: 30, instruction: 'Take 10-15 minutes to write freely about your day, feelings, or goals.' },
+  { name: 'Digital Detox Hour', description: 'One hour without screens', category: 'MentalClarity', emoji: '📵', totalDays: 21, instruction: 'Put away all devices for one hour. Try reading, walking, or spending time with loved ones.' },
+  { name: 'Reading 30 Minutes', description: 'Read books to expand your mind', category: 'MentalClarity', emoji: '📚', totalDays: 30, instruction: 'Choose a book you enjoy and read for at least 30 minutes without distractions.' },
+  { name: 'Brain Training', description: 'Puzzles, games, or learning something new', category: 'MentalClarity', emoji: '🧩', totalDays: 30, instruction: 'Spend 15-20 minutes on puzzles, brain games, or learning a new skill.' },
   
   // Health
-  { name: 'Morning Exercise', description: '30 minutes of physical activity', category: 'Health', emoji: '🏃', totalDays: 30 },
-  { name: 'Drink 8 Glasses of Water', description: 'Stay hydrated throughout the day', category: 'Health', emoji: '💧', totalDays: 30 },
-  { name: 'Healthy Breakfast', description: 'Start with a nutritious meal', category: 'Health', emoji: '🥗', totalDays: 30 },
-  { name: 'Evening Walk', description: '20-minute walk after dinner', category: 'Health', emoji: '🚶', totalDays: 30 },
-  { name: 'Stretching Routine', description: 'Daily flexibility exercises', category: 'Health', emoji: '🤸', totalDays: 21 },
+  { name: 'Morning Exercise', description: '30 minutes of physical activity', category: 'Health', emoji: '🏃', totalDays: 30, instruction: 'Do 30 minutes of cardio, strength training, or your preferred workout. Start with a warm-up!' },
+  { name: 'Drink 8 Glasses of Water', description: 'Stay hydrated throughout the day', category: 'Health', emoji: '💧', totalDays: 30, instruction: 'Aim for 8 glasses (64 oz) of water. Keep a water bottle with you throughout the day.' },
+  { name: 'Healthy Breakfast', description: 'Start with a nutritious meal', category: 'Health', emoji: '🥗', totalDays: 30, instruction: 'Include protein, whole grains, and fruits/vegetables in your breakfast.' },
+  { name: 'Evening Walk', description: '20-minute walk after dinner', category: 'Health', emoji: '🚶', totalDays: 30, instruction: 'Take a 20-minute walk after dinner to aid digestion and clear your mind.' },
+  { name: 'Stretching Routine', description: 'Daily flexibility exercises', category: 'Health', emoji: '🤸', totalDays: 21, instruction: 'Spend 10-15 minutes stretching major muscle groups. Hold each stretch for 20-30 seconds.' },
   
   // Sleep
-  { name: 'Consistent Bedtime', description: 'Go to bed at the same time daily', category: 'Sleep', emoji: '😴', totalDays: 30 },
-  { name: 'No Screens 1 Hour Before Bed', description: 'Wind down without blue light', category: 'Sleep', emoji: '📱', totalDays: 21 },
-  { name: 'Evening Tea Ritual', description: 'Calming herbal tea before sleep', category: 'Sleep', emoji: '🍵', totalDays: 30 },
-  { name: 'Cool Bedroom', description: 'Maintain optimal sleep temperature', category: 'Sleep', emoji: '❄️', totalDays: 30 },
-  { name: 'Bedtime Reading', description: 'Read a book to relax', category: 'Sleep', emoji: '📖', totalDays: 30 },
+  { name: 'Consistent Bedtime', description: 'Go to bed at the same time daily', category: 'Sleep', emoji: '😴', totalDays: 30, instruction: 'Choose a bedtime and stick to it every night, even on weekends. Your body loves routine!' },
+  { name: 'No Screens 1 Hour Before Bed', description: 'Wind down without blue light', category: 'Sleep', emoji: '📱', totalDays: 21, instruction: 'Turn off all screens 1 hour before bed. Blue light disrupts your natural sleep cycle.' },
+  { name: 'Evening Tea Ritual', description: 'Calming herbal tea before sleep', category: 'Sleep', emoji: '🍵', totalDays: 30, instruction: 'Prepare a cup of chamomile, lavender, or other calming herbal tea 1 hour before bed.' },
+  { name: 'Cool Bedroom', description: 'Maintain optimal sleep temperature', category: 'Sleep', emoji: '❄️', totalDays: 30, instruction: 'Keep your bedroom between 60-67°F (15-19°C) for optimal sleep quality.' },
+  { name: 'Bedtime Reading', description: 'Read a book to relax', category: 'Sleep', emoji: '📖', totalDays: 30, instruction: 'Read a physical book (not on a screen) for 15-30 minutes before sleep.' },
   
   // Mood
-  { name: 'Gratitude Practice', description: 'List 3 things you\'re grateful for', category: 'Mood', emoji: '🙏', totalDays: 30 },
-  { name: 'Morning Sunlight', description: '10 minutes of natural light exposure', category: 'Mood', emoji: '☀️', totalDays: 30 },
-  { name: 'Connect with Loved Ones', description: 'Quality time with family/friends', category: 'Mood', emoji: '👥', totalDays: 21 },
-  { name: 'Random Act of Kindness', description: 'Do something nice for someone', category: 'Mood', emoji: '💝', totalDays: 30 },
-  { name: 'Listen to Uplifting Music', description: 'Boost your mood with music', category: 'Mood', emoji: '🎵', totalDays: 30 },
+  { name: 'Gratitude Practice', description: 'List 3 things you\'re grateful for', category: 'Mood', emoji: '🙏', totalDays: 30, instruction: 'Write down 3 specific things you\'re grateful for today. Focus on why they matter to you.' },
+  { name: 'Morning Sunlight', description: '10 minutes of natural light exposure', category: 'Mood', emoji: '☀️', totalDays: 30, instruction: 'Get outside or sit by a window for 10 minutes within an hour of waking up.' },
+  { name: 'Connect with Loved Ones', description: 'Quality time with family/friends', category: 'Mood', emoji: '👥', totalDays: 21, instruction: 'Spend quality time with someone you care about. Have a meaningful conversation or activity together.' },
+  { name: 'Random Act of Kindness', description: 'Do something nice for someone', category: 'Mood', emoji: '💝', totalDays: 30, instruction: 'Perform one kind act today - it could be a compliment, helping someone, or a small gift.' },
+  { name: 'Listen to Uplifting Music', description: 'Boost your mood with music', category: 'Mood', emoji: '🎵', totalDays: 30, instruction: 'Play your favorite uplifting songs for at least 15 minutes. Sing or dance along!' },
   
   // Intimacy
-  { name: 'Quality Time Together', description: 'Dedicated time with partner', category: 'Intimacy', emoji: '❤️', totalDays: 30 },
-  { name: 'Daily Check-in', description: 'Share feelings and experiences', category: 'Intimacy', emoji: '💬', totalDays: 30 },
-  { name: 'Physical Affection', description: 'Hugs, kisses, or cuddles', category: 'Intimacy', emoji: '🤗', totalDays: 30 },
-  { name: 'Date Night', description: 'Weekly special time together', category: 'Intimacy', emoji: '🌹', totalDays: 7 },
-  { name: 'Express Appreciation', description: 'Tell partner what you love about them', category: 'Intimacy', emoji: '💕', totalDays: 30 },
+  { name: 'Quality Time Together', description: 'Dedicated time with partner', category: 'Intimacy', emoji: '❤️', totalDays: 30, instruction: 'Spend at least 30 minutes of uninterrupted quality time with your partner.' },
+  { name: 'Daily Check-in', description: 'Share feelings and experiences', category: 'Intimacy', emoji: '💬', totalDays: 30, instruction: 'Have a 10-minute conversation about your day, feelings, and experiences with your partner.' },
+  { name: 'Physical Affection', description: 'Hugs, kisses, or cuddles', category: 'Intimacy', emoji: '🤗', totalDays: 30, instruction: 'Show physical affection through hugs, kisses, or cuddling. Physical touch strengthens bonds.' },
+  { name: 'Date Night', description: 'Weekly special time together', category: 'Intimacy', emoji: '🌹', totalDays: 7, instruction: 'Plan and enjoy a special date - it can be at home or out. Focus on connecting!' },
+  { name: 'Express Appreciation', description: 'Tell partner what you love about them', category: 'Intimacy', emoji: '💕', totalDays: 30, instruction: 'Tell your partner one specific thing you appreciate or love about them today.' },
   
   // Anxiety
-  { name: 'Deep Breathing Exercises', description: '5 minutes of calm breathing', category: 'Anxiety', emoji: '🌬️', totalDays: 30 },
-  { name: 'Progressive Muscle Relaxation', description: 'Release tension from your body', category: 'Anxiety', emoji: '💆', totalDays: 21 },
-  { name: 'Worry Time', description: 'Set aside 15 minutes to address concerns', category: 'Anxiety', emoji: '⏰', totalDays: 30 },
-  { name: 'Nature Therapy', description: 'Spend time outdoors', category: 'Anxiety', emoji: '🌳', totalDays: 30 },
-  { name: 'Limit Caffeine', description: 'Reduce anxiety-inducing stimulants', category: 'Anxiety', emoji: '☕', totalDays: 21 },
+  { name: 'Deep Breathing Exercises', description: '5 minutes of calm breathing', category: 'Anxiety', emoji: '🌬️', totalDays: 30, instruction: 'Practice 4-7-8 breathing: Inhale for 4, hold for 7, exhale for 8. Repeat for 5 minutes.' },
+  { name: 'Progressive Muscle Relaxation', description: 'Release tension from your body', category: 'Anxiety', emoji: '💆', totalDays: 21, instruction: 'Tense and relax each muscle group from toes to head, holding for 5 seconds each.' },
+  { name: 'Worry Time', description: 'Set aside 15 minutes to address concerns', category: 'Anxiety', emoji: '⏰', totalDays: 30, instruction: 'Schedule 15 minutes to write down worries. Then set them aside and focus on what you can control.' },
+  { name: 'Nature Therapy', description: 'Spend time outdoors', category: 'Anxiety', emoji: '🌳', totalDays: 30, instruction: 'Spend at least 20 minutes in nature. Notice the sights, sounds, and smells around you.' },
+  { name: 'Limit Caffeine', description: 'Reduce anxiety-inducing stimulants', category: 'Anxiety', emoji: '☕', totalDays: 21, instruction: 'Limit caffeine to morning hours only. Try herbal tea or water instead.' },
 ];
 
 interface ActiveHabit {
@@ -261,6 +262,206 @@ export default function HomeScreen() {
     return 'Good evening';
   };
 
+  // Get habit-specific motivational quotes
+  const getHabitMotivationalQuote = (habitName: string, category: HabitCategory): string => {
+    const quotes: { [key: string]: string[] } = {
+      'Morning Meditation': [
+        "🧘 Mindfulness unlocked! Your calm mind is your superpower! ✨",
+        "🧘 Another day of inner peace! You're mastering your mental clarity! 🌟",
+        "🧘 Meditation complete! Your focused mind will carry you through the day! 💫"
+      ],
+      'Journaling': [
+        "📝 Great reflection! Writing clarifies thoughts and strengthens your self-awareness! ✨",
+        "📝 Your thoughts matter! Journaling is building your emotional intelligence! 🌟",
+        "📝 Words on paper, clarity in mind! Keep documenting your journey! 💫"
+      ],
+      'Digital Detox Hour': [
+        "📵 Screen-free success! You're reclaiming your attention and presence! 🌟",
+        "📵 Disconnected to reconnect! Your mind thanks you for the break! ✨",
+        "📵 Digital wellness achieved! Real life is where the magic happens! 💫"
+      ],
+      'Reading 30 Minutes': [
+        "📚 Knowledge gained! Every page read expands your world! 🌟",
+        "📚 Another chapter of growth! Reading rewires your brain for success! ✨",
+        "📚 Book time complete! You're investing in your mental library! 💫"
+      ],
+      'Brain Training': [
+        "🧩 Mental workout done! Your brain is getting sharper every day! 🌟",
+        "🧩 Neurons firing! You're building cognitive resilience! ✨",
+        "🧩 Brain gains achieved! Keep challenging your beautiful mind! 💫"
+      ],
+      'Morning Exercise': [
+        "🏃 Workout crushed! Your body is thanking you right now! 💪",
+        "🏃 Energy boosted! Exercise is your daily dose of strength! 🌟",
+        "🏃 Movement complete! You're building a healthier, stronger you! ✨"
+      ],
+      'Drink 8 Glasses of Water': [
+        "💧 Hydration hero! Your body is running at peak performance! 🌟",
+        "💧 Water goal met! Every cell in your body is celebrating! ✨",
+        "💧 Liquid gold consumed! Hydration is the foundation of health! 💫"
+      ],
+      'Healthy Breakfast': [
+        "🥗 Nutrition win! You're fueling your body for success! 🌟",
+        "🥗 Breakfast champion! Great food, great mood, great day! ✨",
+        "🥗 Healthy start achieved! Your body is your temple! 💫"
+      ],
+      'Evening Walk': [
+        "🚶 Steps taken, stress released! Walking is meditation in motion! 🌟",
+        "🚶 Movement milestone! Your heart and mind are thanking you! ✨",
+        "🚶 Walk completed! Simple habits create extraordinary results! 💫"
+      ],
+      'Stretching Routine': [
+        "🤸 Flexibility gained! Your body moves better when you treat it well! 🌟",
+        "🤸 Stretch complete! You're preventing pain and building mobility! ✨",
+        "🤸 Limber and lovely! Flexibility is youth preserved! 💫"
+      ],
+      'Consistent Bedtime': [
+        "😴 Sleep routine locked in! Consistency is the key to great rest! 🌟",
+        "😴 Bedtime achieved! Your circadian rhythm is loving this! ✨",
+        "😴 Rest ritual complete! Quality sleep = quality life! 💫"
+      ],
+      'No Screens 1 Hour Before Bed': [
+        "📱 Blue light blocked! Your melatonin production is thanking you! 🌟",
+        "📱 Screen-free success! Better sleep starts with this choice! ✨",
+        "📱 Digital sunset achieved! Your brain can now prepare for rest! 💫"
+      ],
+      'Evening Tea Ritual': [
+        "🍵 Tea time tranquility! You're creating peaceful evenings! 🌟",
+        "🍵 Ritual complete! Calm sips lead to calm sleep! ✨",
+        "🍵 Herbal harmony! Your body is entering relaxation mode! 💫"
+      ],
+      'Cool Bedroom': [
+        "❄️ Temperature optimized! Your sleep quality just leveled up! 🌟",
+        "❄️ Cool comfort achieved! Science backs your sleep setup! ✨",
+        "❄️ Chill zone activated! Perfect temp for perfect rest! 💫"
+      ],
+      'Bedtime Reading': [
+        "📖 Page turner! Reading before bed is the ultimate wind-down! 🌟",
+        "📖 Book and bed combo! You're training your brain to relax! ✨",
+        "📖 Literary lullaby! Stories are the gateway to great sleep! 💫"
+      ],
+      'Gratitude Practice': [
+        "🙏 Gratitude expressed! Thankfulness rewires your brain for happiness! 🌟",
+        "🙏 Appreciation logged! You're cultivating lasting joy! ✨",
+        "🙏 Grateful heart! Counting blessings multiplies them! 💫"
+      ],
+      'Morning Sunlight': [
+        "☀️ Sunshine absorbed! Natural light is nature's antidepressant! 🌟",
+        "☀️ Vitamin D achieved! Your mood and energy are soaring! ✨",
+        "☀️ Light therapy complete! Sunlight is free medicine! 💫"
+      ],
+      'Connect with Loved Ones': [
+        "👥 Connection made! Relationships are the heart of happiness! 🌟",
+        "👥 Quality time logged! Love and laughter are the best medicine! ✨",
+        "👥 Bond strengthened! Together is better! 💫"
+      ],
+      'Random Act of Kindness': [
+        "💝 Kindness shared! You're making the world brighter! 🌟",
+        "💝 Goodness multiplied! Your generosity ripples outward! ✨",
+        "💝 Heart full! Kindness always comes back to you! 💫"
+      ],
+      'Listen to Uplifting Music': [
+        "🎵 Vibes elevated! Music is therapy for the soul! 🌟",
+        "🎵 Melody magic! Your mood just got a natural boost! ✨",
+        "🎵 Rhythm therapy complete! Let the good times flow! 💫"
+      ],
+      'Quality Time Together': [
+        "❤️ Love time logged! Together moments create lasting memories! 🌟",
+        "❤️ Connection deepened! Quality time is the language of love! ✨",
+        "❤️ Partnership strengthened! You're investing in what matters! 💫"
+      ],
+      'Daily Check-in': [
+        "💬 Communication win! Sharing builds intimacy and trust! 🌟",
+        "💬 Hearts connected! Talking brings you closer together! ✨",
+        "💬 Understanding deepened! Your relationship is thriving! 💫"
+      ],
+      'Physical Affection': [
+        "🤗 Touch shared! Physical connection releases bonding hormones! 🌟",
+        "🤗 Warmth exchanged! Affection is the glue of relationships! ✨",
+        "🤗 Love expressed! Touch speaks louder than words! 💫"
+      ],
+      'Date Night': [
+        "🌹 Romance revived! Special moments keep love alive! 🌟",
+        "🌹 Date night success! You're prioritizing your connection! ✨",
+        "🌹 Love celebrated! Keep choosing each other! 💫"
+      ],
+      'Express Appreciation': [
+        "💕 Gratitude shared! Appreciation strengthens every bond! 🌟",
+        "💕 Love expressed! Your words matter more than you know! ✨",
+        "💕 Recognition given! You're building a culture of appreciation! 💫"
+      ],
+      'Deep Breathing Exercises': [
+        "🌬️ Breath mastered! You're controlling stress at its source! 🌟",
+        "🌬️ Calm activated! Your nervous system is in your hands! ✨",
+        "🌬️ Anxiety tamed! Breath is your portable peace tool! 💫"
+      ],
+      'Progressive Muscle Relaxation': [
+        "💆 Tension released! Your body is unwinding beautifully! 🌟",
+        "💆 Relaxation achieved! You're training your body to let go! ✨",
+        "💆 Stress melted! PMR is your secret weapon against anxiety! 💫"
+      ],
+      'Worry Time': [
+        "⏰ Worries contained! You're taking control of anxious thoughts! 🌟",
+        "⏰ Mental clarity gained! Scheduled worry time works wonders! ✨",
+        "⏰ Peace restored! You've given anxiety its time, now move forward! 💫"
+      ],
+      'Nature Therapy': [
+        "🌳 Nature embraced! The outdoors is healing your mind and body! 🌟",
+        "🌳 Green therapy complete! Nature reduces stress instantly! ✨",
+        "🌳 Earth connection made! You're grounded and centered! 💫"
+      ],
+      'Limit Caffeine': [
+        "☕ Caffeine controlled! Your anxiety levels are stabilizing! 🌟",
+        "☕ Balance achieved! Less caffeine = more calm! ✨",
+        "☕ Smart choice! Your nervous system is thanking you! 💫"
+      ]
+    };
+
+    // Get quotes for the specific habit, or use category-based fallback
+    const habitQuotes = quotes[habitName];
+    
+    if (habitQuotes && habitQuotes.length > 0) {
+      return habitQuotes[Math.floor(Math.random() * habitQuotes.length)];
+    }
+
+    // Category-based fallback quotes
+    const categoryQuotes: { [key in HabitCategory]: string[] } = {
+      'MentalClarity': [
+        "🧠 Mental clarity achieved! Your focused mind is unstoppable! 🌟",
+        "🧠 Brain power activated! Keep training your magnificent mind! ✨",
+        "🧠 Clarity unlocked! You're building mental excellence! 💫"
+      ],
+      'Health': [
+        "💪 Health habit crushed! Your body is your greatest asset! 🌟",
+        "💪 Wellness win! You're investing in a healthier you! ✨",
+        "💪 Vitality boosted! Keep prioritizing your health! 💫"
+      ],
+      'Sleep': [
+        "😴 Sleep habit complete! Quality rest = quality life! 🌟",
+        "😴 Rest ritual achieved! You're optimizing your recovery! ✨",
+        "😴 Sleep success! Your body repairs while you dream! 💫"
+      ],
+      'Mood': [
+        "😊 Mood booster activated! You're cultivating joy daily! 🌟",
+        "😊 Happiness habit! You're training your brain for positivity! ✨",
+        "😊 Joy created! Your mood is in your hands! 💫"
+      ],
+      'Intimacy': [
+        "❤️ Connection deepened! Love grows with attention! 🌟",
+        "❤️ Intimacy strengthened! You're nurturing your bond! ✨",
+        "❤️ Relationship flourishing! Keep investing in love! 💫"
+      ],
+      'Anxiety': [
+        "🛡️ Anxiety managed! You're building emotional resilience! 🌟",
+        "🛡️ Calm cultivated! You're taking control of your peace! ✨",
+        "🛡️ Stress reduced! Your tools are working! 💫"
+      ]
+    };
+
+    const fallbackQuotes = categoryQuotes[category];
+    return fallbackQuotes[Math.floor(Math.random() * fallbackQuotes.length)];
+  };
+
   const handleToggleComplete = async (id: string) => {
     if (!user || !activeHabits) return;
     
@@ -293,19 +494,11 @@ export default function HomeScreen() {
 
       // Show celebration for completion
       if (!habit.completedToday) {
-        const motivationalQuotes = [
-          "Great job! Small steps lead to big changes! 🌟",
-          "You're building a better you, one habit at a time! 💪",
-          "Consistency is the key to success! 🔑",
-          "Keep up the great work! You're doing amazing! ✨",
-          "Another step toward your goals! 🎯"
-        ];
-
-        const randomQuote = motivationalQuotes[Math.floor(Math.random() * motivationalQuotes.length)];
+        const motivationalQuote = getHabitMotivationalQuote(habit.name, habit.category);
         
         Alert.alert(
           "Habit Completed! 🎉",
-          randomQuote,
+          motivationalQuote,
           [{ text: "Thanks!", style: "default" }]
         );
       }
@@ -507,6 +700,7 @@ export default function HomeScreen() {
         total_days: habit.totalDays,
         streak: 0,
         reminder_enabled: false,
+        instruction: habit.instruction,
       }, user.id);
 
       if (error) {
@@ -630,7 +824,9 @@ export default function HomeScreen() {
         borderRadius: theme.borderRadius.base,
         ...theme.shadows.small,
         alignItems: 'center',
-        paddingVertical: theme.spacing.xl
+        paddingVertical: theme.spacing.xl,
+        width: 280, // Match increased card width
+        marginHorizontal: theme.spacing.screenHorizontal,
       }
     ]}>
       {icon}
@@ -861,10 +1057,16 @@ export default function HomeScreen() {
                 return acc;
               }, { good: 0, neutral: 0, bad: 0 });
 
+              // Determine if this day has any data logged
+              const hasData = completedCount > 0 || activeHabits.some(habit => 
+                habit.logs?.some(l => l.date === dateStr)
+              );
+
               return {
                 date: dateStr,
                 completedHabits: completedCount,
                 totalHabits: activeHabits.length,
+                hasData: hasData, // Pass hasData flag
                 feedback: feedbackCounts
               };
             })}
@@ -885,16 +1087,19 @@ export default function HomeScreen() {
           </View>
         </View>
 
-        <View style={styles.sectionHeader}>
-          <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Build Simple Habits</Text>
-          <Text style={[styles.sectionSubtitle, { color: theme.colors.textSecondary }]}>Small actions, big impact.</Text>
+        {/* Main Habits Header */}
+        <View style={styles.mainHabitsHeader}>
+          <Text style={[styles.mainHabitsTitle, { color: theme.colors.text }]}>
+            Build Simple Habits, Big Results
+          </Text>
+          <Text style={[styles.mainHabitsDescription, { color: theme.colors.textSecondary }]}>
+            Small daily actions create lasting change
+          </Text>
         </View>
 
-        <View style={styles.subsectionHeader}>
-          <Text style={[styles.subsectionTitle, { color: theme.colors.text }]}>My Active Habits</Text>
-          <Text style={[styles.subsectionDescription, { color: theme.colors.textSecondary }]}>
-            Track your daily habits and build consistency.
-          </Text>
+        <View style={styles.sectionHeader}>
+          <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Active Habits</Text>
+          <Text style={[styles.sectionSubtitle, { color: theme.colors.textSecondary }]}>Track your daily progress</Text>
         </View>
 
         <ScrollView 
@@ -1245,8 +1450,6 @@ export default function HomeScreen() {
                     </Text>
                   </View>
                 </View>
-              );
-            })}
               );
             })}
           </ScrollView>
@@ -1793,19 +1996,37 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#6B7280',
   },
-  sectionHeader: {
+  mainHabitsHeader: {
     marginHorizontal: 20,
-    marginBottom: 12,
+    marginBottom: 8,
+    marginTop: 24,
   },
-  sectionTitle: {
-    fontSize: 20,
-    fontWeight: 'bold' as const,
+  mainHabitsTitle: {
+    fontSize: 24,
+    fontWeight: '700' as const,
     color: '#1F2937',
     marginBottom: 4,
   },
-  sectionSubtitle: {
+  mainHabitsDescription: {
     fontSize: 14,
     color: '#6B7280',
+    lineHeight: 20,
+  },
+  sectionHeader: {
+    marginHorizontal: 20,
+    marginBottom: 16,
+    marginTop: 8,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: '700' as const,
+    color: '#1F2937',
+    marginBottom: 2,
+  },
+  sectionSubtitle: {
+    fontSize: 13,
+    color: '#6B7280',
+    lineHeight: 18,
   },
   subsectionHeader: {
     marginHorizontal: 20,

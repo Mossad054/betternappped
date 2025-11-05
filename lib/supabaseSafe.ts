@@ -172,25 +172,36 @@ export const safeUpdate = async <T>(
   userId?: string
 ): Promise<SafeResult<T>> => {
   try {
-    const result = await withRetry(async () => {
-      let supabaseQuery = supabase.from(table).update(payload).eq('id', id);
-      
-      if (userId) {
-        supabaseQuery = supabaseQuery.eq('user_id', userId);
+    let supabaseQuery = supabase.from(table).update(payload).eq('id', id);
+    
+    if (userId) {
+      supabaseQuery = supabaseQuery.eq('user_id', userId);
+    }
+    
+    const { data, error } = await supabaseQuery.select().single();
+    
+    // Don't retry if row doesn't exist (PGRST116) - this is expected on first use
+    if (error) {
+      if ((error as any).code === 'PGRST116') {
+        logOperation(`UPDATE ${table}`, false, error);
+        return { 
+          success: false, 
+          error: sanitizeError(error),
+          data: undefined 
+        };
       }
-      
-      const { data, error } = await supabaseQuery.select().single();
-      if (error) throw error;
-      return data;
-    }, `UPDATE ${table}`);
-
-    return { success: true, data: result };
+      throw error;
+    }
+    
+    logOperation(`UPDATE ${table}`, true, undefined, data);
+    return { success: true, data };
   } catch (error) {
     // Add to offline queue if network error
     if (isNetworkError(error)) {
       await addToOfflineQueue('update', table, { id, ...payload });
     }
     
+    logOperation(`UPDATE ${table}`, false, error);
     return { 
       success: false, 
       error: sanitizeError(error),

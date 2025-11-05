@@ -8,7 +8,7 @@ import { getEmojiPalette, getEmojiSet, getEmojiOpacity, type EmojiPalette, type 
 
 export type ThemeMode = 'light' | 'dark';
 
-// Use design system colors for light mode
+// Use design system colors for light mode - Soft Pastel Theme
 const lightColors = {
   ...designSystem.colors,
   
@@ -19,135 +19,135 @@ const lightColors = {
   cardSecondary: designSystem.colors.surfaceVariant,
   cardElevated: designSystem.colors.surface,
   
-  // Keep existing extended mood colors
-  moodRad: '#FF6B9D',
+  // Soft pastel mood colors
+  moodRad: '#FFCC80',
   moodGood: '#A8E6CF',
-  moodMeh: '#FFD93D',
-  moodBad: '#FFB366',
-  moodAwful: '#FF6B6B',
-  moodAnxious: '#87CEEB',
-  moodJoyful: '#A8E6CF',
-  moodTired: '#E5D4A5',
+  moodMeh: '#FFE29F',
+  moodBad: '#FF9999',
+  moodAwful: '#FF8B8B',
+  moodAnxious: '#9FC5E8',
+  moodJoyful: '#C8E6C9',
+  moodTired: '#F0E68C',
   
   // Additional legacy colors
   error: designSystem.colors.danger,
   
-  // Icon backgrounds (keep for backward compatibility)
+  // Icon backgrounds - Soft pastels
   iconBackground: {
-    yellow: '#FEEB99',
-    cyan: '#80DEEA',
-    green: '#D9F7A3',
-    purple: '#CE93D8',
-    orange: '#FFD799',
-    pink: '#F48FB1',
-    blue: '#90CAF9',
-    lime: '#D9F7A3',
+    yellow: '#FFF4C4',
+    cyan: '#B2EBF2',
+    green: '#C8E6C9',
+    purple: '#E1BEE7',
+    orange: '#FFE0B2',
+    pink: '#F8BBD0',
+    blue: '#BBDEFB',
+    lime: '#E6EE9C',
   },
   
-  shadow: 'rgba(0, 0, 0, 0.05)',
-  shadowMedium: 'rgba(0, 0, 0, 0.08)',
-  shadowStrong: 'rgba(0, 0, 0, 0.12)',
+  shadow: 'rgba(0, 0, 0, 0.03)',
+  shadowMedium: 'rgba(0, 0, 0, 0.05)',
+  shadowStrong: 'rgba(0, 0, 0, 0.08)',
 };
 
-// Dark mode - use design system with inverted values where appropriate
+// Dark mode - Deep black with luminous white text (True Dark)
 const darkColors = {
   ...designSystem.colors,
-  // Override for dark theme (simplified for now, can be enhanced later)
-  primary: '#FFD97D',
-  background: '#1F1F1F',
-  backgroundGradientStart: '#1F1F1F',
-  backgroundGradientEnd: '#2A2A2A',
-  surface: '#2A2A2A',
-  surfaceVariant: '#333333',
+  // True black aesthetic with perfect contrast
+  primary: '#FFB088',                    // Warm coral - vibrant accent
+  background: '#000000',                 // Pure black - deepest dark
+  backgroundGradientStart: '#000000',    
+  backgroundGradientEnd: '#0A0A0A',      // Near black gradient
+  surface: '#0F0F0F',                    // Elevated surface - slightly raised
+  surfaceVariant: '#1A1A1A',             // Card variants - visible depth
   
-  textPrimary: '#FFFFFF',
-  textSecondary: '#CCCCCC',
-  textTertiary: '#999999',
-  textLight: '#666666',
+  textPrimary: '#B8B8B8',                // Muted gray - comfortable
+  textSecondary: '#A0A0A0',              // Softer gray - easy on eyes
+  textTertiary: '#888888',               // Light gray - subtle
+  textLight: '#707070',                  // Dim gray - background text
   
-  border: 'rgba(255, 255, 255, 0.1)',
-  borderLight: 'rgba(255, 255, 255, 0.05)',
-  divider: '#3A3A3A',
+  border: 'rgba(255, 255, 255, 0.15)',   // Bright borders
+  borderLight: 'rgba(255, 255, 255, 0.10)',
+  divider: 'rgba(255, 255, 255, 0.12)',
   
-  icon: '#CCCCCC',
-  iconActive: '#FFFFFF',
-  iconInactive: '#999999',
+  icon: '#B8B8B8',                       // Muted gray icons
+  iconActive: '#FFB088',                 // Vibrant coral
+  iconInactive: '#999999',               // Muted gray inactive
   
   // Legacy aliases
-  text: '#FFFFFF',
-  textInverted: '#1E1E1E',
-  card: '#2A2A2A',
-  cardSecondary: '#333333',
-  cardElevated: '#363636',
+  text: '#B8B8B8',
+  textInverted: '#000000',
+  card: '#0F0F0F',
+  cardSecondary: '#1A1A1A',
+  cardElevated: '#252525',               // Highest elevation
   
-  accent: '#FEEB99',
-  secondary: '#D9F7A3',
+  accent: '#FF9B6E',                     // Luminous coral
+  secondary: '#6EE7B7',                  // Vibrant mint green
   
-  // Keep existing mood colors
-  moodRad: '#FF6B9D',
-  moodGood: '#A8E6CF',
-  moodMeh: '#FFD93D',
-  moodBad: '#FFB366',
-  moodAwful: '#FF6B6B',
-  moodAnxious: '#87CEEB',
-  moodJoyful: '#A8E6CF',
-  moodTired: '#E5D4A5',
+  // Vibrant mood colors - balanced against black
+  moodRad: '#FFD700',                    // Gold yellow - joyful
+  moodGood: '#5FD3A7',                   // Mint - positive
+  moodMeh: '#FFA500',                    // Orange - neutral energy
+  moodBad: '#FF6B6B',                    // Coral red - visible
+  moodAwful: '#FF4444',                  // Bright red - alert
+  moodAnxious: '#4A9EFF',                // Blue - calming
+  moodJoyful: '#5FD3A7',                 // Green - uplifting
+  moodTired: '#E89B3C',                  // Amber - comforting
   
-  success: '#66BB6A',
-  warning: '#FFA726',
-  error: '#EF5350',
-  danger: '#EF5350',
-  info: '#42A5F5',
+  success: '#00C853',                    // Bright emerald
+  warning: '#FFB300',                    // Bright amber
+  error: '#FF3D00',                      // Bright red
+  danger: '#FF3D00',
+  info: '#2196F3',                       // Bright blue
   
-  moodHappy: '#FFE66D',
-  moodCalm: '#D4A5E5',
-  moodAngry: '#FF6B6B',
-  moodSad: '#FFC1CC',
-  moodNeutral: '#DCEDC1',
-  moodExcited: '#FFE29F',
-  moodPalette: ['#FFE66D', '#A8E6CF', '#FF6B6B', '#87CEEB', '#DCEDC1', '#FFE29F'],
+  moodHappy: '#FFD700',                  // Gold yellow
+  moodCalm: '#5FD3A7',                   // Mint glow
+  moodAngry: '#FF6B6B',                  // Coral red
+  moodSad: '#4A9EFF',                    // Blue
+  moodNeutral: '#FFA500',                // Orange
+  moodExcited: '#FF8C42',                // Bright orange
+  moodPalette: ['#FFD700', '#5FD3A7', '#FF6B6B', '#4A9EFF', '#FFA500', '#FF8C42'],
   
   iconBackground: {
-    yellow: '#FEEB99',
-    cyan: '#80DEEA',
-    green: '#D9F7A3',
-    purple: '#CE93D8',
-    orange: '#FFD799',
-    pink: '#F48FB1',
-    blue: '#90CAF9',
-    lime: '#D9F7A3',
+    yellow: '#FFD700',                   // Gold yellow
+    cyan: '#00E5FF',                     // Bright cyan
+    green: '#5FD3A7',                    // Luminous mint
+    purple: '#B388FF',                   // Bright purple
+    orange: '#FF8C42',                   // Bright orange
+    pink: '#FF4081',                     // Hot pink
+    blue: '#448AFF',                     // Bright blue
+    lime: '#76FF03',                     // Neon lime
   },
   
-  shadow: 'rgba(0, 0, 0, 0.4)',
-  shadowMedium: 'rgba(0, 0, 0, 0.5)',
-  shadowStrong: 'rgba(0, 0, 0, 0.6)',
+  shadow: 'rgba(0, 0, 0, 0.6)',          // Deep shadows for true black
+  shadowMedium: 'rgba(0, 0, 0, 0.7)',
+  shadowStrong: 'rgba(0, 0, 0, 0.8)',
   
-  overlay: 'rgba(0, 0, 0, 0.2)',
+  overlay: 'rgba(0, 0, 0, 0.7)',
   overlayLight: 'rgba(0, 0, 0, 0.4)',
   overlayMedium: 'rgba(0, 0, 0, 0.5)',
   overlayStrong: 'rgba(0, 0, 0, 0.7)',
   
   cardShadow: 'rgba(0, 0, 0, 0.3)',
-  white: '#2A2A2A',
+  white: '#2C2C2E',
   black: '#000000',
   transparent: 'transparent',
 };
 
-// Use design system gradients
+// Use design system gradients - Soft pastel transitions
 const gradients = {
   ...designSystem.gradients,
   // Convert to array format for backward compatibility
   primary: designSystem.gradients.primary.colors,
   secondary: designSystem.gradients.card.colors,
   background: designSystem.gradients.background.colors,
-  warm: designSystem.gradients.background.colors,
-  cool: designSystem.gradients.card.colors,
-  accent: designSystem.gradients.primary.colors,
-  peach: designSystem.gradients.button.colors,
-  sunset: designSystem.gradients.button.colors,
+  warm: ['#FFE8DC', '#FFDCC8', '#FFD0B5'],  // Peach gradient
+  cool: ['#F0FAED', '#E0F4DB', '#D4EDD1'],  // Bright mint gradient
+  accent: designSystem.gradients.button.colors,
+  peach: designSystem.gradients.backgroundAlt.colors,
+  sunset: ['#FFC5A3', '#FFB088', '#FF9B6E'],  // Coral gradient
   calm: designSystem.gradients.moodCalm.colors,
   energy: designSystem.gradients.moodHappy.colors,
-  dark: ['#1F1F1F', '#2A2A2A', '#333333'],
+  dark: ['#000000', '#0A0A0A', '#1A1A1A'],  // True black gradient with depth
 };
 
 // Use design system typography with backward compatible aliases

@@ -92,7 +92,7 @@ export default function HabitCard({ habit, onToggleComplete, onFeedback, onToggl
       Animated.loop(
         Animated.sequence([
           Animated.timing(borderAnimation, {
-            toValue: 1.05,  // Reduced bounce height for less distraction
+            toValue: 1.02,  // Reduced bounce height to prevent header overlap
             duration: 1500, // Slower animation
             useNativeDriver: true,
           }),
@@ -157,11 +157,11 @@ export default function HabitCard({ habit, onToggleComplete, onFeedback, onToggl
           console.log('Delete button TouchableOpacity pressed'); // Debug log
           handleDelete();
         }} 
-        style={[styles.deleteButton, { position: 'absolute', right: 10, top: 10 }]}
+        style={[styles.deleteButton, { position: 'absolute', right: 8, top: 8 }]}
         activeOpacity={0.7}
-        hitSlop={{ top: 20, bottom: 20, left: 20, right: 20 }}
+        hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
       >
-        <Trash2 size={24} color={theme.colors.error} />
+        <Trash2 size={20} color={theme.colors.error} />
       </TouchableOpacity>
       <View style={[styles.cardHeader, { paddingRight: 40 }]}>
         <View style={[styles.categoryTag, { backgroundColor: categoryColor }]}>
@@ -171,12 +171,13 @@ export default function HabitCard({ habit, onToggleComplete, onFeedback, onToggl
       </View>
 
       <Text style={[styles.habitName, { color: theme.colors.text }]}>{habit.name}</Text>
-      <Text style={[styles.habitDescription, { color: theme.colors.textSecondary }]}>{habit.description}</Text>
       
-      {/* Short instruction */}
-      <Text style={[styles.instructionText, { color: theme.colors.textSecondary }]}>
-        {habit.instruction || 'Complete this habit daily to build consistency.'}
-      </Text>
+      {/* Instruction with expected outcome */}
+      {habit.instruction && (
+        <Text style={[styles.instructionText, { color: theme.colors.textSecondary }]}>
+          {habit.instruction}
+        </Text>
+      )}
 
       {habit.quote && (
         <View style={[styles.quoteContainer, { backgroundColor: theme.colors.primary }]}>
@@ -296,24 +297,26 @@ const createStyles = (theme: any) => StyleSheet.create({
     ...theme.components.card,
     marginHorizontal: theme.spacing.screenHorizontal,
     marginBottom: theme.spacing.md,
-    width: 280,
+    width: 280, // Increased from 240
     position: 'relative',
     overflow: 'visible',
     borderWidth: 2,
     borderStyle: 'solid',
+    paddingVertical: theme.spacing.md - 4, // Reduced from default
+    paddingHorizontal: theme.spacing.md - 2, // Reduced from default
   },
   cardHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: theme.spacing.elementGap,
+    marginBottom: theme.spacing.sm - 2, // Reduced spacing
   },
   deleteButton: {
-    padding: 12,
+    padding: 8, // Reduced from 12
     backgroundColor: 'rgba(255, 59, 48, 0.15)',
-    borderRadius: 25,
-    width: 50,
-    height: 50,
+    borderRadius: 20, // Reduced from 25
+    width: 40, // Reduced from 50
+    height: 40, // Reduced from 50
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 999,
@@ -327,20 +330,22 @@ const createStyles = (theme: any) => StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     alignSelf: 'flex-start',
-    paddingHorizontal: theme.spacing.elementGap,
-    paddingVertical: theme.spacing.sm,
+    paddingHorizontal: theme.spacing.sm + 2, // Reduced
+    paddingVertical: theme.spacing.xs + 2, // Reduced
     borderRadius: theme.radii.xl,
-    marginBottom: theme.spacing.elementGap,
+    marginBottom: theme.spacing.sm, // Reduced
     gap: theme.spacing.chipGap - 2,
   },
   categoryText: {
     ...theme.typography.captionSmall,
     color: '#FFFFFF',
     fontWeight: '600' as const,
+    fontSize: 10, // Reduced font size
   },
   habitName: {
     ...theme.typography.h4,
-    marginBottom: theme.spacing.xs,
+    marginBottom: theme.spacing.xs - 2, // Reduced
+    fontSize: 16, // Slightly reduced
   },
   habitDescription: {
     ...theme.typography.body,
@@ -349,38 +354,43 @@ const createStyles = (theme: any) => StyleSheet.create({
   instructionText: {
     ...theme.typography.caption,
     fontStyle: 'italic' as const,
-    marginBottom: theme.spacing.elementGap,
+    marginBottom: theme.spacing.sm + 2, // Reduced
+    fontSize: 11, // Slightly smaller
+    lineHeight: 15, // Tighter line height
   },
   quoteContainer: {
     backgroundColor: theme.colors.moodCalm,
-    padding: theme.spacing.md - 2,
+    padding: theme.spacing.sm + 2, // Reduced
     borderRadius: theme.radii.lg,
-    marginBottom: theme.spacing.elementGap,
+    marginBottom: theme.spacing.sm + 2, // Reduced
   },
   quoteText: {
     ...theme.typography.bodySmall,
     color: theme.colors.textPrimary,
     fontStyle: 'italic' as const,
+    fontSize: 11, // Reduced
   },
   progressSection: {
-    marginBottom: theme.spacing.elementGap,
+    marginBottom: theme.spacing.sm + 2, // Reduced
   },
   progressInfo: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: theme.spacing.sm,
+    marginBottom: theme.spacing.xs + 2, // Reduced
   },
   progressText: {
     ...theme.typography.bodySmall,
     fontWeight: '500' as const,
+    fontSize: 11, // Reduced
   },
   streakText: {
     ...theme.typography.bodySmall,
     color: theme.colors.warning,
     fontWeight: '600' as const,
+    fontSize: 11, // Reduced
   },
   progressBarContainer: {
-    height: 8,
+    height: 6, // Reduced from 8
     backgroundColor: theme.colors.surfaceVariant,
     borderRadius: theme.radii.md,
     overflow: 'hidden',
@@ -391,46 +401,48 @@ const createStyles = (theme: any) => StyleSheet.create({
   },
   completedBadge: {
     backgroundColor: theme.colors.success,
-    paddingVertical: theme.spacing.sm + 2,
-    paddingHorizontal: theme.spacing.md - 2,
+    paddingVertical: theme.spacing.sm, // Reduced
+    paddingHorizontal: theme.spacing.md - 4, // Reduced
     borderRadius: theme.radii.lg,
     alignItems: 'center',
-    marginBottom: theme.spacing.elementGap,
+    marginBottom: theme.spacing.sm + 2, // Reduced
   },
   completedText: {
     ...theme.typography.body,
     color: theme.colors.textPrimary,
     fontWeight: '600' as const,
+    fontSize: 12, // Reduced
   },
   completeButton: {
     ...theme.components.buttonPrimary,
-    paddingVertical: theme.spacing.md - 2,
+    paddingVertical: theme.spacing.sm + 2, // Reduced
     borderRadius: theme.radii.xl,
-    marginBottom: theme.spacing.elementGap,
+    marginBottom: theme.spacing.sm + 2, // Reduced
   },
   completeButtonText: {
     ...theme.typography.button,
     color: '#FFFFFF',
-    fontSize: 14,
+    fontSize: 13, // Reduced from 14
   },
   feedbackSection: {
-    marginBottom: theme.spacing.elementGap,
+    marginBottom: theme.spacing.sm + 2, // Reduced
   },
   feedbackLabel: {
     ...theme.typography.label,
-    marginBottom: theme.spacing.sm,
+    marginBottom: theme.spacing.xs + 2, // Reduced
+    fontSize: 11, // Reduced
   },
   feedbackButtons: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    gap: theme.spacing.sm,
+    gap: theme.spacing.xs + 2, // Reduced
   },
   feedbackButton: {
     flex: 1,
     flexDirection: 'column',
     alignItems: 'center',
-    paddingVertical: theme.spacing.sm + 2,
-    paddingHorizontal: theme.spacing.elementGap,
+    paddingVertical: theme.spacing.xs + 4, // Reduced
+    paddingHorizontal: theme.spacing.sm, // Reduced
     borderRadius: theme.radii.lg,
     backgroundColor: theme.colors.surfaceVariant,
     borderWidth: 2,
@@ -441,41 +453,43 @@ const createStyles = (theme: any) => StyleSheet.create({
     backgroundColor: theme.colors.surface,
   },
   feedbackEmoji: {
-    fontSize: 20,
-    marginBottom: theme.spacing.xs,
+    fontSize: 14, // Reduced from 16
+    marginBottom: theme.spacing.xs - 2, // Reduced
   },
   feedbackButtonText: {
     ...theme.typography.captionSmall,
     fontWeight: '500' as const,
+    fontSize: 10, // Reduced
   },
   reminderSection: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingTop: theme.spacing.elementGap,
+    paddingTop: theme.spacing.sm + 2, // Reduced
     borderTopWidth: 1,
     borderTopColor: theme.colors.divider,
   },
   reminderLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: theme.spacing.sm,
+    gap: theme.spacing.xs + 2, // Reduced
   },
   reminderText: {
     ...theme.typography.body,
     fontWeight: '500' as const,
+    fontSize: 12, // Reduced
   },
   timeButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: theme.spacing.sm + 2,
-    paddingVertical: theme.spacing.chipGap - 2,
+    paddingHorizontal: theme.spacing.xs + 4, // Reduced
+    paddingVertical: theme.spacing.xs, // Reduced
     borderRadius: theme.radii.md,
-    gap: theme.spacing.xs,
+    gap: theme.spacing.xs - 2, // Reduced
   },
   timeButtonText: {
     color: '#FFFFFF',
-    fontSize: 12,
+    fontSize: 11, // Reduced from 12
     fontWeight: '500' as const,
   },
 });
