@@ -300,10 +300,10 @@ const createStyles = (theme: any) => StyleSheet.create({
     width: 280, // Increased from 240
     position: 'relative',
     overflow: 'visible',
-    borderWidth: 2,
+    borderWidth: 1,
     borderStyle: 'solid',
-    paddingVertical: theme.spacing.md - 4, // Reduced from default
-    paddingHorizontal: theme.spacing.md - 2, // Reduced from default
+    paddingVertical: theme.spacing.lg - 4, // Adjusted for new padding
+    paddingHorizontal: theme.spacing.lg - 4, // Adjusted for new padding
   },
   cardHeader: {
     flexDirection: 'row',
@@ -339,24 +339,28 @@ const createStyles = (theme: any) => StyleSheet.create({
   categoryText: {
     ...theme.typography.captionSmall,
     color: '#FFFFFF',
-    fontWeight: '600' as const,
-    fontSize: 10, // Reduced font size
+    fontWeight: '700' as const,
+    fontSize: 12,
   },
   habitName: {
     ...theme.typography.h4,
     marginBottom: theme.spacing.xs - 2, // Reduced
-    fontSize: 16, // Slightly reduced
+    fontSize: 20,
+    fontWeight: '700' as const,
   },
   habitDescription: {
     ...theme.typography.body,
     marginBottom: theme.spacing.sm,
+    fontSize: 15,
+    fontWeight: '600' as const,
   },
   instructionText: {
     ...theme.typography.caption,
     fontStyle: 'italic' as const,
     marginBottom: theme.spacing.sm + 2, // Reduced
-    fontSize: 11, // Slightly smaller
-    lineHeight: 15, // Tighter line height
+    fontSize: 14,
+    lineHeight: 18,
+    fontWeight: '600' as const,
   },
   quoteContainer: {
     backgroundColor: theme.colors.moodCalm,
@@ -368,7 +372,8 @@ const createStyles = (theme: any) => StyleSheet.create({
     ...theme.typography.bodySmall,
     color: theme.colors.textPrimary,
     fontStyle: 'italic' as const,
-    fontSize: 11, // Reduced
+    fontSize: 13,
+    fontWeight: '600' as const,
   },
   progressSection: {
     marginBottom: theme.spacing.sm + 2, // Reduced
@@ -380,14 +385,14 @@ const createStyles = (theme: any) => StyleSheet.create({
   },
   progressText: {
     ...theme.typography.bodySmall,
-    fontWeight: '500' as const,
-    fontSize: 11, // Reduced
+    fontWeight: '700' as const,
+    fontSize: 13,
   },
   streakText: {
     ...theme.typography.bodySmall,
     color: theme.colors.warning,
-    fontWeight: '600' as const,
-    fontSize: 11, // Reduced
+    fontWeight: '700' as const,
+    fontSize: 13,
   },
   progressBarContainer: {
     height: 6, // Reduced from 8
@@ -410,8 +415,8 @@ const createStyles = (theme: any) => StyleSheet.create({
   completedText: {
     ...theme.typography.body,
     color: theme.colors.textPrimary,
-    fontWeight: '600' as const,
-    fontSize: 12, // Reduced
+    fontWeight: '700' as const,
+    fontSize: 14,
   },
   completeButton: {
     ...theme.components.buttonPrimary,
@@ -422,7 +427,8 @@ const createStyles = (theme: any) => StyleSheet.create({
   completeButtonText: {
     ...theme.typography.button,
     color: '#FFFFFF',
-    fontSize: 13, // Reduced from 14
+    fontSize: 15,
+    fontWeight: '700' as const,
   },
   feedbackSection: {
     marginBottom: theme.spacing.sm + 2, // Reduced
@@ -430,7 +436,8 @@ const createStyles = (theme: any) => StyleSheet.create({
   feedbackLabel: {
     ...theme.typography.label,
     marginBottom: theme.spacing.xs + 2, // Reduced
-    fontSize: 11, // Reduced
+    fontSize: 14,
+    fontWeight: '700' as const,
   },
   feedbackButtons: {
     flexDirection: 'row',
@@ -453,13 +460,13 @@ const createStyles = (theme: any) => StyleSheet.create({
     backgroundColor: theme.colors.surface,
   },
   feedbackEmoji: {
-    fontSize: 14, // Reduced from 16
+    fontSize: 16,
     marginBottom: theme.spacing.xs - 2, // Reduced
   },
   feedbackButtonText: {
     ...theme.typography.captionSmall,
-    fontWeight: '500' as const,
-    fontSize: 10, // Reduced
+    fontWeight: '700' as const,
+    fontSize: 12,
   },
   reminderSection: {
     flexDirection: 'row',
@@ -476,8 +483,8 @@ const createStyles = (theme: any) => StyleSheet.create({
   },
   reminderText: {
     ...theme.typography.body,
-    fontWeight: '500' as const,
-    fontSize: 12, // Reduced
+    fontWeight: '700' as const,
+    fontSize: 14,
   },
   timeButton: {
     flexDirection: 'row',
@@ -489,8 +496,8 @@ const createStyles = (theme: any) => StyleSheet.create({
   },
   timeButtonText: {
     color: '#FFFFFF',
-    fontSize: 11, // Reduced from 12
-    fontWeight: '500' as const,
+    fontSize: 13,
+    fontWeight: '700' as const,
   },
 });
 

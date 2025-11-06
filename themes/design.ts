@@ -219,9 +219,9 @@ export const typography = {
   // Body text - large
   bodyLarge: {
     fontFamily: 'System',
-    fontSize: 17,
+    fontSize: 19,
     fontWeight: '500' as const,
-    lineHeight: 24,
+    lineHeight: 26,
     letterSpacing: -0.2,
     color: colors.textSecondary,
   },
@@ -229,9 +229,9 @@ export const typography = {
   // Body text - regular
   body: {
     fontFamily: 'System',
-    fontSize: 15,
+    fontSize: 17,
     fontWeight: '500' as const,
-    lineHeight: 22,
+    lineHeight: 24,
     letterSpacing: -0.1,
     color: colors.textSecondary,
   },
@@ -239,9 +239,9 @@ export const typography = {
   // Body text - small
   bodySmall: {
     fontFamily: 'System',
-    fontSize: 13,
+    fontSize: 15,
     fontWeight: '500' as const,
-    lineHeight: 18,
+    lineHeight: 20,
     letterSpacing: 0,
     color: colors.textSecondary,
   },
@@ -249,9 +249,9 @@ export const typography = {
   // Caption text
   caption: {
     fontFamily: 'System',
-    fontSize: 12,
+    fontSize: 14,
     fontWeight: '500' as const,
-    lineHeight: 16,
+    lineHeight: 18,
     letterSpacing: 0,
     color: colors.textTertiary,
   },
@@ -259,9 +259,9 @@ export const typography = {
   // Caption small
   captionSmall: {
     fontFamily: 'System',
-    fontSize: 11,
+    fontSize: 13,
     fontWeight: '500' as const,
-    lineHeight: 14,
+    lineHeight: 16,
     letterSpacing: 0.2,
     color: colors.textTertiary,
   },
@@ -269,9 +269,9 @@ export const typography = {
   // Button text
   button: {
     fontFamily: 'System',
-    fontSize: 17,
+    fontSize: 19,
     fontWeight: '700' as const,
-    lineHeight: 22,
+    lineHeight: 24,
     letterSpacing: -0.2,
     color: colors.textOnPrimary,
   },
@@ -279,9 +279,9 @@ export const typography = {
   // Label text
   label: {
     fontFamily: 'System',
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: '600' as const,
-    lineHeight: 20,
+    lineHeight: 22,
     letterSpacing: 0,
     color: colors.textSecondary,
   },
@@ -289,9 +289,9 @@ export const typography = {
   // Overline text
   overline: {
     fontFamily: 'System',
-    fontSize: 11,
+    fontSize: 13,
     fontWeight: '700' as const,
-    lineHeight: 16,
+    lineHeight: 18,
     letterSpacing: 1.5,
     textTransform: 'uppercase' as const,
     color: colors.textTertiary,
@@ -516,21 +516,27 @@ export const components = {
   card: {
     backgroundColor: colors.surface,
     borderRadius: radii.card,
-    padding: spacing.cardPadding,
+    padding: spacing.lg,
+    borderWidth: 1,
+    borderColor: '#FFD700',
     ...elevation.small,
   },
   
   cardElevated: {
     backgroundColor: colors.surface,
     borderRadius: radii.card,
-    padding: spacing.cardPadding,
+    padding: spacing.lg,
+    borderWidth: 1,
+    borderColor: '#FFD700',
     ...elevation.medium,
   },
   
   cardFlat: {
     backgroundColor: colors.surface,
     borderRadius: radii.card,
-    padding: spacing.cardPadding,
+    padding: spacing.lg,
+    borderWidth: 1,
+    borderColor: '#FFD700',
   },
   
   // Button variants - More rounded
@@ -666,9 +672,9 @@ export const components = {
     cardGlass: {
       backgroundColor: 'rgba(255, 255, 255, 0.08)',
       borderRadius: radii.card,
-      padding: spacing.cardPadding,
+      padding: spacing.lg,
       borderWidth: 1,
-      borderColor: 'rgba(255, 255, 255, 0.12)',
+      borderColor: '#FFD700',
     },
     
     buttonPrimaryGlow: {
@@ -686,9 +692,9 @@ export const components = {
     cardElevatedGlow: {
       backgroundColor: '#0F0F0F',
       borderRadius: radii.card,
-      padding: spacing.cardPadding,
+      padding: spacing.lg,
       borderWidth: 1,
-      borderColor: 'rgba(255, 255, 255, 0.15)',
+      borderColor: '#FFD700',
       shadowColor: 'rgba(255, 255, 255, 0.2)',
       shadowOffset: { width: 0, height: 4 },
       shadowOpacity: 0.9,
@@ -708,17 +714,17 @@ export const components = {
       cardDeep: {
         backgroundColor: '#000000',
         borderRadius: radii.card,
-        padding: spacing.cardPadding,
+        padding: spacing.lg,
         borderWidth: 1,
-        borderColor: 'rgba(255, 255, 255, 0.2)',
+        borderColor: '#FFD700',
       },
       
       surfaceElevated: {
         backgroundColor: '#0F0F0F',
         borderRadius: radii.card,
-        padding: spacing.cardPadding,
+        padding: spacing.lg,
         borderWidth: 1,
-        borderColor: 'rgba(255, 255, 255, 0.18)',
+        borderColor: '#FFD700',
       },
       
       buttonIntense: {

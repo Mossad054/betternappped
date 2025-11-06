@@ -8,6 +8,11 @@ interface DayData {
   completedHabits: number;
   totalHabits: number;
   hasData?: boolean; // Indicates if any data is logged for this date
+  hasMood?: boolean; // Has mood data
+  hasSleep?: boolean; // Has sleep data
+  habitCompletionRate?: number; // Completion rate (0-1)
+  moodData?: any; // Mood entry for the day
+  sleepData?: any; // Sleep entry for the day
   feedback: {
     good: number;
     neutral: number;
@@ -25,7 +30,7 @@ export default function MiniCalendar({ data, onDateSelect }: Props) {
 
   /**
    * Handle date selection
-   * When a user taps a day, navigate to add-entry with the selected date
+   * When a user taps a day, navigate to journal with the selected date
    */
   const handleDayPress = (dateString: string, hasData: boolean) => {
     // Parse date to ensure proper formatting
@@ -40,23 +45,33 @@ export default function MiniCalendar({ data, onDateSelect }: Props) {
       onDateSelect(formattedDate);
     }
     
-    // Navigate to add-entry with date parameter
-    router.push(`/add-entry?date=${formattedDate}`);
+    // Navigate to journal with date parameter
+    router.push(`/(tabs)/journal?date=${formattedDate}` as any);
   };
 
   const getDayColor = (day: DayData) => {
     // Check if there's any data logged for this day
-    const hasAnyData = day.hasData || day.totalHabits > 0;
+    const hasAnyData = day.hasData || day.hasMood || day.hasSleep;
     
     if (!hasAnyData) return theme.colors.border; // Gray if no data logged
     
-    const completionRate = day.completedHabits / day.totalHabits;
-    const hasBadFeedback = day.feedback.bad > 0;
+    // If we have habit data, use habit completion for color
+    if (day.totalHabits > 0 && day.completedHabits > 0) {
+      const completionRate = day.completedHabits / day.totalHabits;
+      const hasBadFeedback = day.feedback.bad > 0;
+      
+      if (hasBadFeedback) return theme.colors.error; // Red for bad feedback
+      if (completionRate >= 0.7) return theme.colors.success; // Green for good completion
+      if (completionRate > 0) return theme.colors.warning; // Yellow for partial completion
+      return theme.colors.error; // Red for no completion
+    }
     
-    if (hasBadFeedback) return theme.colors.error; // Red for bad feedback
-    if (completionRate >= 0.7) return theme.colors.success; // Green for good completion
-    if (completionRate > 0) return theme.colors.warning; // Yellow for partial completion
-    return theme.colors.error; // Red for no completion
+    // If only mood/sleep data exists, show as partial (orange)
+    if (day.hasMood || day.hasSleep) {
+      return theme.colors.warning;
+    }
+    
+    return theme.colors.border;
   };
 
   const formatDate = (dateString: string) => {
@@ -71,8 +86,8 @@ export default function MiniCalendar({ data, onDateSelect }: Props) {
     <View style={styles.container}>
       {data.map((day, index) => {
         const { weekday, day: dayNumber } = formatDate(day.date);
-        const isToday = index === data.length - 1;
-        const hasData = day.hasData || day.totalHabits > 0;
+        const isToday = new Date(day.date).toDateString() === new Date().toDateString();
+        const hasData = day.hasData || day.hasMood || day.hasSleep;
         
         return (
           <TouchableOpacity
@@ -95,7 +110,8 @@ export default function MiniCalendar({ data, onDateSelect }: Props) {
               
               <Text style={[
                 styles.dayNumber,
-                { color: theme.colors.text }
+                { color: theme.colors.text },
+                isToday && styles.todayNumber
               ]}>
                 {dayNumber}
               </Text>
@@ -107,13 +123,25 @@ export default function MiniCalendar({ data, onDateSelect }: Props) {
                   borderColor: isToday ? theme.colors.primary : 'transparent'
                 }
               ]}>
-                {day.completedHabits > 0 && (
+                {day.completedHabits > 0 && day.totalHabits > 0 ? (
                   <Text style={styles.completionCount}>
                     {day.completedHabits}/{day.totalHabits}
                   </Text>
+                ) : !hasData ? (
+                  <Text style={styles.noDataIndicator}>•</Text>
+                ) : null}
+              </View>
+              
+              {/* Data type indicators */}
+              <View style={styles.dataIndicators}>
+                {day.hasMood && (
+                  <View style={[styles.dataTypeDot, { backgroundColor: theme.colors.primary }]} />
                 )}
-                {!hasData && (
-                  <Text style={styles.noDataIndicator}>+</Text>
+                {day.hasSleep && (
+                  <View style={[styles.dataTypeDot, { backgroundColor: theme.colors.info }]} />
+                )}
+                {day.completedHabits > 0 && (
+                  <View style={[styles.dataTypeDot, { backgroundColor: theme.colors.success }]} />
                 )}
               </View>
             </View>
@@ -147,23 +175,39 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginBottom: 8,
   },
+  todayNumber: {
+    fontWeight: '700',
+  },
   activityIndicator: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 2,
+    marginBottom: 6,
   },
   completionCount: {
     fontSize: 10,
     color: '#FFFFFF',
-    fontWeight: '600',
+    fontWeight: '700',
   },
   noDataIndicator: {
-    fontSize: 14,
+    fontSize: 16,
     color: '#FFFFFF',
     fontWeight: '600',
-    opacity: 0.6,
+    opacity: 0.5,
+  },
+  dataIndicators: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 3,
+    minHeight: 8,
+  },
+  dataTypeDot: {
+    width: 4,
+    height: 4,
+    borderRadius: 2,
   },
 });

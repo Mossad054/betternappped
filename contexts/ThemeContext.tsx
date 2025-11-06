@@ -399,6 +399,52 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     };
   }, [themeMode, colorPalette]);
 
+  // Get dynamic components with palette-based border colors
+  const getCustomComponents = useCallback(() => {
+    const customColors = getCustomColors();
+    const baseComponents = designSystem.components;
+    
+    // Override card components with palette accent color for borders
+    return {
+      ...baseComponents,
+      card: {
+        ...baseComponents.card,
+        borderColor: customColors.accent,
+      },
+      cardElevated: {
+        ...baseComponents.cardElevated,
+        borderColor: customColors.accent,
+      },
+      cardFlat: {
+        ...baseComponents.cardFlat,
+        borderColor: customColors.accent,
+      },
+      // Override dark mode card variants
+      darkMode: {
+        ...baseComponents.darkMode,
+        cardGlass: {
+          ...baseComponents.darkMode.cardGlass,
+          borderColor: customColors.accent,
+        },
+        cardElevatedGlow: {
+          ...baseComponents.darkMode.cardElevatedGlow,
+          borderColor: customColors.accent,
+        },
+        trueBlack: {
+          ...baseComponents.darkMode.trueBlack,
+          cardDeep: {
+            ...baseComponents.darkMode.trueBlack.cardDeep,
+            borderColor: customColors.accent,
+          },
+          surfaceElevated: {
+            ...baseComponents.darkMode.trueBlack.surfaceElevated,
+            borderColor: customColors.accent,
+          },
+        },
+      },
+    };
+  }, [getCustomColors]);
+
   const theme: Theme = useMemo(() => ({
     colors: getCustomColors(),
     gradients,
@@ -409,7 +455,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     shadows,
     elevation: shadows,
     icons: designSystem.icons,
-    components: designSystem.components,
+    components: getCustomComponents(),
     mode: themeMode,
     // Include helper functions
     hexToRgba: designSystem.hexToRgba,
@@ -417,7 +463,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     getShadow: designSystem.getShadow,
     getSpacing: designSystem.getSpacing,
     withOpacity: designSystem.withOpacity,
-  }), [themeMode, getCustomColors]);
+  }), [themeMode, getCustomColors, getCustomComponents]);
 
   const value = useMemo(() => ({
     theme,

@@ -42,6 +42,7 @@ import {
 import { HabitsService } from '@/services/habits.service';
 import { MoodsService } from '@/services/moods.service';
 import { SleepService } from '@/services/sleep.service';
+import { MentalClarityService } from '@/services/mentalClarity.service';
 import { AnalyticsService } from '@/services/analytics.service';
 import { useRealtimeHabits, useRealtimeMoods, useRealtimeSleep } from '@/hooks/useRealtimeData';
 import { useNotifications } from '@/hooks/useNotifications';
@@ -137,6 +138,7 @@ export default function HomeScreen() {
   const [activeHabits, setActiveHabits] = useState<any[]>([]);
   const [moodData, setMoodData] = useState<any[]>([]);
   const [sleepData, setSleepData] = useState<any[]>([]);
+  const [mentalClarityData, setMentalClarityData] = useState<any[]>([]);
   const [aiRecommendations, setAiRecommendations] = useState<any[]>([]);
   const [impactData, setImpactData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -152,6 +154,9 @@ export default function HomeScreen() {
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set(['Intimacy', 'Health', 'Mood']));
   const [habitLibrarySearch, setHabitLibrarySearch] = useState('');
   const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<HabitCategory | 'All'>('All');
+  const [selectedHabitDetail, setSelectedHabitDetail] = useState<typeof PREDEFINED_HABITS[0] | null>(null);
+  const [habitDetailModalVisible, setHabitDetailModalVisible] = useState(false);
+  const [customStreakGoal, setCustomStreakGoal] = useState(30);
   const [customHabitForm, setCustomHabitForm] = useState({
     name: '',
     description: '',
@@ -172,6 +177,7 @@ export default function HomeScreen() {
       setActiveHabits([]);
       setMoodData([]);
       setSleepData([]);
+      setMentalClarityData([]);
       setAiRecommendations([]);
       setLoading(false);
     }
@@ -196,6 +202,7 @@ export default function HomeScreen() {
       setActiveHabits([]);
       setMoodData([]);
       setSleepData([]);
+      setMentalClarityData([]);
       setAiRecommendations([]);
       setLoading(false);
       return;
@@ -206,7 +213,7 @@ export default function HomeScreen() {
     setError(null);
     
     try {
-      const [habitsResult, moodResult, sleepResult, recommendationsResult, impactResult] = await Promise.all([
+      const [habitsResult, moodResult, sleepResult, clarityResult, recommendationsResult, impactResult] = await Promise.all([
         HabitsService.getAll(effectiveUserId),
         MoodsService.getByDateRange(
           effectiveUserId,
@@ -214,6 +221,11 @@ export default function HomeScreen() {
           new Date().toISOString().split('T')[0]
         ),
         SleepService.getByDateRange(
+          effectiveUserId,
+          new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+          new Date().toISOString().split('T')[0]
+        ),
+        MentalClarityService.getByDateRange(
           effectiveUserId,
           new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
           new Date().toISOString().split('T')[0]
@@ -232,6 +244,9 @@ export default function HomeScreen() {
       if (sleepResult.error && sleepResult.error !== 'No data found') {
         console.warn('Failed to load sleep data:', sleepResult.error);
       }
+      if (clarityResult.error && clarityResult.error !== 'No data found') {
+        console.warn('Failed to load mental clarity data:', clarityResult.error);
+      }
       if (recommendationsResult.error && recommendationsResult.error !== 'No data found') {
         console.warn('Failed to load recommendations:', recommendationsResult.error);
       }
@@ -242,6 +257,7 @@ export default function HomeScreen() {
       setActiveHabits(habitsResult.data || []);
       setMoodData(moodResult.data || []);
       setSleepData(sleepResult.data || []);
+      setMentalClarityData(clarityResult.data || []);
       setAiRecommendations(recommendationsResult.data || []);
       setImpactData(impactResult.data || null);
     } catch (err) {
@@ -252,14 +268,90 @@ export default function HomeScreen() {
     }
   };
 
-  const todayMood = moodData && moodData.length > 0 ? moodData[moodData.length - 1] : { score: 3, emoji: '😐' };
-  const todaySleep = sleepData && sleepData.length > 0 ? sleepData[sleepData.length - 1] : { hours: 7, emoji: '😴' };
+  // Get today's data with proper fallbacks
+  const today = new Date().toISOString().split('T')[0];
+  
+  const getTodayMood = () => {
+    const todayEntry = moodData.find((m: any) => m.date === today);
+    if (todayEntry) {
+      return {
+        score: todayEntry.score || 0,
+        emoji: todayEntry.emoji || '😐'
+      };
+    }
+    return { score: 0, emoji: '😐' };
+  };
+
+  const getTodaySleep = () => {
+    const todayEntry = sleepData.find((s: any) => s.date === today);
+    if (todayEntry) {
+      return {
+        hours: todayEntry.hours || 0,
+        quality: todayEntry.quality || 'fair',
+        emoji: todayEntry.emoji || '😴'
+      };
+    }
+    return { hours: 0, quality: 'none', emoji: '😴' };
+  };
+
+  const getTodayClarity = () => {
+    const todayEntry = mentalClarityData.find((c: any) => c.date === today);
+    if (todayEntry) {
+      const score = todayEntry.score || todayEntry.clarity_score || 0;
+      let level = 'None';
+      if (score >= 80) level = 'High';
+      else if (score >= 60) level = 'Good';
+      else if (score >= 40) level = 'Fair';
+      else if (score > 0) level = 'Low';
+      
+      return { score, level };
+    }
+    return { score: 0, level: 'None' };
+  };
+
+  const getCurrentStreak = () => {
+    if (!activeHabits || activeHabits.length === 0) return 0;
+    
+    // Calculate the longest current streak across all habits
+    const streaks = activeHabits.map((habit: any) => habit.current_streak || habit.streak || 0);
+    return Math.max(...streaks, 0);
+  };
+
+  const todayMood = getTodayMood();
+  const todaySleep = getTodaySleep();
+  const todayClarity = getTodayClarity();
+  const currentStreak = getCurrentStreak();
   
   const getGreeting = () => {
     const hour = new Date().getHours();
     if (hour < 12) return 'Good morning';
     if (hour < 18) return 'Good afternoon';
     return 'Good evening';
+  };
+
+  const getUserDisplayName = () => {
+    if (isGuest) return 'Guest';
+    
+    if (user) {
+      // Check if user has user_metadata with a name
+      if (user.user_metadata?.name || user.user_metadata?.full_name) {
+        return user.user_metadata.name || user.user_metadata.full_name;
+      }
+      
+      // Extract name from email (part before @)
+      if (user.email) {
+        const emailUsername = user.email.split('@')[0];
+        // Capitalize first letter and clean up any dots/underscores
+        const cleanName = emailUsername
+          .replace(/[._-]/g, ' ')
+          .split(' ')
+          .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+          .join(' ');
+        return cleanName;
+      }
+    }
+    
+    return 'there';
   };
 
   // Get habit-specific motivational quotes
@@ -463,21 +555,25 @@ export default function HomeScreen() {
   };
 
   const handleToggleComplete = async (id: string) => {
-    if (!user || !activeHabits) return;
+    if (!user && !isGuest) return;
     
     try {
       const habit = activeHabits.find(h => h?.id === id);
       if (!habit) return;
 
       const today = new Date().toISOString().split('T')[0];
+      const isCurrentlyCompleted = habit.completedToday;
+      const newCompletedState = !isCurrentlyCompleted;
+      
+      // Log the habit completion
       const { error } = await HabitsService.logHabit(
         id,
         {
           date: today,
-          completed: !habit.completedToday,
+          completed: newCompletedState,
           feedback: 'good'
         },
-        user.id
+        user?.id || 'guest_user'
       );
 
       if (error) {
@@ -485,15 +581,38 @@ export default function HomeScreen() {
         return;
       }
 
-      // Update local state
-      setActiveHabits(prev =>
-        prev.map(h =>
-          h.id === id ? { ...h, completedToday: !h.completedToday, streak: h.completedToday ? h.streak : h.streak + 1 } : h
-        )
-      );
+      // Fetch updated habit with recalculated streak
+      const { data: updatedHabit, error: fetchError } = await HabitsService.getById(id, user?.id || 'guest_user');
+      
+      if (fetchError || !updatedHabit) {
+        console.error('Error fetching updated habit:', fetchError);
+        // Fallback: update local state with basic calculation
+        setActiveHabits(prev =>
+          prev.map(h =>
+            h.id === id ? { 
+              ...h, 
+              completedToday: newCompletedState,
+              streak: newCompletedState ? (h.streak || 0) + 1 : h.streak,
+              current_streak: newCompletedState ? (h.current_streak || h.streak || 0) + 1 : (h.current_streak || h.streak)
+            } : h
+          )
+        );
+      } else {
+        // Update local state with accurate data from database
+        setActiveHabits(prev =>
+          prev.map(h =>
+            h.id === id ? { 
+              ...h, 
+              completedToday: newCompletedState,
+              streak: updatedHabit.streak || 0,
+              current_streak: updatedHabit.streak || updatedHabit.current_streak || 0
+            } : h
+          )
+        );
+      }
 
       // Show celebration for completion
-      if (!habit.completedToday) {
+      if (newCompletedState) {
         const motivationalQuote = getHabitMotivationalQuote(habit.name, habit.category);
         
         Alert.alert(
@@ -509,31 +628,42 @@ export default function HomeScreen() {
   };
 
   const handleFeedback = async (id: string, feedback: 'good' | 'neutral' | 'bad') => {
-    if (!user) return;
+    if (!user && !isGuest) return;
 
     try {
-      const today = new Date().toISOString().split('T')[0];
-      const { error } = await HabitsService.logHabit(
-        id,
-        {
-          date: today,
-          feedback,
-          completed: true // If they're giving feedback, it must be completed
-        },
-        user.id
-      );
-
-      if (error) {
-        Alert.alert('Error', 'Failed to save feedback');
+      const habit = activeHabits.find(h => h.id === id);
+      
+      // If feedback is bad, ask user if they want to adjust the habit
+      if (feedback === 'bad') {
+        Alert.alert(
+          'Habit Not Working?',
+          'This habit seems challenging. Would you like to explore other habits that might work better for you?',
+          [
+            {
+              text: 'No, Keep It',
+              style: 'cancel',
+              onPress: async () => {
+                // Still save the bad feedback
+                await saveFeedback(id, feedback);
+              }
+            },
+            {
+              text: 'Yes, Adjust',
+              style: 'default',
+              onPress: () => {
+                // Redirect to habit library
+                setHabitLibraryModalVisible(true);
+              }
+            }
+          ]
+        );
         return;
       }
 
-      // Update local state
-      setActiveHabits(prev =>
-        prev.map(h => (h.id === id ? { ...h, feedback } : h))
-      );
+      // For good or neutral feedback, save directly
+      await saveFeedback(id, feedback);
 
-      // Show feedback message
+      // Show feedback message for good feedback
       if (feedback === 'good') {
         Alert.alert('Great job! 🎉', 'Keep up the good work!');
       }
@@ -541,6 +671,29 @@ export default function HomeScreen() {
       console.error('Error saving feedback:', err);
       Alert.alert('Error', 'Failed to save feedback');
     }
+  };
+
+  const saveFeedback = async (id: string, feedback: 'good' | 'neutral' | 'bad') => {
+    const today = new Date().toISOString().split('T')[0];
+    const { error } = await HabitsService.logHabit(
+      id,
+      {
+        date: today,
+        feedback,
+        completed: true // If they're giving feedback, it must be completed
+      },
+      user?.id || 'guest_user'
+    );
+
+    if (error) {
+      Alert.alert('Error', 'Failed to save feedback');
+      return;
+    }
+
+    // Update local state
+    setActiveHabits(prev =>
+      prev.map(h => (h.id === id ? { ...h, feedback } : h))
+    );
   };
 
   const handleToggleReminder = async (id: string) => {
@@ -682,7 +835,7 @@ export default function HomeScreen() {
     }
   };
 
-  const handleAddPredefinedHabit = async (habit: PredefinedHabit) => {
+  const handleAddPredefinedHabit = async (habit: PredefinedHabit, streakGoal?: number) => {
     if (!user) return;
 
     try {
@@ -697,7 +850,7 @@ export default function HomeScreen() {
         name: habit.name,
         description: habit.description,
         category: habit.category,
-        total_days: habit.totalDays,
+        total_days: streakGoal || habit.totalDays,
         streak: 0,
         reminder_enabled: false,
         instruction: habit.instruction,
@@ -799,6 +952,7 @@ export default function HomeScreen() {
       styles.card,
       {
         backgroundColor: theme.colors.card,
+        borderColor: theme.colors.accent,
         borderRadius: theme.borderRadius.base,
         ...theme.shadows.small
       }
@@ -821,12 +975,11 @@ export default function HomeScreen() {
       styles.card,
       {
         backgroundColor: theme.colors.card,
+        borderColor: theme.colors.accent,
         borderRadius: theme.borderRadius.base,
         ...theme.shadows.small,
         alignItems: 'center',
         paddingVertical: theme.spacing.xl,
-        width: 280, // Match increased card width
-        marginHorizontal: theme.spacing.screenHorizontal,
       }
     ]}>
       {icon}
@@ -944,7 +1097,7 @@ export default function HomeScreen() {
               fontSize: theme.typography.fontSize.xxl,
               fontWeight: theme.typography.fontWeight.bold
             }
-          ]}>{getGreeting()} Emma 🌤️</Text>
+          ]}>{getGreeting()}, {getUserDisplayName()} 🌤️</Text>
           <Text style={[
             styles.quote,
             {
@@ -997,6 +1150,7 @@ export default function HomeScreen() {
           styles.card,
           {
             backgroundColor: theme.colors.card,
+            borderColor: theme.colors.accent,
             borderRadius: theme.borderRadius.base,
             ...theme.shadows.small
           }
@@ -1013,68 +1167,100 @@ export default function HomeScreen() {
             <View style={styles.snapshotItem}>
               <Text style={styles.snapshotEmoji}>{todayMood.emoji}</Text>
               <Text style={[styles.snapshotLabel, { color: theme.colors.textSecondary }]}>Mood</Text>
-              <Text style={[styles.snapshotValue, { color: theme.colors.text }]}>{todayMood.score}/5</Text>
+              <Text style={[styles.snapshotValue, { color: theme.colors.text }]}>
+                {todayMood.score > 0 ? `${todayMood.score}/5` : '0'}
+              </Text>
             </View>
             <View style={styles.snapshotItem}>
               <Text style={styles.snapshotEmoji}>{todaySleep.emoji}</Text>
               <Text style={[styles.snapshotLabel, { color: theme.colors.textSecondary }]}>Sleep</Text>
-              <Text style={[styles.snapshotValue, { color: theme.colors.text }]}>{todaySleep.hours}h</Text>
+              <Text style={[styles.snapshotValue, { color: theme.colors.text }]}>
+                {todaySleep.hours > 0 ? `${todaySleep.hours}h` : '0h'}
+              </Text>
             </View>
             <View style={styles.snapshotItem}>
-              <Brain size={28} color={theme.colors.primary} />
+              <Text style={styles.snapshotEmoji}>🧠</Text>
               <Text style={[styles.snapshotLabel, { color: theme.colors.textSecondary }]}>Clarity</Text>
-              <Text style={[styles.snapshotValue, { color: theme.colors.text }]}>High</Text>
+              <Text style={[styles.snapshotValue, { color: theme.colors.text }]}>
+                {todayClarity.level}
+              </Text>
             </View>
             <View style={styles.snapshotItem}>
               <Text style={styles.snapshotEmoji}>🔥</Text>
               <Text style={[styles.snapshotLabel, { color: theme.colors.textSecondary }]}>Streak</Text>
-              <Text style={[styles.snapshotValue, { color: theme.colors.text }]}>30 days</Text>
+              <Text style={[styles.snapshotValue, { color: theme.colors.text }]}>
+                {currentStreak > 0 ? `${currentStreak} day${currentStreak !== 1 ? 's' : ''}` : '0'}
+              </Text>
             </View>
           </View>
         </View>
 
-        <View style={[styles.card, { backgroundColor: theme.colors.card }]}>
+        {/* Weekly Overview - moved up from below */}
+        <View style={[styles.card, { backgroundColor: theme.colors.card, borderColor: theme.colors.accent }]}>
           <Text style={[styles.cardTitle, { color: theme.colors.text }]}>Weekly Overview</Text>
           <MiniCalendar
-            data={activeHabits.map((_, index) => {
-              const date = new Date();
-              date.setDate(date.getDate() - (6 - index)); // Last 7 days
-              const dateStr = date.toISOString().split('T')[0];
-              
-              const habitsForDay = activeHabits.map(habit => {
-                const log = habit.logs?.find(l => l.date === dateStr);
-                return {
-                  completed: log?.completed || false,
-                  feedback: log?.feedback || 'neutral'
-                };
-              });
-              
-              const completedCount = habitsForDay.filter(h => h.completed).length;
-              const feedbackCounts = habitsForDay.reduce((acc, h) => {
-                if (h.completed) {
-                  acc[h.feedback] = (acc[h.feedback] || 0) + 1;
-                }
-                return acc;
-              }, { good: 0, neutral: 0, bad: 0 });
-
-              // Determine if this day has any data logged
-              const hasData = completedCount > 0 || activeHabits.some(habit => 
-                habit.logs?.some(l => l.date === dateStr)
-              );
-
-              return {
-                date: dateStr,
-                completedHabits: completedCount,
-                totalHabits: activeHabits.length,
-                hasData: hasData, // Pass hasData flag
-                feedback: feedbackCounts
-              };
-            })}
+            data={(() => {
+              // Generate last 7 days
+              const days = [];
+              for (let i = 6; i >= 0; i--) {
+                const date = new Date();
+                date.setDate(date.getDate() - i);
+                const dateStr = date.toISOString().split('T')[0];
+                
+                // Get habits data for this day
+                const habitsForDay = activeHabits.map(habit => {
+                  const log = habit.logs?.find((l: any) => l.date === dateStr);
+                  return {
+                    completed: log?.completed || false,
+                    feedback: log?.feedback || 'neutral'
+                  };
+                });
+                
+                const completedHabits = habitsForDay.filter(h => h.completed).length;
+                const totalHabits = activeHabits.length;
+                
+                // Get mood data for this day
+                const moodForDay = moodData.find((m: any) => m.date === dateStr);
+                const hasMood = !!moodForDay;
+                
+                // Get sleep data for this day
+                const sleepForDay = sleepData.find((s: any) => s.date === dateStr);
+                const hasSleep = !!sleepForDay;
+                
+                // Calculate overall completion rate
+                const habitCompletionRate = totalHabits > 0 ? completedHabits / totalHabits : 0;
+                
+                // Determine if this day has any data
+                const hasData = completedHabits > 0 || hasMood || hasSleep;
+                
+                // Calculate feedback counts
+                const feedbackCounts = habitsForDay.reduce((acc, h) => {
+                  if (h.completed) {
+                    acc[h.feedback] = (acc[h.feedback] || 0) + 1;
+                  }
+                  return acc;
+                }, { good: 0, neutral: 0, bad: 0 });
+                
+                days.push({
+                  date: dateStr,
+                  completedHabits,
+                  totalHabits,
+                  hasData,
+                  hasMood,
+                  hasSleep,
+                  habitCompletionRate,
+                  moodData: moodForDay,
+                  sleepData: sleepForDay,
+                  feedback: feedbackCounts
+                });
+              }
+              return days;
+            })()}
           />
           <View style={styles.legendRow}>
             <View style={styles.legendItem}>
               <View style={[styles.legendDot, { backgroundColor: theme.colors.success }]} />
-              <Text style={[styles.legendText, { color: theme.colors.textSecondary }]}>Completed (70%+)</Text>
+              <Text style={[styles.legendText, { color: theme.colors.textSecondary }]}>Completed</Text>
             </View>
             <View style={styles.legendItem}>
               <View style={[styles.legendDot, { backgroundColor: theme.colors.warning }]} />
@@ -1102,22 +1288,21 @@ export default function HomeScreen() {
           <Text style={[styles.sectionSubtitle, { color: theme.colors.textSecondary }]}>Track your daily progress</Text>
         </View>
 
-        <ScrollView 
-          horizontal 
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.habitsScrollContent}
-          style={styles.habitsScroll}
-        >
-          {!activeHabits || activeHabits.length === 0 ? (
-            <EmptyStateCard
-              title="No Active Habits Yet"
-              message="Start building healthy habits to improve your wellness journey. Add your first habit to get started!"
-              ctaText="Add First Habit"
-              onCtaPress={() => setHabitLibraryModalVisible(true)}
-              icon={<Target size={48} color={theme.colors.accent} />}
-            />
-          ) : (
-            <>
+        {!activeHabits || activeHabits.length === 0 ? (
+          <EmptyStateCard
+            title="No Active Habits Yet"
+            message="Start building healthy habits to improve your wellness journey. Add your first habit to get started!"
+            ctaText="Add First Habit"
+            onCtaPress={() => setHabitLibraryModalVisible(true)}
+            icon={<Target size={48} color={theme.colors.accent} />}
+          />
+        ) : (
+          <ScrollView 
+            horizontal 
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.habitsScrollContent}
+            style={styles.habitsScroll}
+          >
               {/* Display first three habits */}
               {activeHabits && activeHabits.slice(0, 3).map((habit) => (
                 habit && (
@@ -1146,19 +1331,19 @@ export default function HomeScreen() {
                   </Text>
                 </TouchableOpacity>
               )}
-            </>
+            </ScrollView>
           )}
-        </ScrollView>
 
+        {/* Browse Habit Library & Create Custom Habit Cards */}
         <View style={styles.habitActionCards}>
           <TouchableOpacity 
-            style={[styles.actionCard, { backgroundColor: theme.colors.card }]}
+            style={[styles.actionCard, { backgroundColor: theme.colors.card, borderColor: theme.colors.accent }]}
             onPress={() => {
               console.log('Opening habit library modal');
               setHabitLibraryModalVisible(true);
             }}
           >
-            <Library size={24} color={theme.colors.primary} />
+            <Library size={28} color={theme.colors.primary} />
             <Text style={[styles.actionCardTitle, { color: theme.colors.text }]}>Browse Habit Library</Text>
             <Text style={[styles.actionCardSubtitle, { color: theme.colors.textSecondary }]}>
               Explore categorized habits
@@ -1166,36 +1351,18 @@ export default function HomeScreen() {
           </TouchableOpacity>
 
           <TouchableOpacity 
-            style={[styles.actionCard, { backgroundColor: theme.colors.card }]}
+            style={[styles.actionCard, { backgroundColor: theme.colors.card, borderColor: theme.colors.accent }]}
             onPress={() => {
               console.log('Opening create habit modal');
               setCreateHabitModalVisible(true);
             }}
           >
-            <Plus size={24} color={theme.colors.primary} />
+            <Plus size={28} color={theme.colors.primary} />
             <Text style={[styles.actionCardTitle, { color: theme.colors.text }]}>Create Custom Habit</Text>
             <Text style={[styles.actionCardSubtitle, { color: theme.colors.textSecondary }]}>
               Design your own habit
             </Text>
           </TouchableOpacity>
-        </View>
-
-        {/* Success Message */}
-        {successMessage && (
-          <View style={[styles.card, { backgroundColor: '#10B981', marginBottom: 16 }]}>
-            <Text style={[styles.cardTitle, { color: '#FFFFFF' }]}>{successMessage}</Text>
-          </View>
-        )}
-
-        {/* Debug Info */}
-        <View style={[styles.card, { backgroundColor: theme.colors.card, marginBottom: 16 }]}>
-          <Text style={[styles.cardTitle, { color: theme.colors.text }]}>Debug Info</Text>
-          <Text style={[styles.sectionSubtitle, { color: theme.colors.textSecondary }]}>
-            Modal States: Library={habitLibraryModalVisible ? 'Open' : 'Closed'}, Create={createHabitModalVisible ? 'Open' : 'Closed'}
-          </Text>
-          <Text style={[styles.sectionSubtitle, { color: theme.colors.textSecondary }]}>
-            Active Habits: {activeHabits.length}
-          </Text>
         </View>
 
         <TouchableOpacity 
@@ -1214,7 +1381,7 @@ export default function HomeScreen() {
           <ChevronRight size={24} color={theme.colors.textSecondary} />
         </TouchableOpacity>
 
-        <View style={[styles.card, { backgroundColor: theme.colors.card }]}>
+        <View style={[styles.card, { backgroundColor: theme.colors.card, borderColor: theme.colors.accent }]}>
           <Text style={[styles.cardTitle, { color: theme.colors.text }]}>Impact Analysis</Text>
           <Text style={[styles.sectionSubtitle, { color: theme.colors.textSecondary, marginBottom: 16 }]}>How your activities affect your wellbeing</Text>
           
@@ -1330,7 +1497,7 @@ export default function HomeScreen() {
           )}
         </View>
 
-        <View style={[styles.card, { backgroundColor: theme.colors.card }]}>
+        <View style={[styles.card, { backgroundColor: theme.colors.card, borderColor: theme.colors.accent }]}>
           <View style={styles.cardHeader}>
             <Sparkles size={20} color={theme.colors.warning} />
             <Text style={[styles.cardTitle, { color: theme.colors.text }]}>AI Recommendations</Text>
@@ -1521,6 +1688,7 @@ export default function HomeScreen() {
               ))}
             </ScrollView>
 
+            {/* Habits Grid - Compact Card Layout */}
             {(['MentalClarity', 'Health', 'Sleep', 'Mood', 'Intimacy', 'Anxiety'] as HabitCategory[]).map(category => {
               // Filter by selected category
               if (selectedCategoryFilter !== 'All' && selectedCategoryFilter !== category) {
@@ -1541,62 +1709,58 @@ export default function HomeScreen() {
                 return null;
               }
 
-              const isExpanded = expandedCategories.has(category);
-
               return (
                 <View key={category} style={styles.categorySection}>
-                  <TouchableOpacity
-                    style={styles.categoryHeader}
-                    onPress={() => {
-                      setExpandedCategories(prev => {
-                        const newSet = new Set(prev);
-                        if (newSet.has(category)) {
-                          newSet.delete(category);
-                        } else {
-                          newSet.add(category);
-                        }
-                        return newSet;
-                      });
-                    }}
-                  >
-                    <Text style={[styles.categoryTitle, { color: theme.colors.text }]}>
-                      {category.replace(/([A-Z])/g, ' $1').trim()} ({habitsInCategory.length})
-                    </Text>
-                    {isExpanded ? (
-                      <ChevronUp size={20} color={theme.colors.textSecondary} />
-                    ) : (
-                      <ChevronDown size={20} color={theme.colors.textSecondary} />
-                    )}
-                  </TouchableOpacity>
+                  <Text style={[styles.categorySectionTitle, { color: theme.colors.text }]}>
+                    {category.replace(/([A-Z])/g, ' $1').trim()} ({habitsInCategory.length})
+                  </Text>
 
-                  {isExpanded && habitsInCategory.map((habit, index) => {
-                    const isAlreadyActive = activeHabits.some(h => h.name.toLowerCase() === habit.name.toLowerCase());
+                  <View style={styles.habitsGrid}>
+                    {habitsInCategory.map((habit, index) => {
+                      const isAlreadyActive = activeHabits.some(h => h.name.toLowerCase() === habit.name.toLowerCase());
 
-                    return (
-                      <View key={index} style={[styles.habitLibraryItem, { backgroundColor: theme.colors.card, borderColor: theme.colors.border }]}>
-                        <Text style={styles.habitLibraryEmoji}>{habit.emoji}</Text>
-                        <View style={styles.habitLibraryInfo}>
-                          <Text style={[styles.habitLibraryName, { color: theme.colors.text }]}>{habit.name}</Text>
-                          <Text style={[styles.habitLibraryDescription, { color: theme.colors.textSecondary }]}>
-                            {habit.description}
-                          </Text>
-                          <Text style={[styles.habitLibraryDuration, { color: theme.colors.textSecondary }]}>
-                            {habit.totalDays} day challenge
-                          </Text>
-                        </View>
+                      return (
                         <TouchableOpacity
+                          key={index}
                           style={[
-                            styles.addHabitButton,
-                            { backgroundColor: isAlreadyActive ? theme.colors.surfaceVariant : theme.colors.primary }
+                            styles.habitCompactCard,
+                            { 
+                              backgroundColor: theme.colors.card,
+                              borderColor: theme.colors.accent,
+                            }
                           ]}
-                          onPress={() => handleAddPredefinedHabit(habit)}
-                          disabled={isAlreadyActive}
+                          onPress={() => {
+                            setSelectedHabitDetail(habit);
+                            setCustomStreakGoal(habit.totalDays); // Initialize with default
+                            setHabitDetailModalVisible(true);
+                          }}
                         >
-                          <Plus size={18} color={isAlreadyActive ? theme.colors.textSecondary : '#FFFFFF'} />
+                          <View style={styles.habitCompactCardContent}>
+                            <Text style={styles.habitCompactEmoji}>{habit.emoji}</Text>
+                            <Text 
+                              style={[styles.habitCompactName, { color: theme.colors.text }]}
+                              numberOfLines={2}
+                            >
+                              {habit.name}
+                            </Text>
+                          </View>
+                          <TouchableOpacity
+                            style={[
+                              styles.habitCompactAddButton,
+                              { backgroundColor: isAlreadyActive ? theme.colors.surfaceVariant : theme.colors.primary }
+                            ]}
+                            onPress={(e) => {
+                              e.stopPropagation();
+                              handleAddPredefinedHabit(habit);
+                            }}
+                            disabled={isAlreadyActive}
+                          >
+                            <Plus size={14} color={isAlreadyActive ? theme.colors.textSecondary : '#FFFFFF'} />
+                          </TouchableOpacity>
                         </TouchableOpacity>
-                      </View>
-                    );
-                  })}
+                      );
+                    })}
+                  </View>
                 </View>
               );
             })}
@@ -1614,6 +1778,121 @@ export default function HomeScreen() {
               </Text>
             </TouchableOpacity>
           </ScrollView>
+        </View>
+      </Modal>
+
+      {/* Habit Detail Modal */}
+      <Modal
+        visible={habitDetailModalVisible}
+        animationType="fade"
+        transparent={true}
+        onRequestClose={() => {
+          setHabitDetailModalVisible(false);
+          setCustomStreakGoal(30); // Reset to default
+        }}
+      >
+        <View style={styles.habitDetailOverlay}>
+          <View style={[styles.habitDetailModal, { backgroundColor: theme.colors.card }]}>
+            <View style={styles.habitDetailHeader}>
+              <Text style={styles.habitDetailEmoji}>{selectedHabitDetail?.emoji}</Text>
+              <TouchableOpacity
+                style={styles.habitDetailCloseButton}
+                onPress={() => {
+                  setHabitDetailModalVisible(false);
+                  setCustomStreakGoal(30);
+                }}
+              >
+                <X size={24} color={theme.colors.textSecondary} />
+              </TouchableOpacity>
+            </View>
+            
+            <ScrollView showsVerticalScrollIndicator={false}>
+              <Text style={[styles.habitDetailName, { color: theme.colors.text }]}>
+                {selectedHabitDetail?.name}
+              </Text>
+              
+              <View style={[styles.habitDetailBadge, { backgroundColor: theme.colors.primary }]}>
+                <Text style={styles.habitDetailBadgeText}>
+                  {selectedHabitDetail?.category.replace(/([A-Z])/g, ' $1').trim()}
+                </Text>
+              </View>
+
+              <Text style={[styles.habitDetailLabel, { color: theme.colors.textSecondary }]}>
+                Description
+              </Text>
+              <Text style={[styles.habitDetailDescription, { color: theme.colors.text }]}>
+                {selectedHabitDetail?.description}
+              </Text>
+
+              <Text style={[styles.habitDetailLabel, { color: theme.colors.textSecondary }]}>
+                Instructions
+              </Text>
+              <Text style={[styles.habitDetailDescription, { color: theme.colors.text }]}>
+                {selectedHabitDetail?.instruction || 'Practice this habit daily at a consistent time. Start small and gradually build consistency. Track your progress and celebrate small wins along the way.'}
+              </Text>
+
+              <Text style={[styles.habitDetailLabel, { color: theme.colors.textSecondary }]}>
+                Expected Outcome
+              </Text>
+              <Text style={[styles.habitDetailDescription, { color: theme.colors.text }]}>
+                By completing this {selectedHabitDetail?.totalDays}-day challenge, you'll develop a lasting habit that improves your {selectedHabitDetail?.category.replace(/([A-Z])/g, ' $1').trim().toLowerCase()}. Expect to see positive changes in your overall wellness, increased self-discipline, and a sense of accomplishment.
+              </Text>
+
+              <Text style={[styles.habitDetailLabel, { color: theme.colors.textSecondary }]}>
+                Customize Your Challenge
+              </Text>
+              <View style={styles.streakOptionsContainer}>
+                {[7, 14, 21, 30, 60, 90].map((days) => (
+                  <TouchableOpacity
+                    key={days}
+                    style={[
+                      styles.streakOptionButton,
+                      {
+                        backgroundColor: customStreakGoal === days ? theme.colors.primary : theme.colors.card,
+                        borderColor: customStreakGoal === days ? theme.colors.primary : theme.colors.border,
+                      }
+                    ]}
+                    onPress={() => setCustomStreakGoal(days)}
+                  >
+                    <Text
+                      style={[
+                        styles.streakOptionText,
+                        { color: customStreakGoal === days ? '#FFFFFF' : theme.colors.text }
+                      ]}
+                    >
+                      {days} days
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              <TouchableOpacity
+                style={[
+                  styles.habitDetailAddButton,
+                  { 
+                    backgroundColor: activeHabits.some(h => h.name.toLowerCase() === selectedHabitDetail?.name.toLowerCase()) 
+                      ? theme.colors.surfaceVariant 
+                      : theme.colors.primary 
+                  }
+                ]}
+                onPress={() => {
+                  if (selectedHabitDetail) {
+                    handleAddPredefinedHabit(selectedHabitDetail, customStreakGoal);
+                    setHabitDetailModalVisible(false);
+                    setCustomStreakGoal(30);
+                  }
+                }}
+                disabled={activeHabits.some(h => h.name.toLowerCase() === selectedHabitDetail?.name.toLowerCase())}
+              >
+                <Plus size={20} color="#FFFFFF" />
+                <Text style={styles.habitDetailAddButtonText}>
+                  {activeHabits.some(h => h.name.toLowerCase() === selectedHabitDetail?.name.toLowerCase())
+                    ? 'Already Added'
+                    : `Start ${customStreakGoal}-Day Challenge`}
+                </Text>
+              </TouchableOpacity>
+            </ScrollView>
+          </View>
         </View>
       </Modal>
 
@@ -1712,10 +1991,10 @@ export default function HomeScreen() {
                 ))}
               </View>
               <Text style={[styles.streakDescription, { color: theme.colors.textSecondary }]}>
-                {customHabitForm.streakGoal === 7 ? "Perfect for trying out a new habit" :
+                {customHabitForm.streakGoal === 7 ? "" :
                  customHabitForm.streakGoal === 14 ? "Good for building momentum" :
                  customHabitForm.streakGoal === 21 ? "Recommended for habit formation" :
-                 "Ideal for lasting change"}
+                 "Great for long-term commitment"}
               </Text>
             </View>
 
@@ -1894,9 +2173,11 @@ const styles = StyleSheet.create({
   card: {
     marginHorizontal: 20,
     marginBottom: 16,
-    padding: 20,
+    padding: 24,
     backgroundColor: '#FFFFFF',
     borderRadius: 20,
+    borderWidth: 1,
+    // borderColor is added inline using theme.colors.accent
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
@@ -2018,28 +2299,30 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   sectionTitle: {
-    fontSize: 18,
+    fontSize: 24,
     fontWeight: '700' as const,
     color: '#1F2937',
     marginBottom: 2,
   },
   sectionSubtitle: {
-    fontSize: 13,
+    fontSize: 16,
+    fontWeight: '600' as const,
     color: '#6B7280',
-    lineHeight: 18,
+    lineHeight: 22,
   },
   subsectionHeader: {
     marginHorizontal: 20,
     marginBottom: 16,
   },
   subsectionTitle: {
-    fontSize: 16,
-    fontWeight: '600' as const,
+    fontSize: 20,
+    fontWeight: '700' as const,
     color: '#1F2937',
     marginBottom: 4,
   },
   subsectionDescription: {
-    fontSize: 13,
+    fontSize: 16,
+    fontWeight: '600' as const,
     color: '#6B7280',
   },
   habitsScroll: {
@@ -2143,15 +2426,17 @@ const styles = StyleSheet.create({
   },
   habitActionCards: {
     flexDirection: 'row',
-    paddingHorizontal: 20,
-    gap: 12,
+    paddingHorizontal: 16,
+    gap: 10,
     marginBottom: 20,
   },
   actionCard: {
     flex: 1,
     backgroundColor: '#FFFFFF',
-    padding: 18,
+    padding: 16,
     borderRadius: 20,
+    borderWidth: 1,
+    // borderColor is added inline using theme.colors.accent
     alignItems: 'center',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
@@ -2160,14 +2445,15 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   actionCardTitle: {
-    fontSize: 14,
-    fontWeight: '600' as const,
+    fontSize: 20,
+    fontWeight: '700' as const,
     color: '#1F2937',
-    marginTop: 8,
+    marginTop: 10,
     textAlign: 'center',
   },
   actionCardSubtitle: {
-    fontSize: 11,
+    fontSize: 15,
+    fontWeight: '700' as const,
     color: '#6B7280',
     marginTop: 4,
     textAlign: 'center',
@@ -2197,13 +2483,14 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   featureTitle: {
-    fontSize: 16,
-    fontWeight: '600' as const,
+    fontSize: 20,
+    fontWeight: '700' as const,
     color: '#1F2937',
     marginBottom: 4,
   },
   featureSubtitle: {
-    fontSize: 13,
+    fontSize: 16,
+    fontWeight: '600' as const,
     color: '#6B7280',
   },
   impactGrid: {
@@ -2218,8 +2505,8 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   impactLabel: {
-    fontSize: 14,
-    fontWeight: '500' as const,
+    fontSize: 18,
+    fontWeight: '700' as const,
     color: '#1F2937',
     marginBottom: 6,
   },
@@ -2386,13 +2673,17 @@ const styles = StyleSheet.create({
   },
   modalContainer: {
     flex: 1,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    overflow: 'hidden',
   },
   modalHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 20,
-    paddingVertical: 16,
+    paddingTop: 20,
+    paddingBottom: 16,
     borderBottomWidth: 1,
   },
   modalCloseText: {
@@ -2400,8 +2691,8 @@ const styles = StyleSheet.create({
     fontWeight: '600' as const,
   },
   modalTitle: {
-    fontSize: 18,
-    fontWeight: '600' as const,
+    fontSize: 22,
+    fontWeight: '700' as const,
   },
   modalPlaceholder: {
     width: 40,
@@ -2413,8 +2704,8 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   modalSection: {
-    fontSize: 18,
-    fontWeight: '600' as const,
+    fontSize: 22,
+    fontWeight: '700' as const,
     marginBottom: 16,
   },
   moreHabitItem: {
@@ -2432,13 +2723,14 @@ const styles = StyleSheet.create({
     marginRight: 12,
   },
   moreHabitName: {
-    fontSize: 16,
-    fontWeight: '600' as const,
+    fontSize: 20,
+    fontWeight: '700' as const,
     marginBottom: 4,
   },
   moreHabitDescription: {
-    fontSize: 14,
-    lineHeight: 20,
+    fontSize: 16,
+    fontWeight: '600' as const,
+    lineHeight: 24,
   },
   moreHabitActions: {
     flexDirection: 'row',
@@ -2486,6 +2778,7 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: 8,
     marginTop: 8,
+    justifyContent: 'center',
   },
   streakOption: {
     paddingVertical: 8,
@@ -2498,11 +2791,12 @@ const styles = StyleSheet.create({
     minWidth: '45%',
   },
   streakOptionText: {
-    fontSize: 14,
-    fontWeight: '600' as const,
+    fontSize: 16,
+    fontWeight: '700' as const,
   },
   streakDescription: {
-    fontSize: 12,
+    fontSize: 15,
+    fontWeight: '600' as const,
     marginTop: 8,
     textAlign: 'center',
     fontStyle: 'italic' as const,
@@ -2522,40 +2816,6 @@ const styles = StyleSheet.create({
   categoryTitle: {
     fontSize: 18,
     fontWeight: '600',
-  },
-  habitLibraryItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 16,
-    borderRadius: 12,
-    marginBottom: 12,
-    borderWidth: 1,
-  },
-  habitLibraryEmoji: {
-    fontSize: 32,
-    marginRight: 12,
-  },
-  habitLibraryInfo: {
-    flex: 1,
-  },
-  habitLibraryName: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 4,
-  },
-  habitLibraryDescription: {
-    fontSize: 14,
-    marginBottom: 4,
-  },
-  habitLibraryDuration: {
-    fontSize: 12,
-  },
-  addHabitButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   createCustomButton: {
     flexDirection: 'row',
@@ -2592,12 +2852,13 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   moreHabitName: {
-    fontSize: 16,
-    fontWeight: '600' as const,
+    fontSize: 20,
+    fontWeight: '700' as const,
     marginBottom: 4,
   },
   moreHabitDescription: {
-    fontSize: 14,
+    fontSize: 16,
+    fontWeight: '600' as const,
     marginBottom: 8,
   },
   moreHabitActions: {
@@ -2628,56 +2889,10 @@ const styles = StyleSheet.create({
   moreHabitProgress: {
     fontSize: 14,
   },
-  habitsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-    gap: 12,
-  },
-  habitGridCard: {
-    width: '48%',
-    padding: 18,
-    borderRadius: 20,
-    alignItems: 'center',
-    backgroundColor: '#FFFFFF',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 12,
-    elevation: 3,
-  },
-  habitGridEmoji: {
-    fontSize: 32,
-    marginBottom: 8,
-  },
-  habitGridName: {
-    fontSize: 14,
-    fontWeight: '600' as const,
-    textAlign: 'center',
-    marginBottom: 4,
-  },
-  habitGridDescription: {
-    fontSize: 11,
-    textAlign: 'center',
-    marginBottom: 12,
-    lineHeight: 16,
-  },
-  addHabitButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 8,
-    paddingHorizontal: 14,
-    borderRadius: 20,
-    gap: 6,
-  },
-  addHabitButtonText: {
-    color: '#FFFFFF',
-    fontSize: 12,
-    fontWeight: '600' as const,
-  },
   // Search and Category Filter styles
   searchContainer: {
-    marginHorizontal: 16,
+    marginHorizontal: 20,
+    marginTop: 24,
     marginBottom: 16,
     paddingHorizontal: 16,
     paddingVertical: 12,
@@ -2691,7 +2906,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   categoryTabsContent: {
-    paddingHorizontal: 16,
+    paddingHorizontal: 20,
     gap: 8,
   },
   categoryTab: {
@@ -2702,49 +2917,173 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   categoryTabText: {
-    fontSize: 14,
-    fontWeight: '600' as const,
+    fontSize: 16,
+    fontWeight: '700' as const,
   },
   categorySection: {
     marginBottom: 16,
+    paddingHorizontal: 20,
   },
-  categoryHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 18,
-    borderRadius: 20,
+  categorySectionTitle: {
+    fontSize: 20,
+    fontWeight: '700',
     marginBottom: 8,
-    backgroundColor: '#FFFFFF',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 12,
-    elevation: 2,
   },
-  categoryTitle: {
-    fontSize: 16,
+  habitsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  habitCompactCard: {
+    width: '31%',
+    borderRadius: 10,
+    borderWidth: 1,
+    padding: 8,
+    minHeight: 75,
+    justifyContent: 'space-between',
+  },
+  habitCompactCardContent: {
+    alignItems: 'center',
+    flex: 1,
+    justifyContent: 'center',
+  },
+  habitCompactEmoji: {
+    fontSize: 24,
+    marginBottom: 4,
+  },
+  habitCompactName: {
+    fontSize: 13,
+    fontWeight: '700',
+    textAlign: 'center',
+    lineHeight: 16,
+  },
+  habitCompactAddButton: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    alignSelf: 'flex-end',
+  },
+  // Habit Detail Modal Styles
+  habitDetailOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  habitDetailModal: {
+    width: '100%',
+    maxWidth: 400,
+    borderRadius: 24,
+    padding: 24,
+    maxHeight: '80%',
+  },
+  habitDetailHeader: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 16,
+    position: 'relative',
+  },
+  habitDetailEmoji: {
+    fontSize: 48,
+    textAlign: 'center',
+  },
+  habitDetailCloseButton: {
+    padding: 4,
+    position: 'absolute',
+    right: 0,
+  },
+  habitDetailName: {
+    fontSize: 28,
+    fontWeight: '700',
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  habitDetailBadge: {
+    alignSelf: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    marginBottom: 20,
+  },
+  habitDetailBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  habitDetailLabel: {
+    fontSize: 14,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+    marginBottom: 8,
+    marginTop: 16,
+    textAlign: 'center',
+  },
+  habitDetailDescription: {
+    fontSize: 17,
     fontWeight: '600' as const,
+    lineHeight: 26,
+    textAlign: 'center',
+  },
+  habitDetailCategory: {
+    fontSize: 17,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  streakOptionsContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+    marginBottom: 8,
+    justifyContent: 'center',
+  },
+  streakOptionButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 20,
+    borderWidth: 2,
+  },
+  habitDetailAddButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 16,
+    borderRadius: 12,
+    marginTop: 24,
+    gap: 8,
+  },
+  habitDetailAddButtonText: {
+    color: '#FFFFFF',
+    fontSize: 18,
+    fontWeight: '700',
   },
   formSection: {
     marginBottom: 20,
+    paddingHorizontal: 20,
   },
   formLabel: {
-    fontSize: 14,
-    fontWeight: '600' as const,
+    fontSize: 18,
+    fontWeight: '700' as const,
     marginBottom: 8,
+    textAlign: 'center',
   },
   formInput: {
     borderWidth: 1,
     borderRadius: 12,
     padding: 14,
-    fontSize: 16,
+    fontSize: 17,
+    fontWeight: '600' as const,
     backgroundColor: '#FFFFFF',
   },
   categoryButtons: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 8,
+    justifyContent: 'center',
   },
   categoryButton: {
     paddingVertical: 10,
@@ -2753,8 +3092,8 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   categoryButtonText: {
-    fontSize: 12,
-    fontWeight: '500' as const,
+    fontSize: 15,
+    fontWeight: '700' as const,
   },
   reminderRow: {
     flexDirection: 'row',
@@ -2770,6 +3109,8 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     gap: 8,
     marginTop: 20,
+    marginHorizontal: 20,
+    marginBottom: 40,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
@@ -2778,8 +3119,8 @@ const styles = StyleSheet.create({
   },
   saveButtonText: {
     color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '600' as const,
+    fontSize: 18,
+    fontWeight: '700' as const,
   },
   loadingText: {
     marginTop: 16,
