@@ -28,7 +28,6 @@ import {
   Heart,
   Shield,
   Zap,
-  X,
 } from 'lucide-react-native';
 
 interface ExperimentStep {
@@ -212,12 +211,8 @@ export default function CreateExperimentScreen() {
         `Your ${activity.name} experiment is now active. Track your progress daily to see results!`,
         [
           {
-            text: 'View Experiments',
-            onPress: () => router.push('/experiments-hub')
-          },
-          {
-            text: 'Go Home',
-            onPress: () => router.replace('/')
+            text: 'OK',
+            onPress: () => router.back()
           }
         ]
       );
@@ -246,21 +241,26 @@ export default function CreateExperimentScreen() {
         return (
           <View style={styles.stepContent}>
             <Text style={[styles.stepTitle, { color: theme.colors.text }]}>What activity would you like to experiment with?</Text>
-            <View style={styles.optionsGrid}>
+            <View style={styles.activityPillsContainer}>
               {activityOptions.map((activity) => (
                 <TouchableOpacity
                   key={activity.id}
                   style={[
-                    styles.optionCard,
-                    { backgroundColor: theme.colors.card },
-                    selectedActivity === activity.id && { borderColor: theme.colors.primary, borderWidth: 2 }
+                    styles.activityPill,
+                    { 
+                      backgroundColor: selectedActivity === activity.id ? theme.colors.primary : theme.colors.card,
+                      borderColor: selectedActivity === activity.id ? theme.colors.primary : theme.colors.border,
+                    }
                   ]}
                   onPress={() => setSelectedActivity(activity.id)}
                 >
-                  <Text style={styles.optionEmoji}>{activity.emoji}</Text>
-                  <Text style={[styles.optionName, { color: theme.colors.text }]}>{activity.name}</Text>
-                  <Text style={[styles.optionDescription, { color: theme.colors.textSecondary }]}>{activity.description}</Text>
-                  <Text style={[styles.optionCategory, { color: theme.colors.primary }]}>{activity.category}</Text>
+                  <Text style={styles.activityPillEmoji}>{activity.emoji}</Text>
+                  <Text style={[
+                    styles.activityPillText, 
+                    { color: selectedActivity === activity.id ? '#FFFFFF' : theme.colors.text }
+                  ]}>
+                    {activity.name}
+                  </Text>
                 </TouchableOpacity>
               ))}
             </View>
@@ -289,7 +289,7 @@ export default function CreateExperimentScreen() {
                     <Text style={[styles.outcomeDescription, { color: theme.colors.textSecondary }]}>{outcome.description}</Text>
                   </View>
                   {selectedOutcomes.includes(outcome.id) && (
-                    <Check size={20} color={theme.colors.primary} />
+                    <Check size={16} color={theme.colors.primary} />
                   )}
                 </TouchableOpacity>
               ))}
@@ -312,7 +312,7 @@ export default function CreateExperimentScreen() {
                   ]}
                   onPress={() => setSelectedDuration(duration.id)}
                 >
-                  <Calendar size={24} color={theme.colors.primary} />
+                  <Calendar size={18} color={theme.colors.primary} />
                   <View style={styles.durationInfo}>
                     <Text style={[styles.durationName, { color: theme.colors.text }]}>{duration.name}</Text>
                     <Text style={[styles.durationDescription, { color: theme.colors.textSecondary }]}>{duration.description}</Text>
@@ -338,7 +338,7 @@ export default function CreateExperimentScreen() {
                   ]}
                   onPress={() => setSelectedFrequency(frequency.id)}
                 >
-                  <Clock size={24} color={theme.colors.primary} />
+                  <Clock size={18} color={theme.colors.primary} />
                   <View style={styles.frequencyInfo}>
                     <Text style={[styles.frequencyName, { color: theme.colors.text }]}>{frequency.name}</Text>
                     <Text style={[styles.frequencyDescription, { color: theme.colors.textSecondary }]}>{frequency.description}</Text>
@@ -364,7 +364,7 @@ export default function CreateExperimentScreen() {
                   ]}
                   onPress={() => setSelectedReminderType(reminder.id)}
                 >
-                  <Bell size={24} color={theme.colors.primary} />
+                  <Bell size={18} color={theme.colors.primary} />
                   <View style={styles.reminderInfo}>
                     <Text style={[styles.reminderName, { color: theme.colors.text }]}>{reminder.name}</Text>
                     <Text style={[styles.reminderDescription, { color: theme.colors.textSecondary }]}>{reminder.description}</Text>
@@ -385,43 +385,40 @@ export default function CreateExperimentScreen() {
         return (
           <View style={styles.stepContent}>
             <Text style={[styles.stepTitle, { color: theme.colors.text }]}>Review your experiment</Text>
-            <View style={[styles.reviewCard, { backgroundColor: theme.colors.card }]}>
-              <Text style={[styles.reviewTitle, { color: theme.colors.text }]}>Experiment Summary</Text>
-              
-              <View style={styles.reviewSection}>
-                <Text style={[styles.reviewLabel, { color: theme.colors.textSecondary }]}>Activity</Text>
-                <Text style={[styles.reviewValue, { color: theme.colors.text }]}>
-                  {activityOptions.find(a => a.id === selectedActivity)?.name || 'Custom Activity'}
-                </Text>
-              </View>
+            
+            <View style={styles.reviewSection}>
+              <Text style={[styles.reviewLabel, { color: theme.colors.textSecondary }]}>Activity</Text>
+              <Text style={[styles.reviewValue, { color: theme.colors.text }]}>
+                {activityOptions.find(a => a.id === selectedActivity)?.name || 'Custom Activity'}
+              </Text>
+            </View>
 
-              <View style={styles.reviewSection}>
-                <Text style={[styles.reviewLabel, { color: theme.colors.textSecondary }]}>Expected Outcomes</Text>
-                <Text style={[styles.reviewValue, { color: theme.colors.text }]}>
-                  {selectedOutcomes.map(id => outcomeOptions.find(o => o.id === id)?.name).join(', ')}
-                </Text>
-              </View>
+            <View style={styles.reviewSection}>
+              <Text style={[styles.reviewLabel, { color: theme.colors.textSecondary }]}>Expected Outcomes</Text>
+              <Text style={[styles.reviewValue, { color: theme.colors.text }]}>
+                {selectedOutcomes.map(id => outcomeOptions.find(o => o.id === id)?.name).join(', ')}
+              </Text>
+            </View>
 
-              <View style={styles.reviewSection}>
-                <Text style={[styles.reviewLabel, { color: theme.colors.textSecondary }]}>Duration</Text>
-                <Text style={[styles.reviewValue, { color: theme.colors.text }]}>
-                  {durationOptions.find(d => d.id === selectedDuration)?.name}
-                </Text>
-              </View>
+            <View style={styles.reviewSection}>
+              <Text style={[styles.reviewLabel, { color: theme.colors.textSecondary }]}>Duration</Text>
+              <Text style={[styles.reviewValue, { color: theme.colors.text }]}>
+                {durationOptions.find(d => d.id === selectedDuration)?.name}
+              </Text>
+            </View>
 
-              <View style={styles.reviewSection}>
-                <Text style={[styles.reviewLabel, { color: theme.colors.textSecondary }]}>Tracking Frequency</Text>
-                <Text style={[styles.reviewValue, { color: theme.colors.text }]}>
-                  {frequencyOptions.find(f => f.id === selectedFrequency)?.name}
-                </Text>
-              </View>
+            <View style={styles.reviewSection}>
+              <Text style={[styles.reviewLabel, { color: theme.colors.textSecondary }]}>Tracking Frequency</Text>
+              <Text style={[styles.reviewValue, { color: theme.colors.text }]}>
+                {frequencyOptions.find(f => f.id === selectedFrequency)?.name}
+              </Text>
+            </View>
 
-              <View style={styles.reviewSection}>
-                <Text style={[styles.reviewLabel, { color: theme.colors.textSecondary }]}>Reminders</Text>
-                <Text style={[styles.reviewValue, { color: theme.colors.text }]}>
-                  {reminderTypes.find(r => r.id === selectedReminderType)?.name} at {reminderTime}
-                </Text>
-              </View>
+            <View style={styles.reviewSection}>
+              <Text style={[styles.reviewLabel, { color: theme.colors.textSecondary }]}>Reminders</Text>
+              <Text style={[styles.reviewValue, { color: theme.colors.text }]}>
+                {reminderTypes.find(r => r.id === selectedReminderType)?.name} at {reminderTime}
+              </Text>
             </View>
           </View>
         );
@@ -452,36 +449,8 @@ export default function CreateExperimentScreen() {
           headerStyle: { backgroundColor: theme.colors.card },
           headerTitleStyle: { color: theme.colors.text, fontWeight: '600' },
           headerLeft: () => (
-            <TouchableOpacity 
-              onPress={() => router.replace('/')} 
-              style={styles.headerButton}
-            >
+            <TouchableOpacity onPress={() => router.back()} style={styles.headerButton}>
               <ArrowLeft size={24} color={theme.colors.textSecondary} />
-              <Text style={[styles.headerButtonText, { color: theme.colors.textSecondary }]}>Home</Text>
-            </TouchableOpacity>
-          ),
-          headerRight: () => (
-            <TouchableOpacity 
-              onPress={() => {
-                Alert.alert(
-                  'Cancel Experiment Creation?',
-                  'Are you sure you want to cancel? All progress will be lost.',
-                  [
-                    {
-                      text: 'Continue Creating',
-                      style: 'cancel'
-                    },
-                    {
-                      text: 'Cancel',
-                      style: 'destructive',
-                      onPress: () => router.replace('/')
-                    }
-                  ]
-                );
-              }} 
-              style={styles.headerButton}
-            >
-              <X size={24} color={theme.colors.textSecondary} />
             </TouchableOpacity>
           ),
         }}
@@ -563,15 +532,8 @@ const createStyles = (theme: any) => StyleSheet.create({
     flex: 1,
   },
   headerButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
     padding: theme.spacing.sm,
-    marginHorizontal: theme.spacing.sm,
-  },
-  headerButtonText: {
-    ...theme.typography.body,
-    marginLeft: theme.spacing.xs,
-    fontWeight: '600' as const,
+    marginLeft: -theme.spacing.sm,
   },
   progressContainer: {
     paddingHorizontal: theme.spacing.screenHorizontal,
@@ -627,6 +589,29 @@ const createStyles = (theme: any) => StyleSheet.create({
   stepContent: {
     paddingBottom: 100,
   },
+  // Activity Pills Styles
+  activityPillsContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: theme.spacing.chipGap,
+    marginTop: theme.spacing.md,
+  },
+  activityPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: theme.spacing.sm,
+    paddingHorizontal: theme.spacing.md,
+    borderRadius: theme.borderRadius.full,
+    borderWidth: 2,
+    gap: theme.spacing.xs,
+  },
+  activityPillEmoji: {
+    fontSize: 16,
+  },
+  activityPillText: {
+    ...theme.typography.body,
+    fontWeight: '600' as const,
+  },
   optionsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -635,9 +620,9 @@ const createStyles = (theme: any) => StyleSheet.create({
   optionCard: {
     width: '48%',
     padding: theme.spacing.md,
-    borderRadius: theme.radii.md,
+    borderRadius: theme.borderRadius.full,
     alignItems: 'center',
-    borderWidth: 1,
+    borderWidth: 2,
     borderColor: 'transparent',
   },
   optionEmoji: {
@@ -664,24 +649,25 @@ const createStyles = (theme: any) => StyleSheet.create({
   outcomeCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: theme.spacing.md,
-    borderRadius: theme.radii.md,
-    borderWidth: 1,
+    padding: theme.spacing.sm,
+    borderRadius: theme.borderRadius.full,
+    borderWidth: 2,
     borderColor: 'transparent',
   },
   outcomeEmoji: {
-    fontSize: 24,
-    marginRight: theme.spacing.md,
+    fontSize: 18,
+    marginRight: theme.spacing.sm,
   },
   outcomeInfo: {
     flex: 1,
   },
   outcomeName: {
-    ...theme.typography.h5,
-    marginBottom: theme.spacing.xs,
+    ...theme.typography.body,
+    fontWeight: '600' as const,
+    marginBottom: 2,
   },
   outcomeDescription: {
-    ...theme.typography.body,
+    ...theme.typography.caption,
   },
   durationList: {
     gap: theme.spacing.elementGap,
@@ -689,21 +675,22 @@ const createStyles = (theme: any) => StyleSheet.create({
   durationCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: theme.spacing.md,
-    borderRadius: theme.radii.md,
-    borderWidth: 1,
+    padding: theme.spacing.sm,
+    borderRadius: theme.borderRadius.full,
+    borderWidth: 2,
     borderColor: 'transparent',
   },
   durationInfo: {
     flex: 1,
-    marginLeft: theme.spacing.md,
+    marginLeft: theme.spacing.sm,
   },
   durationName: {
-    ...theme.typography.h5,
-    marginBottom: theme.spacing.xs,
+    ...theme.typography.body,
+    fontWeight: '600' as const,
+    marginBottom: 2,
   },
   durationDescription: {
-    ...theme.typography.body,
+    ...theme.typography.caption,
   },
   frequencyList: {
     gap: theme.spacing.elementGap,
@@ -711,21 +698,22 @@ const createStyles = (theme: any) => StyleSheet.create({
   frequencyCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: theme.spacing.md,
-    borderRadius: theme.radii.md,
-    borderWidth: 1,
+    padding: theme.spacing.sm,
+    borderRadius: theme.borderRadius.full,
+    borderWidth: 2,
     borderColor: 'transparent',
   },
   frequencyInfo: {
     flex: 1,
-    marginLeft: theme.spacing.md,
+    marginLeft: theme.spacing.sm,
   },
   frequencyName: {
-    ...theme.typography.h5,
-    marginBottom: theme.spacing.xs,
+    ...theme.typography.body,
+    fontWeight: '600' as const,
+    marginBottom: 2,
   },
   frequencyDescription: {
-    ...theme.typography.body,
+    ...theme.typography.caption,
   },
   reminderList: {
     gap: theme.spacing.elementGap,
@@ -734,55 +722,57 @@ const createStyles = (theme: any) => StyleSheet.create({
   reminderCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: theme.spacing.md,
-    borderRadius: theme.radii.md,
-    borderWidth: 1,
+    padding: theme.spacing.sm,
+    borderRadius: theme.borderRadius.full,
+    borderWidth: 2,
     borderColor: 'transparent',
   },
   reminderInfo: {
     flex: 1,
-    marginLeft: theme.spacing.md,
+    marginLeft: theme.spacing.sm,
   },
   reminderName: {
-    ...theme.typography.h5,
-    marginBottom: theme.spacing.xs,
+    ...theme.typography.body,
+    fontWeight: '600' as const,
+    marginBottom: 2,
   },
   reminderDescription: {
-    ...theme.typography.body,
+    ...theme.typography.caption,
   },
   timePicker: {
-    padding: theme.spacing.md,
-    borderRadius: theme.radii.md,
+    padding: theme.spacing.sm,
+    borderRadius: theme.borderRadius.full,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
   },
   timePickerLabel: {
-    ...theme.typography.bodyLarge,
+    ...theme.typography.body,
     fontWeight: '500' as const,
   },
   timePickerValue: {
-    ...theme.typography.bodyLarge,
+    ...theme.typography.body,
     fontWeight: '600' as const,
   },
   reviewCard: {
-    padding: theme.spacing.screenVertical,
-    borderRadius: theme.radii.lg,
-    marginTop: theme.spacing.screenVertical,
+    padding: theme.spacing.md,
+    borderRadius: theme.borderRadius.full,
+    marginTop: theme.spacing.md,
   },
   reviewTitle: {
-    ...theme.typography.h4,
-    marginBottom: theme.spacing.screenVertical,
+    ...theme.typography.h5,
+    marginBottom: theme.spacing.md,
   },
   reviewSection: {
     marginBottom: theme.spacing.md,
+    marginTop: theme.spacing.xs,
   },
   reviewLabel: {
-    ...theme.typography.body,
-    marginBottom: theme.spacing.xs,
+    ...theme.typography.caption,
+    marginBottom: 2,
   },
   reviewValue: {
-    ...theme.typography.bodyLarge,
+    ...theme.typography.body,
     fontWeight: '500' as const,
   },
   footer: {
@@ -797,8 +787,8 @@ const createStyles = (theme: any) => StyleSheet.create({
   backButton: {
     flex: 1,
     paddingVertical: theme.spacing.md,
-    borderRadius: theme.radii.md,
-    borderWidth: 1,
+    borderRadius: theme.borderRadius.full,
+    borderWidth: 2,
     alignItems: 'center',
   },
   backButtonText: {
@@ -811,7 +801,7 @@ const createStyles = (theme: any) => StyleSheet.create({
     justifyContent: 'center',
     paddingVertical: theme.spacing.md,
     paddingHorizontal: theme.spacing.sectionGap,
-    borderRadius: theme.radii.md,
+    borderRadius: theme.borderRadius.full,
     gap: theme.spacing.sm,
   },
   nextButtonText: {

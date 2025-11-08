@@ -181,7 +181,7 @@ export default function SleepDashboardMini({
     <View style={[styles.container, { backgroundColor: theme.colors.card }]}>
       <View style={styles.header}>
         <Text style={[styles.title, { color: theme.colors.text }]}>Sleep Dashboard</Text>
-        <TouchableOpacity onPress={() => router.push('/sleep-wellness-hub')}>
+        <TouchableOpacity onPress={() => router.push('/sleep-wellness')}>
           <Text style={[styles.seeAll, { color: theme.colors.primary }]}>See all</Text>
         </TouchableOpacity>
       </View>

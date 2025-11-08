@@ -2,11 +2,145 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl, Modal, TextInput, Alert } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { ArrowLeft, FlaskConical, Plus, CheckCircle, Play, RotateCcw, X, TrendingUp } from 'lucide-react-native';
+import { ArrowLeft, FlaskConical, Plus, CheckCircle, Play, RotateCcw, X, TrendingUp, Moon, Brain, Zap, Heart, Shield } from 'lucide-react-native';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { ExperimentsService } from '@/services/experiments.service';
 import { type Experiment } from '@/constants/mockData';
+
+// Predefined experiment templates
+const EXPERIMENT_LIBRARY = {
+  popular: [
+    {
+      id: 'no-screen-bed',
+      title: 'No Screen Before Bed',
+      emoji: '📵',
+      duration: 7,
+      goal: 'Better Sleep Quality',
+      description: 'This 7-day test explores whether avoiding screens before bed improves your sleep quality and reduces anxiety.',
+      outcomes: ['Sleep Quality', 'Anxiety'],
+      category: 'Sleep'
+    },
+    {
+      id: 'morning-meditation',
+      title: 'Morning Meditation',
+      emoji: '🧘',
+      duration: 14,
+      goal: 'Improved Focus',
+      description: 'Test if 10 minutes of morning meditation improves your mental clarity and productivity throughout the day.',
+      outcomes: ['Focus', 'Mental Clarity'],
+      category: 'Focus'
+    },
+    {
+      id: 'exercise-routine',
+      title: 'Daily Exercise',
+      emoji: '🏃',
+      duration: 21,
+      goal: 'Better Mood & Energy',
+      description: 'Discover how 30 minutes of daily exercise affects your mood, energy levels, and sleep quality.',
+      outcomes: ['Mood', 'Energy', 'Sleep Quality'],
+      category: 'Energy'
+    },
+  ],
+  sleep: [
+    {
+      id: 'no-screen-bed',
+      title: 'No Screen Before Bed',
+      emoji: '📵',
+      duration: 7,
+      goal: 'Better Sleep Quality',
+      description: 'This 7-day test explores whether avoiding screens before bed improves your sleep quality and reduces anxiety.',
+      outcomes: ['Sleep Quality', 'Anxiety'],
+      category: 'Sleep'
+    },
+    {
+      id: 'consistent-bedtime',
+      title: 'Consistent Bedtime',
+      emoji: '😴',
+      duration: 14,
+      goal: 'Regular Sleep Pattern',
+      description: 'Go to bed at the same time every night to see if it improves sleep quality and daytime energy.',
+      outcomes: ['Sleep Quality', 'Energy'],
+      category: 'Sleep'
+    },
+    {
+      id: 'bedroom-temperature',
+      title: 'Cool Bedroom',
+      emoji: '❄️',
+      duration: 7,
+      goal: 'Deeper Sleep',
+      description: 'Keep your bedroom between 60-67°F to test if temperature affects your sleep depth.',
+      outcomes: ['Sleep Quality'],
+      category: 'Sleep'
+    },
+  ],
+  mood: [
+    {
+      id: 'gratitude-journal',
+      title: 'Daily Gratitude',
+      emoji: '🙏',
+      duration: 21,
+      goal: 'Positive Mindset',
+      description: 'Write 3 things you\'re grateful for each day and track how it affects your mood.',
+      outcomes: ['Mood', 'Anxiety'],
+      category: 'Mood'
+    },
+    {
+      id: 'morning-sunlight',
+      title: 'Morning Sunlight',
+      emoji: '☀️',
+      duration: 14,
+      goal: 'Better Mood',
+      description: 'Get 10 minutes of natural light within an hour of waking to boost your mood.',
+      outcomes: ['Mood', 'Energy'],
+      category: 'Mood'
+    },
+  ],
+  focus: [
+    {
+      id: 'morning-meditation',
+      title: 'Morning Meditation',
+      emoji: '🧘',
+      duration: 14,
+      goal: 'Improved Focus',
+      description: 'Test if 10 minutes of morning meditation improves your mental clarity and productivity.',
+      outcomes: ['Focus', 'Mental Clarity'],
+      category: 'Focus'
+    },
+    {
+      id: 'digital-detox-hour',
+      title: 'Digital Detox Hour',
+      emoji: '📵',
+      duration: 7,
+      goal: 'Enhanced Clarity',
+      description: 'One hour without screens each day to test if it improves focus and mental clarity.',
+      outcomes: ['Focus', 'Mental Clarity'],
+      category: 'Focus'
+    },
+  ],
+  energy: [
+    {
+      id: 'exercise-routine',
+      title: 'Daily Exercise',
+      emoji: '🏃',
+      duration: 21,
+      goal: 'Better Mood & Energy',
+      description: 'Discover how 30 minutes of daily exercise affects your mood, energy levels, and sleep quality.',
+      outcomes: ['Mood', 'Energy', 'Sleep Quality'],
+      category: 'Energy'
+    },
+    {
+      id: 'hydration-tracking',
+      title: '8 Glasses of Water',
+      emoji: '💧',
+      duration: 14,
+      goal: 'More Energy',
+      description: 'Stay hydrated and see if it boosts your energy and mental clarity.',
+      outcomes: ['Energy', 'Focus'],
+      category: 'Energy'
+    },
+  ],
+};
 
 export default function ExperimentsHub() {
   const insets = useSafeAreaInsets();
@@ -26,6 +160,12 @@ export default function ExperimentsHub() {
   const [activityCompleted, setActivityCompleted] = useState<'yes' | 'no' | 'skipped' | null>(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [selectedDetailExperiment, setSelectedDetailExperiment] = useState<Experiment | null>(null);
+  
+  // New states for library
+  const [selectedCategory, setSelectedCategory] = useState<'popular' | 'sleep' | 'mood' | 'focus' | 'energy'>('popular');
+  const [showTemplateModal, setShowTemplateModal] = useState(false);
+  const [selectedTemplate, setSelectedTemplate] = useState<any>(null);
+  const [activeTab, setActiveTab] = useState<'library' | 'ongoing' | 'completed'>('library');
 
   // Load experiments on component mount
   useEffect(() => {
@@ -173,7 +313,7 @@ export default function ExperimentsHub() {
           text: 'Convert',
           onPress: async () => {
             try {
-              const { error } = await ExperimentsService.convertToHabit(experiment.id, user.id);
+              const { error} = await ExperimentsService.convertToHabit(experiment.id, user.id);
               if (error) throw new Error(error);
 
               Alert.alert('Success! ✅', 'Experiment converted to habit.');
@@ -188,8 +328,30 @@ export default function ExperimentsHub() {
     );
   };
 
+  const openTemplateModal = (template: any) => {
+    setSelectedTemplate(template);
+    setShowTemplateModal(true);
+  };
+
+  const closeTemplateModal = () => {
+    setShowTemplateModal(false);
+    setSelectedTemplate(null);
+  };
+
+  const handleStartExperiment = async () => {
+    // Will implement creating experiment from template
+    closeTemplateModal();
+    router.push({
+      pathname: '/create-experiment',
+      params: {
+        template: JSON.stringify(selectedTemplate)
+      }
+    });
+  };
+
   const activeExperiments = experiments.filter(exp => exp.status === 'active');
   const completedExperiments = experiments.filter(exp => exp.status === 'completed');
+  const currentLibrary = EXPERIMENT_LIBRARY[selectedCategory];
 
   if (loading && !refreshing) {
     return (
@@ -239,27 +401,154 @@ export default function ExperimentsHub() {
           />
         }
       >
-        <View style={[styles.introCard, { backgroundColor: theme.colors.card }]}>
-          <FlaskConical size={48} color={theme.colors.primary} />
-          <Text style={[styles.introTitle, { color: theme.colors.text }]}>
-            Run Personal Experiments
-          </Text>
-          <Text style={[styles.introText, { color: theme.colors.textSecondary }]}>
-            Test how different habits and activities affect your mood, sleep, and mental clarity.
-            Track results and convert successful experiments into lasting habits.
-          </Text>
+        {/* Tab Navigation */}
+        <View style={styles.tabContainer}>
+          <TouchableOpacity
+            style={[styles.tab, activeTab === 'library' && styles.tabActive]}
+            onPress={() => setActiveTab('library')}
+          >
+            <Text style={[styles.tabText, activeTab === 'library' && { color: theme.colors.primary }]}>Library</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.tab, activeTab === 'ongoing' && styles.tabActive]}
+            onPress={() => setActiveTab('ongoing')}
+          >
+            <Text style={[styles.tabText, activeTab === 'ongoing' && { color: theme.colors.primary }]}>Ongoing</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.tab, activeTab === 'completed' && styles.tabActive]}
+            onPress={() => setActiveTab('completed')}
+          >
+            <Text style={[styles.tabText, activeTab === 'completed' && { color: theme.colors.primary }]}>Completed</Text>
+          </TouchableOpacity>
         </View>
 
-        <TouchableOpacity
-          style={[styles.createButton, { backgroundColor: theme.colors.primary }]}
-          activeOpacity={0.8}
-          onPress={() => router.push('/create-experiment')}
-        >
-          <Plus size={24} color="#FFFFFF" />
-          <Text style={styles.createButtonText}>Start New Experiment</Text>
-        </TouchableOpacity>
+        {/* LIBRARY TAB */}
+        {activeTab === 'library' && (
+          <>
+            <View style={[styles.introCard, { backgroundColor: theme.colors.card }]}>
+              <FlaskConical size={24} color={theme.colors.primary} />
+              <Text style={[styles.introTitle, { color: theme.colors.text }]}>
+                Experiment Library
+              </Text>
+              <Text style={[styles.introText, { color: theme.colors.textSecondary }]}>
+                Choose from popular experiment templates or create your own
+              </Text>
+            </View>
 
-        <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Active Experiments</Text>
+            {/* Category Pills - 3 per row */}
+            <View style={styles.categoryPillsContainer}>
+              <TouchableOpacity
+                style={[
+                  styles.categoryPill,
+                  {
+                    backgroundColor: selectedCategory === 'popular' ? theme.colors.primary : 'transparent',
+                    borderColor: selectedCategory === 'popular' ? theme.colors.primary : theme.colors.border,
+                  }
+                ]}
+                onPress={() => setSelectedCategory('popular')}
+              >
+                <Text style={[styles.categoryPillText, { color: selectedCategory === 'popular' ? '#FFFFFF' : theme.colors.text }]}>
+                  Popular
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.categoryPill,
+                  {
+                    backgroundColor: selectedCategory === 'sleep' ? theme.colors.primary : 'transparent',
+                    borderColor: selectedCategory === 'sleep' ? theme.colors.primary : theme.colors.border,
+                  }
+                ]}
+                onPress={() => setSelectedCategory('sleep')}
+              >
+                <Text style={[styles.categoryPillText, { color: selectedCategory === 'sleep' ? '#FFFFFF' : theme.colors.text }]}>
+                  Sleep
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.categoryPill,
+                  {
+                    backgroundColor: selectedCategory === 'mood' ? theme.colors.primary : 'transparent',
+                    borderColor: selectedCategory === 'mood' ? theme.colors.primary : theme.colors.border,
+                  }
+                ]}
+                onPress={() => setSelectedCategory('mood')}
+              >
+                <Text style={[styles.categoryPillText, { color: selectedCategory === 'mood' ? '#FFFFFF' : theme.colors.text }]}>
+                  Mood
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.categoryPill,
+                  {
+                    backgroundColor: selectedCategory === 'focus' ? theme.colors.primary : 'transparent',
+                    borderColor: selectedCategory === 'focus' ? theme.colors.primary : theme.colors.border,
+                  }
+                ]}
+                onPress={() => setSelectedCategory('focus')}
+              >
+                <Text style={[styles.categoryPillText, { color: selectedCategory === 'focus' ? '#FFFFFF' : theme.colors.text }]}>
+                  Focus
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.categoryPill,
+                  {
+                    backgroundColor: selectedCategory === 'energy' ? theme.colors.primary : 'transparent',
+                    borderColor: selectedCategory === 'energy' ? theme.colors.primary : theme.colors.border,
+                  }
+                ]}
+                onPress={() => setSelectedCategory('energy')}
+              >
+                <Text style={[styles.categoryPillText, { color: selectedCategory === 'energy' ? '#FFFFFF' : theme.colors.text }]}>
+                  Energy
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Experiment Template Cards */}
+            <View style={styles.templatesGrid}>
+              {currentLibrary.map((template) => (
+                <TouchableOpacity
+                  key={template.id}
+                  style={[
+                    styles.templateCard,
+                    { 
+                      backgroundColor: theme.colors.card,
+                      borderColor: theme.colors.border,
+                    }
+                  ]}
+                  onPress={() => openTemplateModal(template)}
+                >
+                  <Text style={styles.templateEmoji}>{template.emoji}</Text>
+                  <Text style={[styles.templateTitle, { color: theme.colors.text }]}>{template.title}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            <TouchableOpacity
+              style={[styles.createButton, { backgroundColor: theme.colors.accent, marginTop: 16 }]}
+              activeOpacity={0.8}
+              onPress={() => router.push('/create-experiment')}
+            >
+              <Plus size={24} color="#FFFFFF" />
+              <Text style={styles.createButtonText}>Create My Own Experiment</Text>
+            </TouchableOpacity>
+          </>
+        )}
+
+        {/* ONGOING TAB */}
+        {activeTab === 'ongoing' && (
+          <>
+            <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Active Experiments</Text>
         {activeExperiments.length > 0 ? (
           <View style={styles.experimentsList}>
             {activeExperiments.map((experiment) => (
@@ -330,7 +619,13 @@ export default function ExperimentsHub() {
           </View>
         )}
 
-        <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Completed Experiments</Text>
+          </>
+        )}
+
+        {/* COMPLETED TAB */}
+        {activeTab === 'completed' && (
+          <>
+            <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Completed Experiments</Text>
         {completedExperiments.length > 0 ? (
           <View style={styles.experimentsList}>
             {completedExperiments.map((experiment) => (
@@ -372,6 +667,7 @@ export default function ExperimentsHub() {
             </Text>
           </View>
         )}
+      </>)}
       </ScrollView>
 
       {/* Log Today Modal */}
@@ -585,6 +881,79 @@ export default function ExperimentsHub() {
           </View>
         </View>
       </Modal>
+
+      {/* Template Detail Modal */}
+      <Modal
+        visible={showTemplateModal}
+        transparent
+        animationType="slide"
+        onRequestClose={closeTemplateModal}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { backgroundColor: theme.colors.background }]}>
+            <View style={[styles.modalHeader, { borderBottomColor: theme.colors.divider }]}>
+              <Text style={[styles.modalTitle, { color: theme.colors.text }]}>About this Experiment</Text>
+              <TouchableOpacity onPress={closeTemplateModal} style={styles.closeButton}>
+                <X size={24} color={theme.colors.text} />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={styles.modalBody} showsVerticalScrollIndicator={false}>
+              {selectedTemplate && (
+                <>
+                  <View style={{ alignItems: 'center', marginBottom: theme.spacing.sectionGap }}>
+                    <Text style={{ fontSize: 64, marginBottom: theme.spacing.sm }}>{selectedTemplate.emoji}</Text>
+                    <Text style={[styles.modalTitle, { color: theme.colors.text, textAlign: 'center' }]}>
+                      {selectedTemplate.title}
+                    </Text>
+                    <View style={[styles.durationBadge, { backgroundColor: theme.colors.secondary, marginTop: theme.spacing.sm }]}>
+                      <Text style={[styles.durationText, { color: theme.colors.text }]}>
+                        {selectedTemplate.duration} days
+                      </Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.detailSection}>
+                    <Text style={[styles.detailLabel, { color: theme.colors.textSecondary }]}>Goal</Text>
+                    <Text style={[styles.detailValue, { color: theme.colors.text }]}>
+                      {selectedTemplate.goal}
+                    </Text>
+                  </View>
+
+                  <View style={styles.detailSection}>
+                    <Text style={[styles.detailLabel, { color: theme.colors.textSecondary }]}>What to Track</Text>
+                    <Text style={[styles.detailValue, { color: theme.colors.text }]}>
+                      {selectedTemplate.outcomes.join(', ')}
+                    </Text>
+                  </View>
+
+                  <View style={styles.detailSection}>
+                    <Text style={[styles.detailLabel, { color: theme.colors.textSecondary }]}>Description</Text>
+                    <Text style={[styles.detailValue, { color: theme.colors.text }]}>
+                      {selectedTemplate.description}
+                    </Text>
+                  </View>
+                </>
+              )}
+            </ScrollView>
+
+            <View style={[styles.modalFooter, { borderTopColor: theme.colors.divider }]}>
+              <TouchableOpacity
+                style={[styles.modalButton, { borderColor: theme.colors.border }]}
+                onPress={closeTemplateModal}
+              >
+                <Text style={[styles.modalButtonText, { color: theme.colors.text }]}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalButtonPrimary, { backgroundColor: theme.colors.primary }]}
+                onPress={handleStartExperiment}
+              >
+                <Text style={styles.modalButtonTextPrimary}>Start Experiment</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -626,17 +995,19 @@ const createStyles = (theme: any) => StyleSheet.create({
   introCard: {
     ...theme.components.card,
     alignItems: 'center',
-    marginTop: theme.spacing.screenVertical,
-    marginBottom: theme.spacing.sectionGap,
+    marginTop: theme.spacing.md,
+    marginBottom: theme.spacing.md,
+    paddingVertical: theme.spacing.sm,
+    paddingHorizontal: theme.spacing.md,
   },
   introTitle: {
-    ...theme.typography.h3,
-    marginTop: theme.spacing.md,
-    marginBottom: theme.spacing.elementGap,
+    ...theme.typography.h5,
+    marginTop: theme.spacing.xs,
+    marginBottom: theme.spacing.xs - 2,
     textAlign: 'center',
   },
   introText: {
-    ...theme.typography.bodyLarge,
+    ...theme.typography.caption,
     textAlign: 'center',
   },
   createButton: {
@@ -691,33 +1062,36 @@ const createStyles = (theme: any) => StyleSheet.create({
   },
   experimentCard: {
     ...theme.components.card,
+    paddingVertical: theme.spacing.sm,
+    paddingHorizontal: theme.spacing.md,
   },
   experimentHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: theme.spacing.elementGap,
+    marginBottom: theme.spacing.sm,
   },
   experimentEmoji: {
-    fontSize: 32,
-    marginRight: theme.spacing.elementGap,
+    fontSize: 24,
+    marginRight: theme.spacing.sm,
   },
   experimentInfo: {
     flex: 1,
   },
   experimentTitle: {
-    ...theme.typography.h5,
-    marginBottom: theme.spacing.xs,
+    ...theme.typography.body,
+    fontWeight: '600' as const,
+    marginBottom: 2,
   },
   experimentProgress: {
-    ...theme.typography.body,
+    ...theme.typography.caption,
   },
   experimentDuration: {
-    ...theme.typography.body,
+    ...theme.typography.caption,
   },
   progressBar: {
-    height: 4,
+    height: 3,
     borderRadius: theme.radii.xs,
-    marginTop: theme.spacing.sm,
+    marginTop: theme.spacing.xs,
   },
   progressFill: {
     height: '100%',
@@ -726,47 +1100,51 @@ const createStyles = (theme: any) => StyleSheet.create({
   experimentOutcomes: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: theme.spacing.elementGap,
+    marginBottom: theme.spacing.sm,
   },
   outcomesLabel: {
     ...theme.typography.caption,
-    marginRight: theme.spacing.sm,
+    fontSize: 11,
+    marginRight: theme.spacing.xs,
   },
   outcomesText: {
     ...theme.typography.caption,
+    fontSize: 11,
     flex: 1,
   },
   insightsSection: {
-    padding: theme.spacing.elementGap,
+    padding: theme.spacing.sm,
     borderRadius: theme.radii.sm,
-    marginBottom: theme.spacing.elementGap,
+    marginBottom: theme.spacing.sm,
   },
   insightsTitle: {
-    ...theme.typography.body,
+    ...theme.typography.caption,
     fontWeight: '600' as const,
-    marginBottom: theme.spacing.xs,
+    marginBottom: theme.spacing.xs - 2,
   },
   insightsText: {
-    ...theme.typography.bodySmall,
+    ...theme.typography.caption,
+    fontSize: 11,
   },
   experimentActions: {
     flexDirection: 'row',
-    gap: theme.spacing.sm,
+    gap: theme.spacing.xs,
   },
   actionButton: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: theme.spacing.sm + 2,
-    paddingHorizontal: theme.spacing.md,
-    borderRadius: theme.radii.sm,
-    gap: theme.spacing.chipGap - 2,
+    paddingVertical: theme.spacing.xs + 2,
+    paddingHorizontal: theme.spacing.sm,
+    borderRadius: theme.borderRadius.full,
+    gap: theme.spacing.xs - 2,
     borderWidth: 1,
     borderColor: 'transparent',
   },
   actionButtonText: {
-    ...theme.typography.body,
+    ...theme.typography.caption,
+    fontSize: 12,
     fontWeight: '600' as const,
     color: '#FFFFFF',
   },
@@ -808,6 +1186,13 @@ const createStyles = (theme: any) => StyleSheet.create({
     ...theme.typography.body,
     color: '#FFFFFF',
     fontWeight: '600' as const,
+  },
+  dismissButton: {
+    padding: theme.spacing.xs,
+  },
+  outcomeName: {
+    ...theme.typography.body,
+    fontWeight: '500' as const,
   },
   modalOverlay: {
     flex: 1,
@@ -912,8 +1297,8 @@ const createStyles = (theme: any) => StyleSheet.create({
   modalButton: {
     flex: 1,
     paddingVertical: theme.spacing.md,
-    borderRadius: theme.radii.md,
-    borderWidth: 1,
+    borderRadius: theme.borderRadius.full,
+    borderWidth: 2,
     alignItems: 'center',
   },
   modalButtonText: {
@@ -922,11 +1307,89 @@ const createStyles = (theme: any) => StyleSheet.create({
   modalButtonPrimary: {
     flex: 1,
     paddingVertical: theme.spacing.md,
-    borderRadius: theme.radii.md,
+    borderRadius: theme.borderRadius.full,
     alignItems: 'center',
   },
   modalButtonTextPrimary: {
     ...theme.typography.button,
     color: '#FFFFFF',
+  },
+  // New Tab Navigation Styles
+  tabContainer: {
+    flexDirection: 'row',
+    borderBottomWidth: 1,
+    paddingHorizontal: theme.spacing.screenHorizontal,
+    marginBottom: theme.spacing.sectionGap,
+  },
+  tab: {
+    paddingVertical: theme.spacing.md,
+    paddingHorizontal: theme.spacing.xl,
+    borderBottomWidth: 2,
+    borderBottomColor: 'transparent',
+  },
+  tabActive: {
+    borderBottomColor: theme.colors.primary,
+  },
+  tabText: {
+    ...theme.typography.body,
+    fontWeight: '600' as const,
+  },
+  // Category Pills Styles
+  categoryPillsContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: theme.spacing.chipGap,
+    marginBottom: theme.spacing.sectionGap,
+  },
+  categoryPill: {
+    flexBasis: '30%',
+    paddingVertical: theme.spacing.sm,
+    paddingHorizontal: theme.spacing.md,
+    borderRadius: theme.borderRadius.full,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  categoryPillText: {
+    ...theme.typography.body,
+    fontWeight: '600' as const,
+    textTransform: 'capitalize' as const,
+  },
+  // Template Cards Styles
+  templatesGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: theme.spacing.chipGap,
+    marginBottom: theme.spacing.sectionGap,
+  },
+  templateCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: theme.spacing.xs + 2,
+    paddingHorizontal: theme.spacing.sm + 2,
+    borderRadius: theme.borderRadius.full,
+    borderWidth: 1,
+    gap: theme.spacing.xs - 2,
+    flexBasis: '48%',
+    flexGrow: 0,
+    flexShrink: 1,
+  },
+  templateEmoji: {
+    fontSize: 14,
+  },
+  templateTitle: {
+    ...theme.typography.caption,
+    fontSize: 12,
+    fontWeight: '600' as const,
+    lineHeight: 16,
+  },
+  durationBadge: {
+    paddingVertical: theme.spacing.xs,
+    paddingHorizontal: theme.spacing.md,
+    borderRadius: theme.borderRadius.full,
+  },
+  durationText: {
+    ...theme.typography.body,
+    fontWeight: '600' as const,
   },
 });

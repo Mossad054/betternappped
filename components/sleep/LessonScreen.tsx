@@ -14,6 +14,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { ChevronLeft, CheckCircle2, Circle, Play, Volume2, BookOpen } from 'lucide-react-native';
 import SleepProgrammeService, { Lesson, PracticeDuration } from '@/services/SleepProgrammeService';
+import { HabitsService } from '@/services/habits.service';
 
 interface LessonScreenProps {
   lesson: Lesson;
@@ -29,6 +30,7 @@ export default function LessonScreen({ lesson, onComplete, onBack }: LessonScree
 
   const [understood, setUnderstood] = useState(false);
   const [selectedDuration, setSelectedDuration] = useState<PracticeDuration | null>(null);
+  const [isAddingHabit, setIsAddingHabit] = useState(false);
 
   const durationOptions: { value: PracticeDuration; label: string; description: string }[] = [
     { value: 'tonight', label: 'Tonight Only', description: 'Try it just for tonight' },
@@ -50,6 +52,79 @@ export default function LessonScreen({ lesson, onComplete, onBack }: LessonScree
     }
 
     onComplete(selectedDuration);
+  };
+
+  const handleAddHabitToActive = async () => {
+    if (!user) {
+      Alert.alert('Error', 'You must be logged in to add habits.');
+      return;
+    }
+
+    setIsAddingHabit(true);
+
+    try {
+      // Check if habit already exists
+      const existingHabits = await HabitsService.getAll(user.id);
+      
+      if (existingHabits.data) {
+        const habitExists = existingHabits.data.some(
+          habit => habit.name.toLowerCase() === lesson.habitTask.name.toLowerCase()
+        );
+
+        if (habitExists) {
+          Alert.alert(
+            'Habit Already Added',
+            `"${lesson.habitTask.name}" is already in your active habits!`,
+            [
+              {
+                text: 'View My Habits',
+                onPress: () => router.push('/(tabs)/home' as any),
+              },
+              { text: 'OK', style: 'default' },
+            ]
+          );
+          setIsAddingHabit(false);
+          return;
+        }
+      }
+
+      // Create the habit based on the lesson's habit task
+      const habitData = {
+        name: lesson.habitTask.name,
+        description: lesson.habitTask.description,
+        category: 'Sleep',
+        emoji: lesson.habitTask.icon || '💤',
+        instruction: lesson.habitTask.description,
+        total_days: 0,
+        streak: 0,
+        streak_goal: 7, // Default 7-day streak goal
+        reminder_enabled: true,
+        reminder_time: '21:00', // Default evening reminder for sleep habits
+      };
+
+      const result = await HabitsService.create(habitData, user.id);
+
+      if (result.error) {
+        throw result.error;
+      }
+
+      Alert.alert(
+        '✅ Habit Added!',
+        `"${lesson.habitTask.name}" has been added to your active habits. You can now track it daily!`,
+        [
+          {
+            text: 'View My Habits',
+            onPress: () => router.push('/(tabs)/home' as any),
+          },
+          { text: 'OK', style: 'default' },
+        ]
+      );
+    } catch (error) {
+      console.error('Error adding habit:', error);
+      Alert.alert('Error', 'Failed to add habit. Please try again.');
+    } finally {
+      setIsAddingHabit(false);
+    }
   };
 
   return (
@@ -126,6 +201,23 @@ export default function LessonScreen({ lesson, onComplete, onBack }: LessonScree
           <Text style={[styles.taskDescription, { color: theme.colors.textSecondary }]}>
             {lesson.habitTask.description}
           </Text>
+          
+          {/* Add to Active Habits Button */}
+          <TouchableOpacity
+            style={[
+              styles.addHabitButton, 
+              { 
+                backgroundColor: theme.colors.primary,
+                opacity: isAddingHabit ? 0.6 : 1,
+              }
+            ]}
+            onPress={handleAddHabitToActive}
+            disabled={isAddingHabit}
+          >
+            <Text style={styles.addHabitButtonText}>
+              {isAddingHabit ? '⏳ Adding...' : '➕ Add This Habit to My Active Habits'}
+            </Text>
+          </TouchableOpacity>
           
           {/* Browse Related Habits Button */}
           <TouchableOpacity
@@ -349,6 +441,24 @@ const styles = StyleSheet.create({
   taskDescription: {
     fontSize: 15,
     lineHeight: 22,
+    marginBottom: 16,
+  },
+  addHabitButton: {
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    borderRadius: 12,
+    alignItems: 'center',
+    marginBottom: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 6,
+    elevation: 3,
+  },
+  addHabitButtonText: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '700',
   },
   checkboxContainer: {
     flexDirection: 'row',

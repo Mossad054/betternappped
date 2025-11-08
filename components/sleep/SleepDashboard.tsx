@@ -7,6 +7,8 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Alert,
+  Pressable,
+  Platform,
 } from 'react-native';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -26,9 +28,11 @@ import {
   ChevronRight,
   Flame,
   Trophy,
+  FlaskConical,
 } from 'lucide-react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SleepService } from '@/services/sleep.service';
+import { HabitsService } from '@/services/habits.service';
 import {
   calculateSleepStreak,
   getEarnedBadges,
@@ -37,6 +41,7 @@ import {
   BadgeDefinition,
 } from '@/lib/sleepStreakUtils';
 import SleepStreakCalendar, { DayActivity, SleepHabitType } from '@/components/sleep/SleepStreakCalendar';
+import SleepTimesCalendar, { DaySleepData } from '@/components/sleep/SleepTimesCalendar';
 
 interface SleepDashboardProps {
   onRecalibrate: () => void;
@@ -76,12 +81,14 @@ export default function SleepDashboard({ onRecalibrate }: SleepDashboardProps) {
   const [streak, setStreak] = useState<SleepStreak | null>(null);
   const [showBadges, setShowBadges] = useState(false);
   const [last7DaysData, setLast7DaysData] = useState<DayActivity[]>([]);
+  const [last7DaysSleepData, setLast7DaysSleepData] = useState<DaySleepData[]>([]);
 
   useEffect(() => {
     loadProfile();
     loadStats();
     loadStreak();
     load7DaysData();
+    load7DaysSleepTimes();
   }, []);
 
   const loadStreak = async () => {
@@ -106,7 +113,7 @@ export default function SleepDashboard({ onRecalibrate }: SleepDashboardProps) {
       const today = new Date();
       const days: DayActivity[] = [];
       
-      const dayNames: Array<'S' | 'M' | 'T' | 'W' | 'F'> = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+      const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
       
       // Get last 7 days of sleep data
       const sevenDaysAgo = new Date(today.getTime() - 6 * 24 * 60 * 60 * 1000);
@@ -116,23 +123,35 @@ export default function SleepDashboard({ onRecalibrate }: SleepDashboardProps) {
         today.toISOString().split('T')[0]
       );
 
-      // Load wind-down sessions to get habit data
-      const windDownKey = `wind_down_session_${userId}`;
+      // Get sleep habits for this user
+      const { data: allHabits } = await HabitsService.getAll(userId);
+      const sleepHabits = allHabits?.filter((h: any) => h.category === 'Sleep') || [];
       
       for (let i = 6; i >= 0; i--) {
         const date = new Date(today.getTime() - i * 24 * 60 * 60 * 1000);
         const dateStr = date.toISOString().split('T')[0];
         const dayOfWeek = dayNames[date.getDay()];
+        const dayNumber = date.getDate();
         
         const sleepLog = sleepLogs?.find((log: any) => log.date === dateStr);
         
-        // Determine habits for this day based on notes or wind-down data
+        // Get actual habits completed from habit_logs table
         const habits: SleepHabitType[] = [];
-        if (sleepLog) {
-          // Simple heuristic: assign habits based on quality/consistency
-          if (sleepLog.quality >= 4) habits.push('meditation');
-          if (sleepLog.quality >= 3) habits.push('bath');
-          // You can enhance this by storing actual habit completion in wind-down sessions
+        for (const habit of sleepHabits) {
+          const logResult = await HabitsService.getHabitLogByDate(habit.id, dateStr, userId);
+          if (logResult.data && logResult.data.completed) {
+            // Map habit names to calendar habit types
+            const habitName = habit.name.toLowerCase();
+            if (habitName.includes('meditat')) habits.push('meditation');
+            else if (habitName.includes('bath') || habitName.includes('shower')) habits.push('bath');
+            else if (habitName.includes('read')) habits.push('reading');
+            else if (habitName.includes('caffeine') || habitName.includes('coffee')) habits.push('no_caffeine');
+            else if (habitName.includes('stretch') || habitName.includes('yoga') || habitName.includes('exercise')) habits.push('exercise');
+            else if (habitName.includes('music')) habits.push('music');
+            else if (habitName.includes('breath')) habits.push('breathing');
+            // Add to 'meditation' if we can't categorize (generic habit completed)
+            else habits.push('meditation');
+          }
         }
         
         // Check if bedtime was on target
@@ -151,6 +170,7 @@ export default function SleepDashboard({ onRecalibrate }: SleepDashboardProps) {
         days.push({
           date: dateStr,
           dayOfWeek,
+          dayNumber,
           habits: habits.length > 0 ? habits : ['none'],
           onTarget,
         });
@@ -159,6 +179,50 @@ export default function SleepDashboard({ onRecalibrate }: SleepDashboardProps) {
       setLast7DaysData(days);
     } catch (error) {
       console.error('Error loading 7 days data:', error);
+    }
+  };
+
+  const load7DaysSleepTimes = async () => {
+    try {
+      const userId = user?.id || 'guest_user';
+      const today = new Date();
+      const days: DaySleepData[] = [];
+      
+      const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+      
+      // Get last 7 days of sleep data
+      const sevenDaysAgo = new Date(today.getTime() - 6 * 24 * 60 * 60 * 1000);
+      const { data: sleepLogs } = await SleepService.getByDateRange(
+        userId,
+        sevenDaysAgo.toISOString().split('T')[0],
+        today.toISOString().split('T')[0]
+      );
+
+      // Get profile for target hours
+      const profileData = await AsyncStorage.getItem(`${SLEEP_PROFILE_KEY}_${userId}`);
+      const targetHours = profileData ? JSON.parse(profileData).targetSleepHours : 8;
+      
+      for (let i = 6; i >= 0; i--) {
+        const date = new Date(today.getTime() - i * 24 * 60 * 60 * 1000);
+        const dateStr = date.toISOString().split('T')[0];
+        const dayOfWeek = dayNames[date.getDay()];
+        const dayNumber = date.getDate();
+        
+        const sleepLog = sleepLogs?.find((log: any) => log.date === dateStr);
+        
+        days.push({
+          date: dateStr,
+          dayOfWeek,
+          dayNumber,
+          hoursSlept: sleepLog?.hours,
+          targetHours,
+          hasData: !!sleepLog,
+        });
+      }
+      
+      setLast7DaysSleepData(days);
+    } catch (error) {
+      console.error('Error loading 7 days sleep times:', error);
     }
   };
 
@@ -271,20 +335,6 @@ export default function SleepDashboard({ onRecalibrate }: SleepDashboardProps) {
     router.push('/(tabs)/add-entry' as any);
   };
 
-  const handleAddHabit = () => {
-    Alert.alert(
-      'Add Sleep Habit',
-      'Turn off screens by 10:30pm',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Add to Habit Tracker',
-          onPress: () => router.push('/(tabs)/home' as any),
-        },
-      ]
-    );
-  };
-
   if (loading) {
     return (
       <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
@@ -308,22 +358,30 @@ export default function SleepDashboard({ onRecalibrate }: SleepDashboardProps) {
             Your sleep wellness journey
           </Text>
         </View>
-        <TouchableOpacity
-          style={styles.settingsButton}
-          onPress={() => {
-            Alert.alert(
-              'Sleep Hub Settings',
-              'What would you like to do?',
-              [
-                { text: 'Cancel', style: 'cancel' },
-                { text: 'Recalibrate Profile', onPress: onRecalibrate },
-                { text: 'View Trends', onPress: () => router.push('/(tabs)/calendar' as any) },
-              ]
-            );
-          }}
-        >
-          <Settings size={24} color={theme.colors.text} />
-        </TouchableOpacity>
+        <View style={styles.headerButtons}>
+          <TouchableOpacity
+            style={styles.settingsButton}
+            onPress={() => {
+              Alert.alert(
+                'Sleep Hub Settings',
+                'What would you like to do?',
+                [
+                  { text: 'Cancel', style: 'cancel' },
+                  { text: 'Recalibrate Profile', onPress: onRecalibrate },
+                  { text: 'View Trends', onPress: () => router.push('/(tabs)/calendar' as any) },
+                ]
+              );
+            }}
+          >
+            <Settings size={24} color={theme.colors.text} />
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.closeButton}
+            onPress={() => router.back()}
+          >
+            <X size={24} color={theme.colors.text} />
+          </TouchableOpacity>
+        </View>
       </View>
 
       <ScrollView
@@ -332,7 +390,11 @@ export default function SleepDashboard({ onRecalibrate }: SleepDashboardProps) {
         showsVerticalScrollIndicator={false}
       >
         {/* Summary Card */}
-        <View style={[styles.summaryCard, { backgroundColor: theme.colors.card }]}>
+        <View style={[styles.summaryCard, { 
+          backgroundColor: theme.colors.card,
+          borderWidth: 1,
+          borderColor: theme.colors.border,
+        }]}>
           <View style={styles.summaryHeader}>
             <Moon size={24} color={theme.colors.primary} />
             <Text style={[styles.summaryTitle, { color: theme.colors.text }]}>Last Night</Text>
@@ -391,15 +453,19 @@ export default function SleepDashboard({ onRecalibrate }: SleepDashboardProps) {
         </View>
 
         {/* Sleep Streak Card with Calendar */}
-        {streak && last7DaysData.length > 0 && (
-          <View style={[styles.streakCard, { backgroundColor: theme.colors.card }]}>
+        {streak && last7DaysData.length > 0 && last7DaysSleepData.length > 0 ? (
+          <View style={[styles.streakCard, { 
+            backgroundColor: theme.colors.card,
+            borderWidth: 1,
+            borderColor: theme.colors.border,
+          }]}>
             <View style={styles.streakHeader}>
               <View style={styles.streakHeaderText}>
                 <Text style={[styles.streakTitle, { color: theme.colors.text }]}>
                   Weekly Overview
                 </Text>
                 <Text style={[styles.streakSubtitle, { color: theme.colors.textSecondary }]}>
-                  Last 7 days of sleep habits
+                  Last 7 days tracking
                 </Text>
               </View>
               {streak.badgesEarned.length > 0 && (
@@ -415,10 +481,36 @@ export default function SleepDashboard({ onRecalibrate }: SleepDashboardProps) {
               )}
             </View>
 
-            <SleepStreakCalendar
-              last7Days={last7DaysData}
-              currentStreak={streak.currentStreak}
-            />
+            {/* Sleep Times Calendar */}
+            <View style={styles.calendarSection}>
+              <View style={styles.calendarHeader}>
+                <Moon size={16} color={theme.colors.primary} />
+                <Text style={[styles.calendarHeaderTitle, { color: theme.colors.text }]}>
+                  Sleep Hours vs Target
+                </Text>
+              </View>
+              <SleepTimesCalendar
+                last7Days={last7DaysSleepData}
+                onDayPress={(date) => router.push(`/sleep-wellness?date=${date}` as any)}
+              />
+            </View>
+
+            {/* Divider */}
+            <View style={[styles.calendarDivider, { backgroundColor: theme.colors.border }]} />
+
+            {/* Sleep Habits Calendar */}
+            <View style={styles.calendarSection}>
+              <View style={styles.calendarHeader}>
+                <Sparkles size={16} color={theme.colors.primary} />
+                <Text style={[styles.calendarHeaderTitle, { color: theme.colors.text }]}>
+                  Sleep Habits Completed
+                </Text>
+              </View>
+              <SleepStreakCalendar
+                last7Days={last7DaysData}
+                currentStreak={streak.currentStreak}
+              />
+            </View>
 
             {streak.currentStreak === 0 && streak.totalNightsOnTarget === 0 ? (
               <View style={styles.streakMotivation}>
@@ -440,12 +532,40 @@ export default function SleepDashboard({ onRecalibrate }: SleepDashboardProps) {
               </View>
             ) : null}
           </View>
+        ) : (
+          /* Empty State - No Sleep Data */
+          <View style={[styles.emptyStateCard, { 
+            backgroundColor: theme.colors.card,
+            borderWidth: 1,
+            borderColor: theme.colors.border,
+          }]}>
+            <View style={styles.emptyStateContent}>
+              <Moon size={48} color={theme.colors.textSecondary} opacity={0.5} />
+              <Text style={[styles.emptyStateTitle, { color: theme.colors.text }]}>
+                Start Tracking Your Sleep
+              </Text>
+              <Text style={[styles.emptyStateDescription, { color: theme.colors.textSecondary }]}>
+                Log your sleep for 3+ nights to see patterns, earn badges, and get personalized insights
+              </Text>
+              <TouchableOpacity
+                style={[styles.emptyStateButton, { backgroundColor: theme.colors.primary }]}
+                onPress={() => router.push('/sleep-wellness/morning-check-in' as any)}
+              >
+                <Plus size={20} color="#FFFFFF" />
+                <Text style={styles.emptyStateButtonText}>Log Your First Night</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
         )}
 
         {/* Badges Modal */}
         {showBadges && streak && (
           <View style={[styles.modalOverlay, { backgroundColor: 'rgba(0, 0, 0, 0.7)' }]}>
-            <View style={[styles.badgesModal, { backgroundColor: theme.colors.card }]}>
+            <View style={[styles.badgesModal, { 
+              backgroundColor: theme.colors.card,
+              borderWidth: 1,
+              borderColor: theme.colors.border,
+            }]}>
               <View style={styles.badgesModalHeader}>
                 <Text style={[styles.badgesModalTitle, { color: theme.colors.text }]}>
                   Sleep Badges
@@ -489,97 +609,196 @@ export default function SleepDashboard({ onRecalibrate }: SleepDashboardProps) {
           </View>
         )}
 
-        {/* Insight Card */}
-        {insight && (
-          <View style={[styles.insightCard, { backgroundColor: theme.colors.accent }]}>
+        {/* Insight Card or Empty State */}
+        {insight ? (
+          <View style={[styles.insightCard, { 
+            backgroundColor: theme.colors.accent,
+            borderWidth: 1,
+            borderColor: theme.colors.border,
+          }]}>
             <Sparkles size={20} color={theme.colors.primary} />
             <Text style={[styles.insightText, { color: theme.colors.text }]}>{insight}</Text>
+          </View>
+        ) : stats?.lastNight === null && (
+          <View style={[styles.emptyInsightCard, { 
+            backgroundColor: theme.colors.accent,
+            borderWidth: 1,
+            borderColor: theme.colors.border,
+          }]}>
+            <Sparkles size={20} color={theme.colors.textSecondary} opacity={0.5} />
+            <Text style={[styles.emptyInsightText, { color: theme.colors.textSecondary }]}>
+              💡 Log tonight's sleep to get personalized insights and recommendations
+            </Text>
           </View>
         )}
 
         {/* Action Cards */}
         <View style={styles.actionsGrid}>
-          <TouchableOpacity
-            style={[styles.actionCard, { backgroundColor: theme.colors.card }]}
+          <Pressable
             onPress={() => router.push('/sleep-wellness/wind-down' as any)}
+            style={({ pressed }) => [
+              styles.actionCard,
+              { backgroundColor: theme.colors.card, borderColor: theme.colors.border },
+              pressed && styles.chipPressed,
+            ]}
+            android_ripple={{ color: 'rgba(0,0,0,0.06)', radius: 40 }}
           >
             <View style={[styles.actionIcon, { backgroundColor: theme.colors.primary + '20' }]}>
-              <Play size={24} color={theme.colors.primary} />
+              <Play size={18} color={theme.colors.primary} />
             </View>
-            <Text style={[styles.actionTitle, { color: theme.colors.text }]}>Wind-Down</Text>
-            <Text style={[styles.actionDescription, { color: theme.colors.textSecondary }]}>
-              Start your evening routine
-            </Text>
-          </TouchableOpacity>
+            <View style={styles.actionTextContainer}>
+              <Text style={[styles.actionTitle, { color: theme.colors.text }]}>Wind-Down</Text>
+              <Text style={[styles.actionDescription, { color: theme.colors.textSecondary }]}>
+                Start your evening routine
+              </Text>
+            </View>
+          </Pressable>
 
-          <TouchableOpacity
-            style={[styles.actionCard, { backgroundColor: theme.colors.card }]}
+          <Pressable
             onPress={() => router.push('/sleep-wellness/morning-check-in' as any)}
+            style={({ pressed }) => [
+              styles.actionCard,
+              { backgroundColor: theme.colors.card, borderColor: theme.colors.border },
+              pressed && styles.chipPressed,
+            ]}
+            android_ripple={{ color: 'rgba(0,0,0,0.06)', radius: 40 }}
           >
             <View style={[styles.actionIcon, { backgroundColor: theme.colors.success + '20' }]}>
-              <Plus size={24} color={theme.colors.success} />
+              <Plus size={18} color={theme.colors.success} />
             </View>
-            <Text style={[styles.actionTitle, { color: theme.colors.text }]}>Check-In</Text>
-            <Text style={[styles.actionDescription, { color: theme.colors.textSecondary }]}>
-              Log last night
-            </Text>
-          </TouchableOpacity>
+            <View style={styles.actionTextContainer}>
+              <Text style={[styles.actionTitle, { color: theme.colors.text }]}>Check-In</Text>
+              <Text style={[styles.actionDescription, { color: theme.colors.textSecondary }]}>
+                Log how you slept last night
+              </Text>
+            </View>
+          </Pressable>
 
-          <TouchableOpacity
-            style={[styles.actionCard, { backgroundColor: theme.colors.card }]}
+          <Pressable
+            onPress={() => router.push('/create-experiment?category=Sleep' as any)}
+            style={({ pressed }) => [
+              styles.actionCard,
+              { backgroundColor: theme.colors.card, borderColor: theme.colors.border },
+              pressed && styles.chipPressed,
+            ]}
+            android_ripple={{ color: 'rgba(0,0,0,0.06)', radius: 40 }}
+          >
+            <View style={[styles.actionIcon, { backgroundColor: '#8B5CF6' + '20' }]}>
+              <FlaskConical size={18} color="#8B5CF6" />
+            </View>
+            <View style={styles.actionTextContainer}>
+              <Text style={[styles.actionTitle, { color: theme.colors.text }]}>Experiments</Text>
+              <Text style={[styles.actionDescription, { color: theme.colors.textSecondary }]}>
+                Try 7-day sleep experiments
+              </Text>
+            </View>
+          </Pressable>
+
+          <Pressable
             onPress={() => router.push('/sleep-wellness/content-library' as any)}
+            style={({ pressed }) => [
+              styles.actionCard,
+              { backgroundColor: theme.colors.card, borderColor: theme.colors.border },
+              pressed && styles.chipPressed,
+            ]}
+            android_ripple={{ color: 'rgba(0,0,0,0.06)', radius: 40 }}
           >
             <View style={[styles.actionIcon, { backgroundColor: theme.colors.warning + '20' }]}>
-              <Moon size={24} color={theme.colors.warning} />
+              <Moon size={18} color={theme.colors.warning} />
             </View>
-            <Text style={[styles.actionTitle, { color: theme.colors.text }]}>Library</Text>
-            <Text style={[styles.actionDescription, { color: theme.colors.textSecondary }]}>
-              Browse audio content
-            </Text>
-          </TouchableOpacity>
+            <View style={styles.actionTextContainer}>
+              <Text style={[styles.actionTitle, { color: theme.colors.text }]}>Library</Text>
+              <Text style={[styles.actionDescription, { color: theme.colors.textSecondary }]}>
+                Browse tons of audios for bedtime
+              </Text>
+            </View>
+          </Pressable>
         </View>
 
         {/* Coaching Program Card */}
         <TouchableOpacity
-          style={[styles.coachingCard, { backgroundColor: theme.colors.primary }]}
-          onPress={() => router.push('/sleep-wellness/coaching' as any)}
+          style={[styles.coachingCard, { 
+            backgroundColor: theme.colors.primary,
+            borderWidth: 1,
+            borderColor: theme.colors.border,
+          }]}
+          onPress={() => router.push('/sleep-wellness/programme-hub' as any)}
         >
           <View style={styles.coachingLeft}>
             <Award size={32} color="#FFFFFF" />
             <View style={styles.coachingText}>
-              <Text style={styles.coachingTitle}>4-Week Sleep Program</Text>
+              <Text style={styles.coachingTitle}>Sleep Programme</Text>
               <Text style={styles.coachingDescription}>
-                Get personalized coaching to improve your sleep
+                Customizable guided programmes to improve your sleep
               </Text>
             </View>
           </View>
           <ChevronRight size={24} color="#FFFFFF" />
         </TouchableOpacity>
 
-        {/* Habit Suggestion */}
-        <TouchableOpacity
-          style={[styles.habitSuggestion, { backgroundColor: theme.colors.card }]}
-          onPress={() => router.push('/habit-library?category=sleep' as any)}
-        >
-          <View style={styles.habitLeft}>
-            <Target size={24} color={theme.colors.primary} />
-            <View style={styles.habitText}>
-              <Text style={[styles.habitTitle, { color: theme.colors.text }]}>
-                Suggested Habit
-              </Text>
-              <Text style={[styles.habitDescription, { color: theme.colors.textSecondary }]}>
-                Turn off screens by 10:30pm
-              </Text>
-            </View>
-          </View>
-          <ChevronRight size={20} color={theme.colors.textSecondary} />
-        </TouchableOpacity>
+        {/* Habit Suggestion - Smart recommendation based on sleep data */}
+        {stats && profile && (() => {
+          // Generate smart suggestion based on sleep patterns
+          let suggestion = '';
+          let emoji = '🎯';
+          
+          if (stats.weeklyConsistency < 50) {
+            // Poor consistency - suggest bedtime routine
+            const targetBedtime = profile.weekdayBedtime || '22:00';
+            const [hour, min] = targetBedtime.split(':');
+            const hourNum = parseInt(hour);
+            const displayHour = hourNum > 12 ? hourNum - 12 : hourNum;
+            const ampm = hourNum >= 12 ? 'pm' : 'am';
+            suggestion = `Start wind-down routine by ${displayHour}:${min}${ampm}`;
+            emoji = '🌙';
+          } else if (stats.averageDuration < (profile.targetSleepHours - 0.5)) {
+            // Not getting enough sleep - suggest earlier bedtime
+            suggestion = 'Try going to bed 30 minutes earlier';
+            emoji = '💤';
+          } else if (stats.lastNight && stats.lastNight.quality < 3) {
+            // Poor quality - suggest habits
+            suggestion = 'Avoid screens 30 minutes before bed';
+            emoji = '📱';
+          } else {
+            // Good sleep - suggest maintenance
+            suggestion = 'Keep up your consistent sleep schedule!';
+            emoji = '✨';
+          }
+          
+          return (
+            <TouchableOpacity
+              style={[styles.habitSuggestion, { 
+                backgroundColor: theme.colors.card,
+                borderWidth: 1,
+                borderColor: theme.colors.border,
+              }]}
+              onPress={() => router.push('/habit-library?category=sleep' as any)}
+            >
+              <View style={styles.habitLeft}>
+                <Target size={24} color={theme.colors.primary} />
+                <View style={styles.habitText}>
+                  <Text style={[styles.habitTitle, { color: theme.colors.text }]}>
+                    {emoji} Suggested Habit
+                  </Text>
+                  <Text style={[styles.habitDescription, { color: theme.colors.textSecondary }]}>
+                    {suggestion}
+                  </Text>
+                </View>
+              </View>
+              <ChevronRight size={20} color={theme.colors.textSecondary} />
+            </TouchableOpacity>
+          );
+        })()}
 
         {/* Quick Stats */}
         <View style={styles.quickStatsContainer}>
           <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>This Week</Text>
           <View style={styles.quickStatsGrid}>
-            <View style={[styles.quickStatCard, { backgroundColor: theme.colors.card }]}>
+            <View style={[styles.quickStatCard, { 
+              backgroundColor: theme.colors.card,
+              borderWidth: 1,
+              borderColor: theme.colors.border,
+            }]}>
               <Text style={[styles.quickStatValue, { color: theme.colors.text }]}>
                 {stats?.averageDuration || 0}h
               </Text>
@@ -587,7 +806,11 @@ export default function SleepDashboard({ onRecalibrate }: SleepDashboardProps) {
                 Avg Sleep
               </Text>
             </View>
-            <View style={[styles.quickStatCard, { backgroundColor: theme.colors.card }]}>
+            <View style={[styles.quickStatCard, { 
+              backgroundColor: theme.colors.card,
+              borderWidth: 1,
+              borderColor: theme.colors.border,
+            }]}>
               <Text style={[styles.quickStatValue, { color: theme.colors.text }]}>
                 {stats?.streak || 0}/7
               </Text>
@@ -595,7 +818,11 @@ export default function SleepDashboard({ onRecalibrate }: SleepDashboardProps) {
                 On Target
               </Text>
             </View>
-            <View style={[styles.quickStatCard, { backgroundColor: theme.colors.card }]}>
+            <View style={[styles.quickStatCard, { 
+              backgroundColor: theme.colors.card,
+              borderWidth: 1,
+              borderColor: theme.colors.border,
+            }]}>
               <Text style={[styles.quickStatValue, { color: theme.colors.text }]}>
                 {profile?.targetSleepHours || 8}h
               </Text>
@@ -604,11 +831,24 @@ export default function SleepDashboard({ onRecalibrate }: SleepDashboardProps) {
               </Text>
             </View>
           </View>
+          
+          {/* Empty State Overlay for Quick Stats */}
+          {stats && stats.averageDuration === 0 && stats.streak === 0 && (
+            <View style={[styles.quickStatsEmptyOverlay, { backgroundColor: theme.colors.background + 'E6' }]}>
+              <Text style={[styles.quickStatsEmptyText, { color: theme.colors.textSecondary }]}>
+                📊 Track sleep for a week to see your stats
+              </Text>
+            </View>
+          )}
         </View>
 
         {/* View Full Report */}
         <TouchableOpacity
-          style={[styles.reportButton, { backgroundColor: theme.colors.secondary }]}
+          style={[styles.reportButton, { 
+            backgroundColor: theme.colors.secondary,
+            borderWidth: 1,
+            borderColor: theme.colors.border,
+          }]}
           onPress={() => router.push('/sleep-wellness/trends' as any)}
         >
           <TrendingUp size={20} color={theme.colors.primary} />
@@ -655,8 +895,18 @@ const styles = StyleSheet.create({
     fontSize: 14,
     marginTop: 2,
   },
+  headerButtons: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
   settingsButton: {
     padding: 8,
+    borderRadius: 8,
+  },
+  closeButton: {
+    padding: 8,
+    borderRadius: 8,
   },
   scrollView: {
     flex: 1,
@@ -749,34 +999,55 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 12,
+    paddingVertical: 8,
   },
   actionCard: {
-    width: '31%',
-    borderRadius: 16,
-    padding: 16,
+    flexDirection: 'row',
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 3,
+    width: '48%',
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+    borderRadius: 20,
+    marginBottom: 10,
+    borderWidth: 1,
+    // subtle shadow
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.08,
+        shadowRadius: 6,
+      },
+      android: {
+        elevation: 2,
+      },
+    }),
   },
   actionIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 10,
+    marginRight: 10,
+    flexShrink: 0,
+  },
+  actionTextContainer: {
+    flex: 1,
   },
   actionTitle: {
     fontSize: 14,
     fontWeight: '700',
-    marginBottom: 4,
+    marginBottom: 2,
   },
   actionDescription: {
     fontSize: 11,
+    lineHeight: 14,
     textAlign: 'center',
+  },
+  chipPressed: {
+    transform: [{ scale: 0.97 }],
+    opacity: 0.8,
   },
   coachingCard: {
     flexDirection: 'row',
@@ -888,6 +1159,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 8,
     elevation: 3,
+    overflow: 'hidden',
   },
   streakHeader: {
     flexDirection: 'row',
@@ -968,6 +1240,23 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 20,
   },
+  calendarSection: {
+    gap: 12,
+  },
+  calendarHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 8,
+  },
+  calendarHeaderTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  calendarDivider: {
+    height: 1,
+    marginVertical: 20,
+  },
   modalOverlay: {
     position: 'absolute',
     top: 0,
@@ -1030,6 +1319,85 @@ const styles = StyleSheet.create({
   },
   noBadgesText: {
     fontSize: 16,
+    textAlign: 'center',
+  },
+  // Empty State Styles
+  emptyStateCard: {
+    borderRadius: 20,
+    padding: 32,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  emptyStateContent: {
+    alignItems: 'center',
+    gap: 16,
+  },
+  emptyStateTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    textAlign: 'center',
+    marginTop: 8,
+  },
+  emptyStateDescription: {
+    fontSize: 15,
+    textAlign: 'center',
+    lineHeight: 22,
+    opacity: 0.8,
+  },
+  emptyStateButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: 14,
+    paddingHorizontal: 24,
+    borderRadius: 16,
+    marginTop: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  emptyStateButtonText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  emptyInsightCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    padding: 16,
+    borderRadius: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  emptyInsightText: {
+    fontSize: 14,
+    flex: 1,
+    lineHeight: 20,
+    opacity: 0.7,
+  },
+  quickStatsEmptyOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 16,
+  },
+  quickStatsEmptyText: {
+    fontSize: 14,
+    fontWeight: '600',
     textAlign: 'center',
   },
 });

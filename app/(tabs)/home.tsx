@@ -48,6 +48,8 @@ import { useRealtimeHabits, useRealtimeMoods, useRealtimeSleep } from '@/hooks/u
 import { useNotifications } from '@/hooks/useNotifications';
 import { useOfflineStatus } from '@/hooks/useOfflineSync';
 import HabitCard from '@/components/HabitCard';
+import ImpactAnalysisCard from '@/components/ImpactAnalysisCard';
+import AIRecommendationsCard from '@/components/AIRecommendationsCard';
 import { Database } from '@/lib/supabase';
 import { Wifi, WifiOff, RefreshCw } from 'lucide-react-native';
 
@@ -139,7 +141,6 @@ export default function HomeScreen() {
   const [moodData, setMoodData] = useState<any[]>([]);
   const [sleepData, setSleepData] = useState<any[]>([]);
   const [mentalClarityData, setMentalClarityData] = useState<any[]>([]);
-  const [aiRecommendations, setAiRecommendations] = useState<any[]>([]);
   const [impactData, setImpactData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -178,7 +179,6 @@ export default function HomeScreen() {
       setMoodData([]);
       setSleepData([]);
       setMentalClarityData([]);
-      setAiRecommendations([]);
       setLoading(false);
     }
   }, [user, isGuest]);
@@ -203,7 +203,6 @@ export default function HomeScreen() {
       setMoodData([]);
       setSleepData([]);
       setMentalClarityData([]);
-      setAiRecommendations([]);
       setLoading(false);
       return;
     }
@@ -213,7 +212,7 @@ export default function HomeScreen() {
     setError(null);
     
     try {
-      const [habitsResult, moodResult, sleepResult, clarityResult, recommendationsResult, impactResult] = await Promise.all([
+      const [habitsResult, moodResult, sleepResult, clarityResult, impactResult] = await Promise.all([
         HabitsService.getAll(effectiveUserId),
         MoodsService.getByDateRange(
           effectiveUserId,
@@ -230,7 +229,6 @@ export default function HomeScreen() {
           new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
           new Date().toISOString().split('T')[0]
         ),
-        AnalyticsService.generateAIRecommendations(effectiveUserId),
         AnalyticsService.calculateActivityImpact(effectiveUserId, 14) // Get 2 weeks of impact data
       ]);
 
@@ -247,9 +245,6 @@ export default function HomeScreen() {
       if (clarityResult.error && clarityResult.error !== 'No data found') {
         console.warn('Failed to load mental clarity data:', clarityResult.error);
       }
-      if (recommendationsResult.error && recommendationsResult.error !== 'No data found') {
-        console.warn('Failed to load recommendations:', recommendationsResult.error);
-      }
       if (impactResult.error && impactResult.error !== 'No data found') {
         console.warn('Failed to load impact data:', impactResult.error);
       }
@@ -258,7 +253,6 @@ export default function HomeScreen() {
       setMoodData(moodResult.data || []);
       setSleepData(sleepResult.data || []);
       setMentalClarityData(clarityResult.data || []);
-      setAiRecommendations(recommendationsResult.data || []);
       setImpactData(impactResult.data || null);
     } catch (err) {
       console.error('Error loading data:', err);
@@ -1381,171 +1375,37 @@ export default function HomeScreen() {
           <ChevronRight size={24} color={theme.colors.textSecondary} />
         </TouchableOpacity>
 
-        <View style={[styles.card, { backgroundColor: theme.colors.card, borderColor: theme.colors.accent }]}>
-          <Text style={[styles.cardTitle, { color: theme.colors.text }]}>Impact Analysis</Text>
-          <Text style={[styles.sectionSubtitle, { color: theme.colors.textSecondary, marginBottom: 16 }]}>How your activities affect your wellbeing</Text>
-          
-          {/* Loading State */}
-          {loading ? (
-            <View style={[styles.loadingContainer, { backgroundColor: theme.colors.surfaceVariant }]}>
-              <ActivityIndicator color={theme.colors.primary} />
-              <Text style={[styles.loadingText, { color: theme.colors.textSecondary }]}>
-                Analyzing your data...
-              </Text>
-            </View>
-          ) : error ? (
-            <View style={[styles.errorContainer, { backgroundColor: theme.colors.card }]}>
-              <Text style={[styles.errorText, { color: theme.colors.error }]}>
-                {error}
-              </Text>
-              <TouchableOpacity 
-                style={[styles.retryButton, { backgroundColor: theme.colors.primary }]}
-                onPress={loadData}
-              >
-                <Text style={[styles.retryButtonText, { color: '#FFFFFF' }]}>Retry</Text>
-              </TouchableOpacity>
-            </View>
-          ) : (
-            <>
-              {/* Dynamic Top Impact Activity Card */}
-              {impactData?.topActivity && (
-                <View style={[
-                  styles.summaryCard, 
-                  { 
-                    backgroundColor: theme.colors.accent,
-                    borderLeftColor: theme.colors.primary
-                  }
-                ]}>
-                  <Text style={[styles.summaryText, { color: theme.colors.text }]}>
-                    {impactData.topActivity.emoji} {impactData.topActivity.name} has the highest positive impact on your wellbeing! Keep it up! 🎉
-                  </Text>
-                </View>
-              )}
+        {/* Impact Analysis Card */}
+        <ImpactAnalysisCard 
+          userId={user?.id || 'guest'}
+          loading={loading}
+          error={error}
+          onRetry={loadData}
+        />
 
-              <View styles={styles.impactGrid}>
-                {/* Mental Clarity Impact */}
-                {impactData?.correlations?.map((correlation) => {
-                  if (!correlation.metrics) return null;
-                  
-                  const getImpactColor = (score: number) => {
-                    if (score >= 0.7) return theme.colors.success;
-                    if (score >= 0.5) return theme.colors.primary;
-                    if (score >= 0.3) return theme.colors.warning;
-                    return theme.colors.error;
-                  };
+        {/* AI Recommendations Card */}
+        <AIRecommendationsCard userId={user?.id || 'guest_user'} />
 
-                  const formatPercentage = (score: number) => {
-                    const percentage = (score * 100).toFixed(0);
-                    return score >= 0.5 ? `+${percentage}%` : `${percentage}%`;
-                  };
-
-                  return (
-                    <View key={correlation.category} style={styles.impactItem}>
-                      {/* Icon based on category */}
-                      {correlation.category === 'MentalClarity' ? (
-                        <Brain size={24} color={theme.colors.primary} />
-                      ) : correlation.category === 'Sleep' ? (
-                        <Moon size={24} color={theme.colors.primary} />
-                      ) : (
-                        <Text style={[styles.snapshotEmoji, { fontSize: 24 }]}>
-                          {correlation.category === 'Exercise' ? '🏋️' : 
-                           correlation.category === 'Meditation' ? '🧘' : '�'}
-                        </Text>
-                      )}
-                      
-                      <View style={styles.impactInfo}>
-                        <Text style={[styles.impactLabel, { color: theme.colors.text }]}>
-                          {correlation.name || correlation.category}
-                        </Text>
-                        <View style={[styles.impactBar, { backgroundColor: theme.colors.border }]}>
-                          <View style={[
-                            styles.impactBarFill, 
-                            { 
-                              width: `${correlation.score * 100}%`,
-                              backgroundColor: getImpactColor(correlation.score)
-                            }
-                          ]} />
-                        </View>
-                        <Text style={[
-                          styles.impactValue, 
-                          { color: getImpactColor(correlation.score) }
-                        ]}>
-                          {formatPercentage(correlation.score)} impact
-                        </Text>
-                      </View>
-                    </View>
-                  );
-                })}
-
-                {(!impactData?.correlations || impactData.correlations.length === 0) && (
-                  <View style={styles.noDataContainer}>
-                    <Text style={[styles.noDataText, { color: theme.colors.textSecondary }]}>
-                      Log more activities to see their impact on your wellbeing!
-                    </Text>
-                  </View>
-                )}
-              </View>
-              
-                {/* Additional Insights */}
-              {impactData?.insights && impactData.insights.length > 0 && (
-                <View style={styles.insightsContainer}>
-                  {impactData.insights.map((insight, index) => (
-                    <Text key={index} style={[styles.insightText, { color: theme.colors.textSecondary }]}>
-                      • {insight}
-                    </Text>
-                  ))}
-                </View>
-              )}
-            </>
-          )}
-        </View>
-
+        {/* Run Experiments Card */}
         <View style={[styles.card, { backgroundColor: theme.colors.card, borderColor: theme.colors.accent }]}>
           <View style={styles.cardHeader}>
-            <Sparkles size={20} color={theme.colors.warning} />
-            <Text style={[styles.cardTitle, { color: theme.colors.text }]}>AI Recommendations</Text>
+            <FlaskConical size={20} color={theme.colors.accent} />
+            <Text style={[styles.cardTitle, { color: theme.colors.text }]}>Run Experiments</Text>
           </View>
-          <View style={styles.recommendationsList}>
-            {aiRecommendations.length > 0 ? (
-              aiRecommendations.slice(0, 3).map((rec, index) => (
-                <View key={rec.id || index} style={[styles.recommendationItem, { backgroundColor: theme.colors.secondary }]}>
-                  <Text style={[styles.recommendationText, { color: theme.colors.text }]}>
-                    {rec.description}
-                  </Text>
-                </View>
-              ))
-            ) : (
-              <View style={[styles.recommendationItem, { backgroundColor: theme.colors.secondary }]}>
-                <Text style={[styles.recommendationText, { color: theme.colors.text }]}>
-                  💡 Start logging your daily activities to get personalized recommendations!
-                </Text>
-              </View>
-            )}
-          </View>
-          <TouchableOpacity style={styles.seeMoreButton}>
-            <Text style={[styles.seeMoreText, { color: theme.colors.primary }]}>See More</Text>
-            <ChevronRight size={16} color={theme.colors.primary} />
+          <Text style={[styles.cardSubtext, { color: theme.colors.textSecondary }]}>
+            Test how activities affect your mood, sleep, and clarity
+          </Text>
+          
+          {/* Run Experiments Button */}
+          <TouchableOpacity 
+            style={[styles.experimentPill, { backgroundColor: theme.colors.primary, borderColor: theme.colors.primary }]}
+            onPress={() => router.push('/experiments-hub')}
+            activeOpacity={0.7}
+          >
+            <Text style={[styles.experimentPillText, { color: '#FFFFFF' }]}>Run Experiments</Text>
           </TouchableOpacity>
         </View>
 
-        <TouchableOpacity 
-          style={[styles.experimentsCard, { backgroundColor: theme.colors.card }]}
-          onPress={() => router.push('/experiments-hub')}
-        >
-          <View style={styles.experimentsHeader}>
-            <FlaskConical size={28} color={theme.colors.info} />
-            <View style={styles.experimentsText}>
-              <Text style={[styles.experimentsTitle, { color: theme.colors.text }]}>Run Experiments</Text>
-              <Text style={[styles.experimentsSubtitle, { color: theme.colors.textSecondary }]}>
-                Test how habits affect your mood, sleep, and clarity
-              </Text>
-            </View>
-          </View>
-          <View style={[styles.startButton, { backgroundColor: theme.colors.info }]}>
-            <Text style={styles.startButtonText}>Start Experiment</Text>
-            <ChevronRight size={20} color="#FFFFFF" />
-          </View>
-        </TouchableOpacity>
       </ScrollView>
 
       {/* More Habits Modal */}
@@ -2562,56 +2422,46 @@ const styles = StyleSheet.create({
     color: '#6366F1',
     fontWeight: '600' as const,
   },
-  experimentsCard: {
-    backgroundColor: '#FFFFFF',
+  card: {
     marginHorizontal: 20,
     marginBottom: 16,
-    padding: 20,
+    padding: 24,
+    backgroundColor: '#FFFFFF',
     borderRadius: 20,
+    borderWidth: 1,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 12,
     elevation: 3,
   },
-  experimentsHeader: {
+  cardHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 16,
-    marginBottom: 16,
+    gap: 8,
+    marginBottom: 8,
   },
-  experimentsText: {
-    flex: 1,
+  cardTitle: {
+    fontSize: 20,
+    fontWeight: '700',
   },
-  experimentsTitle: {
-    fontSize: 18,
-    fontWeight: 'bold' as const,
-    color: '#1F2937',
-    marginBottom: 4,
-  },
-  experimentsSubtitle: {
+  cardSubtext: {
     fontSize: 13,
-    color: '#6B7280',
+    marginBottom: 16,
+    lineHeight: 18,
   },
-  startButton: {
-    backgroundColor: '#FEEB99',
-    flexDirection: 'row',
+  experimentPill: {
+    paddingVertical: 14,
+    paddingHorizontal: 32,
+    borderRadius: 25,
+    borderWidth: 1.5,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 14,
-    paddingHorizontal: 24,
-    borderRadius: 20,
-    gap: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 2,
+    alignSelf: 'center',
   },
-  startButtonText: {
-    fontSize: 16,
-    fontWeight: '600' as const,
-    color: '#1E1E1E',
+  experimentPillText: {
+    fontSize: 15,
+    fontWeight: '600',
   },
   moreHabitsPill: {
     paddingVertical: 8,

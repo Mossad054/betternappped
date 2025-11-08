@@ -20,6 +20,7 @@ import {
   Play,
   Award,
   TrendingUp,
+  X,
 } from 'lucide-react-native';
 import SleepProgrammeService, {
   Programme,
@@ -31,9 +32,11 @@ import ProgrammeEnrollmentModal from '@/components/sleep/ProgrammeEnrollmentModa
 import LessonScreen from '@/components/sleep/LessonScreen';
 import WeeklyReviewScreen from '@/components/sleep/WeeklyReviewScreen';
 import ProgrammeCompletionScreen from '@/components/sleep/ProgrammeCompletionScreen';
+import MaintenanceModeScreen from '@/components/sleep/MaintenanceModeScreen';
 import DailyCheckInModal from '@/components/sleep/DailyCheckInModal';
+import { SleepService } from '@/services/sleep.service';
 
-type ScreenView = 'hub' | 'lesson' | 'weeklyReview' | 'completion';
+type ScreenView = 'hub' | 'lesson' | 'weeklyReview' | 'completion' | 'maintenance';
 
 export default function ProgrammeHubScreen() {
   const { theme } = useTheme();
@@ -77,13 +80,60 @@ export default function ProgrammeHubScreen() {
     if (!user) return;
 
     try {
-      // Mock baseline metrics - in real app, fetch from SleepService
-      const baselineMetrics = {
-        averageSleepDuration: 390, // 6.5 hours
-        bedtimeConsistency: 65, // ±65 minutes
-        qualityScore: 2.8,
-        recordedAt: new Date().toISOString(),
-      };
+      // Fetch real baseline metrics from sleep logs (last 7 days)
+      const endDate = new Date().toISOString().split('T')[0];
+      const startDate = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+      
+      const sleepLogsResult = await SleepService.getByDateRange(user.id, startDate, endDate);
+      
+      let baselineMetrics;
+      
+      if (sleepLogsResult.data && sleepLogsResult.data.length > 0) {
+        const logs = sleepLogsResult.data;
+        
+        // Calculate average sleep duration (in minutes)
+        const avgHours = logs.reduce((sum, log) => sum + Number(log.hours || 0), 0) / logs.length;
+        const averageSleepDuration = Math.round(avgHours * 60);
+        
+        // Calculate bedtime consistency (variation in bedtime)
+        const bedtimes = logs
+          .filter(log => log.bedtime)
+          .map(log => {
+            const time = new Date(`2000-01-01T${log.bedtime}`);
+            return time.getHours() * 60 + time.getMinutes();
+          });
+        
+        let bedtimeConsistency = 0; // 0 if can't calculate
+        if (bedtimes.length > 1) {
+          const avgBedtime = bedtimes.reduce((sum, time) => sum + time, 0) / bedtimes.length;
+          const variance = bedtimes.reduce((sum, time) => sum + Math.abs(time - avgBedtime), 0) / bedtimes.length;
+          bedtimeConsistency = Math.round(variance);
+        }
+        
+        // Calculate average quality score
+        const qualityScore = logs.reduce((sum, log) => sum + Number(log.quality || 0), 0) / logs.length;
+        
+        baselineMetrics = {
+          averageSleepDuration,
+          bedtimeConsistency,
+          qualityScore: Number(qualityScore.toFixed(1)),
+          recordedAt: new Date().toISOString(),
+        };
+      } else {
+        // No sleep data yet - don't enroll, ask user to track sleep first
+        Alert.alert(
+          'No Sleep Data',
+          'Please track your sleep for at least 3 days before enrolling in the programme. This helps us create a personalized baseline.',
+          [
+            { 
+              text: 'Track Sleep Now', 
+              onPress: () => router.push('/sleep-wellness/morning-check-in' as any) 
+            },
+            { text: 'Later', style: 'cancel' },
+          ]
+        );
+        return;
+      }
 
       const enrolled = await SleepProgrammeService.enrollUser(user.id, baselineMetrics);
       setProgramme(enrolled);
@@ -228,9 +278,34 @@ export default function ProgrammeHubScreen() {
     return (
       <ProgrammeCompletionScreen
         programme={programme}
-        onEnterMaintenance={() => router.back()}
+        onEnterMaintenance={() => setCurrentView('maintenance')}
         onJoinAdvanced={() => Alert.alert('Coming Soon', 'Advanced programmes will be available soon!')}
         onSubmitFeedback={handleSubmitFeedback}
+      />
+    );
+  }
+
+  if (currentView === 'maintenance' && programme) {
+    return (
+      <MaintenanceModeScreen
+        programme={programme}
+        onBack={() => setCurrentView('hub')}
+        onSelectNewProgramme={() => {
+          Alert.alert(
+            'Browse Programmes',
+            'Would you like to explore other sleep improvement programmes?',
+            [
+              { text: 'Cancel', style: 'cancel' },
+              {
+                text: 'Browse',
+                onPress: () => {
+                  // TODO: Navigate to programmes list/browse page
+                  Alert.alert('Coming Soon', 'Programme browsing will be available soon!');
+                },
+              },
+            ]
+          );
+        }}
       />
     );
   }
@@ -253,7 +328,9 @@ export default function ProgrammeHubScreen() {
         <Text style={[styles.headerTitle, { color: theme.colors.text }]}>
           Sleep Programme
         </Text>
-        <View style={{ width: 40 }} />
+        <TouchableOpacity style={styles.backButton} onPress={() => router.replace('/sleep-wellness')}>
+          <X size={28} color={theme.colors.text} />
+        </TouchableOpacity>
       </View>
 
       <ScrollView

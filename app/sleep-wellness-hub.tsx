@@ -636,6 +636,11 @@ export default function SleepWellnessHub() {
               <X size={24} color={theme.colors.textSecondary} />
             </TouchableOpacity>
           ),
+          headerRight: () => (
+            <TouchableOpacity onPress={() => router.back()} style={styles.headerButton}>
+              <X size={24} color={theme.colors.textSecondary} />
+            </TouchableOpacity>
+          ),
         }}
       />
 
@@ -831,7 +836,7 @@ export default function SleepWellnessHub() {
               >
                 <BookOpen size={20} color={theme.colors.primary} />
                 <Text style={[styles.quickActionText, { color: theme.colors.text }]}>
-                  4-Week Sleep Programme
+                  Sleep Programme
                 </Text>
               </TouchableOpacity>
 

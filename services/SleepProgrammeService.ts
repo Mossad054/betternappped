@@ -1,5 +1,6 @@
 // Sleep Programme Service - 4-Week Sleep Improvement Programme
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { SleepService } from './sleep.service';
 
 const PROGRAMME_KEY = 'sleep_programme';
 const ACTIVE_PRACTICE_KEY = 'active_practice_sessions';
@@ -409,17 +410,58 @@ class SleepProgrammeService {
         d.response === 'completed'
       ).length || 0;
 
-      // Get sleep data for the week (mock for now)
-      const avgSleepDuration = 420; // 7 hours in minutes
-      const targetSleepDuration = 480; // 8 hours
-      const bedtimeVariability = 35; // minutes
+      // Get real sleep data for the week
+      const weekStartDate = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+      const weekEndDate = new Date().toISOString().split('T')[0];
+      
+      const sleepLogsResult = await SleepService.getByDateRange(userId, weekStartDate, weekEndDate);
+      const sleepLogs = sleepLogsResult.data || [];
 
-      // Calculate quality with/without habit
+      // Calculate average sleep duration for this week (0 if no data)
+      let avgSleepDuration = 0;
+      if (sleepLogs.length > 0) {
+        const totalMinutes = sleepLogs.reduce((sum, log) => sum + (Number(log.hours) * 60), 0);
+        avgSleepDuration = Math.round(totalMinutes / sleepLogs.length);
+      }
+
+      // Get target from programme or use 0 if not set
+      const targetSleepDuration = programme?.lessons[0]?.habitTask?.targetHours 
+        ? programme.lessons[0].habitTask.targetHours * 60 
+        : 0;
+
+      // Calculate bedtime variability (0 if insufficient data)
+      let bedtimeVariability = 0;
+      const bedtimes = sleepLogs.filter(log => log.bedtime).map(log => {
+        const time = new Date(`2000-01-01T${log.bedtime}`);
+        return time.getHours() * 60 + time.getMinutes();
+      });
+      
+      if (bedtimes.length > 1) {
+        const avgBedtime = bedtimes.reduce((sum, time) => sum + time, 0) / bedtimes.length;
+        bedtimeVariability = Math.round(
+          bedtimes.reduce((sum, time) => sum + Math.abs(time - avgBedtime), 0) / bedtimes.length
+        );
+      }
+
+      // Calculate quality with/without habit (based on actual sleep quality scores)
       const completedDays = weekSession?.completedDays.filter(d => d.response === 'completed') || [];
       const skippedDays = weekSession?.completedDays.filter(d => d.response === 'skipped') || [];
       
-      const qualityWithHabit = completedDays.length > 0 ? 72 : 0;
-      const qualityWithoutHabit = skippedDays.length > 0 ? 60 : 0;
+      // Map completed/skipped days to sleep quality
+      const completedDates = new Set(completedDays.map(d => d.date));
+      const skippedDates = new Set(skippedDays.map(d => d.date));
+      
+      // Calculate quality score (0-100) for days with habit vs without
+      const logsWithHabit = sleepLogs.filter(log => completedDates.has(log.date));
+      const logsWithoutHabit = sleepLogs.filter(log => skippedDates.has(log.date));
+      
+      const qualityWithHabit = logsWithHabit.length > 0
+        ? Math.round(logsWithHabit.reduce((sum, log) => sum + (Number(log.quality) * 20), 0) / logsWithHabit.length)
+        : 0;
+        
+      const qualityWithoutHabit = logsWithoutHabit.length > 0
+        ? Math.round(logsWithoutHabit.reduce((sum, log) => sum + (Number(log.quality) * 20), 0) / logsWithoutHabit.length)
+        : 0;
 
       // Assign badge based on performance
       let badgeEarned: string | undefined;
@@ -472,15 +514,47 @@ class SleepProgrammeService {
       const programme = await this.getProgramme(userId);
       if (!programme) return null;
 
-      // Calculate final metrics improvement
-      const avgSleepDuration = 450; // mock: 7.5 hours
-      const bedtimeConsistency = 20; // mock: ±20 minutes
-      const qualityScore = 4.2; // mock: 4.2/5
+      // Calculate final metrics from real sleep data (last 7 days)
+      const endDate = new Date().toISOString().split('T')[0];
+      const startDate = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+      
+      const sleepLogsResult = await SleepService.getByDateRange(userId, startDate, endDate);
+      const recentLogs = sleepLogsResult.data || [];
 
-      const improvementPercentage = Math.round(
-        ((avgSleepDuration - programme.baselineMetrics.averageSleepDuration) /
-          programme.baselineMetrics.averageSleepDuration) * 100
-      );
+      let avgSleepDuration = 0; // 0 if no data
+      let bedtimeConsistency = 0; // 0 if no data
+      let qualityScore = 0; // 0 if no data
+
+      if (recentLogs.length > 0) {
+        // Calculate average sleep duration
+        const totalMinutes = recentLogs.reduce((sum, log) => sum + (Number(log.hours) * 60), 0);
+        avgSleepDuration = Math.round(totalMinutes / recentLogs.length);
+
+        // Calculate bedtime consistency
+        const bedtimes = recentLogs.filter(log => log.bedtime).map(log => {
+          const time = new Date(`2000-01-01T${log.bedtime}`);
+          return time.getHours() * 60 + time.getMinutes();
+        });
+        
+        if (bedtimes.length > 1) {
+          const avgBedtime = bedtimes.reduce((sum, time) => sum + time, 0) / bedtimes.length;
+          bedtimeConsistency = Math.round(
+            bedtimes.reduce((sum, time) => sum + Math.abs(time - avgBedtime), 0) / bedtimes.length
+          );
+        }
+
+        // Calculate average quality
+        qualityScore = recentLogs.reduce((sum, log) => sum + Number(log.quality || 0), 0) / recentLogs.length;
+        qualityScore = Number(qualityScore.toFixed(1));
+      }
+
+      // Calculate improvement percentage (handle division by zero)
+      const improvementPercentage = programme.baselineMetrics.averageSleepDuration > 0
+        ? Math.round(
+            ((avgSleepDuration - programme.baselineMetrics.averageSleepDuration) /
+              programme.baselineMetrics.averageSleepDuration) * 100
+          )
+        : 0;
 
       return await this.updateProgramme(userId, {
         status: 'completed',

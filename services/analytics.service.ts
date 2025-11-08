@@ -651,8 +651,13 @@ export class AnalyticsService {
     }
   }
 
-  static async generateAIRecommendations(userId: string): Promise<{ data: AIRecommendation[] | null; error: any }> {
+  static async generateAIRecommendations(
+    userId: string, 
+    timePeriod: 'today' | 'week' | 'month' = 'today'
+  ): Promise<{ data: AIRecommendation[] | null; error: any }> {
     try {
+      console.log(`🤖 Generating AI recommendations for period: ${timePeriod}`);
+      
       // For guest mode, return sample recommendations
       if (await isGuestMode()) {
         return {
@@ -672,73 +677,266 @@ export class AnalyticsService {
               description: 'Consistent sleep tracking helps identify patterns and improve your rest.',
               priority: 'medium',
               action: 'Log your sleep hours tonight'
+            },
+            {
+              id: 'guest-3',
+              type: 'activity',
+              title: 'Log Your Activities',
+              description: 'Track your daily activities to understand what affects your wellness.',
+              priority: 'medium',
+              action: 'Add an activity you did today'
             }
           ],
           error: null
         };
       }
+
+      // Calculate date range based on period
+      const now = new Date();
+      let startDate: string;
+      let daysToAnalyze: number;
+
+      if (timePeriod === 'today') {
+        startDate = now.toISOString().split('T')[0];
+        daysToAnalyze = 1;
+      } else if (timePeriod === 'week') {
+        const weekAgo = new Date(now);
+        weekAgo.setDate(now.getDate() - 7);
+        startDate = weekAgo.toISOString().split('T')[0];
+        daysToAnalyze = 7;
+      } else {
+        const monthAgo = new Date(now);
+        monthAgo.setDate(now.getDate() - 30);
+        startDate = monthAgo.toISOString().split('T')[0];
+        daysToAnalyze = 30;
+      }
+
+      const endDate = now.toISOString().split('T')[0];
+
+      // Fetch data for the period
+      const { data: calendarData, error: calendarError } = await this.getCalendarData(userId, startDate, endDate);
       
+      if (calendarError || !calendarData) {
+        console.error('❌ Error fetching calendar data:', calendarError);
+        return { data: [], error: calendarError };
+      }
+
+      // Check if user has enough data
+      const daysWithData = calendarData.filter(day => 
+        day.mood || day.sleep || (day.activities && day.activities.length > 0)
+      );
+
+      console.log(`📊 Found ${daysWithData.length} days with data out of ${calendarData.length} days`);
+
+      // If no data, encourage logging
+      if (daysWithData.length === 0) {
+        const periodLabel = timePeriod === 'today' ? 'today' : timePeriod === 'week' ? 'this week' : 'this month';
+        return {
+          data: [
+            {
+              id: 'no-data-1',
+              type: 'activity',
+              title: `No Data for ${periodLabel.charAt(0).toUpperCase() + periodLabel.slice(1)}`,
+              description: `Start logging your mood, sleep, and activities ${periodLabel} to get personalized AI recommendations.`,
+              priority: 'high',
+              action: 'Log your data now'
+            }
+          ],
+          error: null
+        };
+      }
+
+      // Calculate comprehensive metrics
       const [moodTrends, sleepPatterns, habitEffectiveness] = await Promise.all([
-        this.calculateMoodTrends(userId, 7),
-        this.calculateSleepPatterns(userId, 7),
+        this.calculateMoodTrends(userId, daysToAnalyze),
+        this.calculateSleepPatterns(userId, daysToAnalyze),
         this.calculateHabitEffectiveness(userId)
       ]);
 
       const recommendations: AIRecommendation[] = [];
 
-      // Mood-based recommendations
-      if (moodTrends.data && moodTrends.data.trend === 'declining') {
-        recommendations.push({
-          id: 'mood-1',
-          type: 'mood',
-          title: 'Focus on Mood Improvement',
-          description: 'Your mood has been declining. Try some mood-boosting activities.',
-          priority: 'high',
-          action: 'Try meditation or exercise'
-        });
+      // Analyze mood data
+      if (moodTrends.data) {
+        const avgMood = moodTrends.data.averageMood;
+        const trend = moodTrends.data.trend;
+
+        if (trend === 'declining' && avgMood < 5) {
+          recommendations.push({
+            id: 'mood-declining',
+            type: 'mood',
+            title: '📉 Mood Needs Attention',
+            description: `Your mood has been declining ${timePeriod === 'today' ? 'today' : `over the past ${timePeriod}`}. Consider activities that usually lift your spirits.`,
+            priority: 'high',
+            action: 'Try a mood-boosting activity'
+          });
+        } else if (trend === 'improving' && avgMood > 6) {
+          recommendations.push({
+            id: 'mood-improving',
+            type: 'mood',
+            title: '📈 Great Mood Progress!',
+            description: `Your mood has been improving! Keep doing what you're doing.`,
+            priority: 'low',
+            action: 'Maintain your current routine'
+          });
+        } else if (avgMood < 4) {
+          recommendations.push({
+            id: 'mood-low',
+            type: 'mood',
+            title: '💙 Low Mood Detected',
+            description: 'Your average mood is low. Consider reaching out to someone or trying relaxation techniques.',
+            priority: 'high',
+            action: 'Practice self-care today'
+          });
+        }
       }
 
-      // Sleep-based recommendations
-      if (sleepPatterns.data && sleepPatterns.data.averageHours < 7) {
-        recommendations.push({
-          id: 'sleep-1',
-          type: 'sleep',
-          title: 'Improve Sleep Duration',
-          description: 'You\'re getting less than 7 hours of sleep. Consider going to bed earlier.',
-          priority: 'high',
-          action: 'Set a consistent bedtime'
-        });
+      // Analyze sleep data
+      if (sleepPatterns.data) {
+        const avgSleep = sleepPatterns.data.averageHours;
+        const quality = sleepPatterns.data.averageQuality;
+
+        if (avgSleep < 6) {
+          recommendations.push({
+            id: 'sleep-duration-low',
+            type: 'sleep',
+            title: '😴 Sleep Deficit Alert',
+            description: `You're averaging ${avgSleep.toFixed(1)} hours of sleep. Aim for 7-9 hours for optimal wellness.`,
+            priority: 'high',
+            action: 'Set an earlier bedtime tonight'
+          });
+        } else if (avgSleep > 9) {
+          recommendations.push({
+            id: 'sleep-duration-high',
+            type: 'sleep',
+            title: '💤 Oversleeping Pattern',
+            description: `You're sleeping ${avgSleep.toFixed(1)} hours on average. This might indicate low energy or other issues.`,
+            priority: 'medium',
+            action: 'Consider checking your energy levels'
+          });
+        } else if (quality && quality < 5) {
+          recommendations.push({
+            id: 'sleep-quality-low',
+            type: 'sleep',
+            title: '🌙 Poor Sleep Quality',
+            description: 'Your sleep quality is low. Consider improving your sleep environment or routine.',
+            priority: 'high',
+            action: 'Try a relaxing bedtime routine'
+          });
+        } else if (avgSleep >= 7 && avgSleep <= 9 && (!quality || quality >= 7)) {
+          recommendations.push({
+            id: 'sleep-good',
+            type: 'sleep',
+            title: '✨ Excellent Sleep Pattern',
+            description: 'Your sleep is on track! Keep maintaining this healthy routine.',
+            priority: 'low',
+            action: 'Keep up your sleep schedule'
+          });
+        }
       }
+
+      // Analyze activity impacts - simplify to use activity names from calendar data
+      const uniqueActivities = [...new Set(
+        calendarData
+          .flatMap(day => day.activities || [])
+      )].slice(0, 5); // Top 5 unique activity names
+
+      // For now, just recommend tracking activities if they exist
+      if (uniqueActivities.length > 0 && recommendations.length < 5) {
+        const activityCounts = new Map<string, number>();
+        calendarData.forEach(day => {
+          day.activities?.forEach(activity => {
+            activityCounts.set(activity, (activityCounts.get(activity) || 0) + 1);
+          });
+        });
+
+        // Find most frequent activity
+        const mostFrequent = Array.from(activityCounts.entries())
+          .sort((a, b) => b[1] - a[1])[0];
+
+        if (mostFrequent && mostFrequent[1] > 2) {
+          recommendations.push({
+            id: 'activity-frequent',
+            type: 'activity',
+            title: `🎯 ${mostFrequent[0]} is Your Go-To`,
+            description: `You've logged "${mostFrequent[0]}" ${mostFrequent[1]} times ${timePeriod === 'today' ? 'today' : `this ${timePeriod}`}. Keep tracking to see its impact!`,
+            priority: 'low',
+            action: 'Continue tracking activities'
+          });
+        }
+      }
+
+      // Analyze mental clarity - skip since not in CalendarData interface
+      const clarityData: number[] = [];
+      // Mental clarity data would need to be fetched separately if needed
+
+      if (clarityData.length > 0) {
+        const avgClarity = clarityData.reduce((sum, c) => sum + c, 0) / clarityData.length;
+        if (avgClarity < 5) {
+          recommendations.push({
+            id: 'clarity-low',
+            type: 'activity',
+            title: '🧠 Mental Clarity Could Improve',
+            description: 'Your mental clarity has been lower than usual. Try brain-healthy activities.',
+            priority: 'medium',
+            action: 'Try meditation or a short walk'
+          });
+        }
+      }
+
+      // Skip productivity analysis - not in CalendarData interface
+      // Productivity data would need to be fetched separately if needed
 
       // Habit-based recommendations
       if (habitEffectiveness.data) {
         const lowPerformers = habitEffectiveness.data.effectiveness.filter((h: any) => h.completionRate < 50);
         if (lowPerformers.length > 0) {
+          const habit = lowPerformers[0];
           recommendations.push({
-            id: 'habit-1',
+            id: 'habit-low',
             type: 'habit',
-            title: 'Strengthen Habit Routine',
-            description: `Consider adjusting your routine for ${lowPerformers[0].habit}.`,
+            title: `📝 Habit: ${habit.habit}`,
+            description: `Your completion rate for "${habit.habit}" is ${habit.completionRate.toFixed(0)}%. Consider making it easier to start.`,
             priority: 'medium',
-            action: 'Review habit timing and triggers'
+            action: 'Simplify or reschedule this habit'
+          });
+        }
+
+        const highPerformers = habitEffectiveness.data.effectiveness.filter((h: any) => h.completionRate > 80);
+        if (highPerformers.length > 0 && recommendations.length < 3) {
+          const habit = highPerformers[0];
+          recommendations.push({
+            id: 'habit-high',
+            type: 'habit',
+            title: `✅ Habit Streak: ${habit.habit}`,
+            description: `Amazing! You're at ${habit.completionRate.toFixed(0)}% for "${habit.habit}". Keep it up!`,
+            priority: 'low',
+            action: 'Celebrate your consistency'
           });
         }
       }
 
-      // Default recommendations if no specific issues found
-      if (recommendations.length === 0) {
+      // If still no recommendations and we have data, provide encouragement
+      if (recommendations.length === 0 && daysWithData.length > 0) {
         recommendations.push({
-          id: 'general-1',
+          id: 'general-positive',
           type: 'activity',
-          title: 'Keep Up the Great Work!',
-          description: 'Your wellness patterns look good. Continue your current routine.',
+          title: '🌟 You\'re Doing Great!',
+          description: `Everything looks balanced ${timePeriod === 'today' ? 'today' : `this ${timePeriod}`}. Keep up your wellness routine!`,
           priority: 'low',
-          action: 'Maintain current habits'
+          action: 'Continue tracking your progress'
         });
       }
 
+      // Sort by priority (high -> medium -> low)
+      const priorityOrder = { high: 0, medium: 1, low: 2 };
+      recommendations.sort((a, b) => 
+        priorityOrder[a.priority] - priorityOrder[b.priority]
+      );
+
+      console.log(`✅ Generated ${recommendations.length} recommendations`);
       return { data: recommendations, error: null };
     } catch (error) {
+      console.error('❌ Error generating recommendations:', error);
       return { data: null, error };
     }
   }
@@ -1299,8 +1497,19 @@ export class AnalyticsService {
         let sleepChanges: number[] = [];
         let clarityChanges: number[] = [];
         let productivityChanges: number[] = [];
+        
+        // Store actual values for correlation calculation
+        let activityDayMoodScores: number[] = [];
+        let activityDaySleepScores: number[] = [];
+        let activityDayClarityScores: number[] = [];
+        let activityDayProductivityScores: number[] = [];
+        
+        let nonActivityDayMoodScores: number[] = [];
+        let nonActivityDaySleepScores: number[] = [];
+        let nonActivityDayClarityScores: number[] = [];
+        let nonActivityDayProductivityScores: number[] = [];
 
-        // For each activity occurrence, calculate before/after changes
+        // For each activity occurrence, calculate before/after changes and collect scores
         activityLogs.forEach(activity => {
           const activityDate = new Date(activity.date);
 
@@ -1313,6 +1522,11 @@ export class AnalyticsService {
           if (dayOfMood && dayBeforeMood) {
             moodChanges.push(dayOfMood.score - dayBeforeMood.score);
           }
+          
+          // Collect mood scores on days with this activity
+          if (dayOfMood) {
+            activityDayMoodScores.push(dayOfMood.score);
+          }
 
           // Sleep impact: compare night after activity vs night before
           const nightAfterSleep = sleepLogs.find(s => s.date === activity.date);
@@ -1320,6 +1534,11 @@ export class AnalyticsService {
 
           if (nightAfterSleep && nightBeforeSleep) {
             sleepChanges.push(nightAfterSleep.quality - nightBeforeSleep.quality);
+          }
+          
+          // Collect sleep scores on days with this activity
+          if (nightAfterSleep) {
+            activityDaySleepScores.push(nightAfterSleep.quality);
           }
 
           // Clarity impact: compare same-day or day after vs day before
@@ -1329,6 +1548,11 @@ export class AnalyticsService {
           if (dayOfClarity && dayBeforeClarity) {
             clarityChanges.push(dayOfClarity.score - dayBeforeClarity.score);
           }
+          
+          // Collect clarity scores on days with this activity
+          if (dayOfClarity) {
+            activityDayClarityScores.push(dayOfClarity.score);
+          }
 
           // Productivity impact: compare day of vs day before
           const dayOfProductivity = productivityLogs.find(p => p.date === activity.date);
@@ -1336,6 +1560,34 @@ export class AnalyticsService {
 
           if (dayOfProductivity && dayBeforeProductivity) {
             productivityChanges.push(dayOfProductivity.rating - dayBeforeProductivity.rating);
+          }
+          
+          // Collect productivity scores on days with this activity
+          if (dayOfProductivity) {
+            activityDayProductivityScores.push(dayOfProductivity.rating);
+          }
+        });
+        
+        // Collect scores from days WITHOUT this activity for comparison
+        const activityDates = new Set(activityLogs.map(a => a.date));
+        moods.forEach(mood => {
+          if (!activityDates.has(mood.date)) {
+            nonActivityDayMoodScores.push(mood.score);
+          }
+        });
+        sleepLogs.forEach(sleep => {
+          if (!activityDates.has(sleep.date)) {
+            nonActivityDaySleepScores.push(sleep.quality);
+          }
+        });
+        clarityTests.forEach(clarity => {
+          if (!activityDates.has(clarity.date)) {
+            nonActivityDayClarityScores.push(clarity.score);
+          }
+        });
+        productivityLogs.forEach(productivity => {
+          if (!activityDates.has(productivity.date)) {
+            nonActivityDayProductivityScores.push(productivity.rating);
           }
         });
 
@@ -1356,47 +1608,141 @@ export class AnalyticsService {
           ? productivityChanges.reduce((a, b) => a + b, 0) / productivityChanges.length
           : 0;
 
-        // Calculate Pearson correlations
-        const moodCorrelation = this.calculateCorrelation(
-          activityLogs.map(() => 1), // presence of activity
-          moodChanges.length > 0 ? moodChanges : [0]
-        );
+        // Calculate average scores on activity days vs non-activity days
+        const avgMoodOnActivityDays = activityDayMoodScores.length > 0
+          ? activityDayMoodScores.reduce((a, b) => a + b, 0) / activityDayMoodScores.length
+          : 0;
+        const avgMoodOnNonActivityDays = nonActivityDayMoodScores.length > 0
+          ? nonActivityDayMoodScores.reduce((a, b) => a + b, 0) / nonActivityDayMoodScores.length
+          : 0;
+          
+        const avgSleepOnActivityDays = activityDaySleepScores.length > 0
+          ? activityDaySleepScores.reduce((a, b) => a + b, 0) / activityDaySleepScores.length
+          : 0;
+        const avgSleepOnNonActivityDays = nonActivityDaySleepScores.length > 0
+          ? nonActivityDaySleepScores.reduce((a, b) => a + b, 0) / nonActivityDaySleepScores.length
+          : 0;
+          
+        const avgClarityOnActivityDays = activityDayClarityScores.length > 0
+          ? activityDayClarityScores.reduce((a, b) => a + b, 0) / activityDayClarityScores.length
+          : 0;
+        const avgClarityOnNonActivityDays = nonActivityDayClarityScores.length > 0
+          ? nonActivityDayClarityScores.reduce((a, b) => a + b, 0) / nonActivityDayClarityScores.length
+          : 0;
+          
+        const avgProductivityOnActivityDays = activityDayProductivityScores.length > 0
+          ? activityDayProductivityScores.reduce((a, b) => a + b, 0) / activityDayProductivityScores.length
+          : 0;
+        const avgProductivityOnNonActivityDays = nonActivityDayProductivityScores.length > 0
+          ? nonActivityDayProductivityScores.reduce((a, b) => a + b, 0) / nonActivityDayProductivityScores.length
+          : 0;
 
-        const sleepCorrelation = this.calculateCorrelation(
-          activityLogs.map(() => 1),
-          sleepChanges.length > 0 ? sleepChanges : [0]
-        );
+        // Calculate correlations using binary presence (1 for activity day, 0 for non-activity day)
+        // This gives us a proper correlation coefficient
+        const allDates = new Set([
+          ...moods.map(m => m.date),
+          ...sleepLogs.map(s => s.date),
+          ...clarityTests.map(c => c.date),
+          ...productivityLogs.map(p => p.date)
+        ]);
+        
+        const activityPresence: number[] = [];
+        const moodScoresForCorr: number[] = [];
+        const sleepScoresForCorr: number[] = [];
+        const clarityScoresForCorr: number[] = [];
+        const productivityScoresForCorr: number[] = [];
+        
+        allDates.forEach(date => {
+          const hasActivity = activityDates.has(date);
+          const mood = moods.find(m => m.date === date);
+          const sleep = sleepLogs.find(s => s.date === date);
+          const clarity = clarityTests.find(c => c.date === date);
+          const productivity = productivityLogs.find(p => p.date === date);
+          
+          if (mood) {
+            activityPresence.push(hasActivity ? 1 : 0);
+            moodScoresForCorr.push(mood.score);
+          }
+          if (sleep) {
+            sleepScoresForCorr.push(sleep.quality);
+          }
+          if (clarity) {
+            clarityScoresForCorr.push(clarity.score);
+          }
+          if (productivity) {
+            productivityScoresForCorr.push(productivity.rating);
+          }
+        });
 
-        const clarityCorrelation = this.calculateCorrelation(
-          activityLogs.map(() => 1),
-          clarityChanges.length > 0 ? clarityChanges : [0]
-        );
+        // Calculate Pearson correlations with proper data
+        const moodCorrelation = activityPresence.length === moodScoresForCorr.length && activityPresence.length > 1
+          ? this.calculateCorrelation(activityPresence, moodScoresForCorr)
+          : (avgMoodOnActivityDays - avgMoodOnNonActivityDays) / 10; // Fallback: normalized difference
 
-        const productivityCorrelation = this.calculateCorrelation(
-          activityLogs.map(() => 1),
-          productivityChanges.length > 0 ? productivityChanges : [0]
-        );
+        const sleepCorrelation = activityPresence.length === sleepScoresForCorr.length && sleepScoresForCorr.length > 1
+          ? this.calculateCorrelation(activityPresence.slice(0, sleepScoresForCorr.length), sleepScoresForCorr)
+          : (avgSleepOnActivityDays - avgSleepOnNonActivityDays) / 10;
 
-        // Calculate composite impact score (0-100)
-        const impactScore = Math.min(100, Math.max(0, Math.round(
-          (avgMoodChange * 10) +
-          (avgSleepChange * 10) +
-          (avgClarityChange * 10) +
-          (avgProductivityChange * 10) +
-          50 // baseline
-        )));
+        const clarityCorrelation = activityPresence.length === clarityScoresForCorr.length && clarityScoresForCorr.length > 1
+          ? this.calculateCorrelation(activityPresence.slice(0, clarityScoresForCorr.length), clarityScoresForCorr)
+          : (avgClarityOnActivityDays - avgClarityOnNonActivityDays) / 10;
 
-        // Determine trend
+        const productivityCorrelation = activityPresence.length === productivityScoresForCorr.length && productivityScoresForCorr.length > 1
+          ? this.calculateCorrelation(activityPresence.slice(0, productivityScoresForCorr.length), productivityScoresForCorr)
+          : (avgProductivityOnActivityDays - avgProductivityOnNonActivityDays) / 10;
+
+        // Calculate composite impact score (0-100) with improved algorithm
+        // Uses weighted combination of average changes, correlations, and baseline comparisons
+        const moodImpact = (avgMoodChange * 8) + (moodCorrelation * 15) + ((avgMoodOnActivityDays - avgMoodOnNonActivityDays) * 5);
+        const sleepImpact = (avgSleepChange * 8) + (sleepCorrelation * 15) + ((avgSleepOnActivityDays - avgSleepOnNonActivityDays) * 5);
+        const clarityImpact = (avgClarityChange * 8) + (clarityCorrelation * 15) + ((avgClarityOnActivityDays - avgClarityOnNonActivityDays) * 5);
+        const productivityImpact = (avgProductivityChange * 8) + (productivityCorrelation * 15) + ((avgProductivityOnActivityDays - avgProductivityOnNonActivityDays) * 5);
+        
+        const rawImpactScore = moodImpact + sleepImpact + clarityImpact + productivityImpact + 50;
+        const impactScore = Math.min(100, Math.max(0, Math.round(rawImpactScore)));
+        
+        console.log(`📊 ${activityName}: Impact=${impactScore}, Mood Δ=${avgMoodChange.toFixed(2)}, Sleep Δ=${avgSleepChange.toFixed(2)}, Clarity Δ=${avgClarityChange.toFixed(2)}, Prod Δ=${avgProductivityChange.toFixed(2)}`);
+
+        // Determine trend based on recent vs older occurrences
         let trend: 'up' | 'down' | 'flat' = 'flat';
-        const totalChange = avgMoodChange + avgSleepChange + avgClarityChange + avgProductivityChange;
-        if (totalChange > 0.5) trend = 'up';
-        else if (totalChange < -0.5) trend = 'down';
+        if (activityLogs.length >= 3) {
+          // Compare recent half vs older half
+          const midPoint = Math.floor(activityLogs.length / 2);
+          const recentLogs = activityLogs.slice(0, midPoint);
+          const olderLogs = activityLogs.slice(midPoint);
+          
+          // Calculate average impact for each period
+          const recentChanges = moodChanges.slice(0, midPoint).concat(sleepChanges.slice(0, midPoint));
+          const olderChanges = moodChanges.slice(midPoint).concat(sleepChanges.slice(midPoint));
+          
+          const recentAvg = recentChanges.length > 0 
+            ? recentChanges.reduce((a, b) => a + b, 0) / recentChanges.length 
+            : 0;
+          const olderAvg = olderChanges.length > 0 
+            ? olderChanges.reduce((a, b) => a + b, 0) / olderChanges.length 
+            : 0;
+          
+          if (recentAvg > olderAvg + 0.3) trend = 'up';
+          else if (recentAvg < olderAvg - 0.3) trend = 'down';
+        } else {
+          // Fallback to simple total change
+          const totalChange = avgMoodChange + avgSleepChange + avgClarityChange + avgProductivityChange;
+          if (totalChange > 0.5) trend = 'up';
+          else if (totalChange < -0.5) trend = 'down';
+        }
 
-        // Determine confidence based on sample size
+        // Determine confidence based on sample size and data availability
         let confidence: 'high' | 'medium' | 'low' = 'low';
         const totalDataPoints = moodChanges.length + sleepChanges.length + clarityChanges.length + productivityChanges.length;
-        if (totalDataPoints >= 20) confidence = 'high';
-        else if (totalDataPoints >= 10) confidence = 'medium';
+        const uniqueMetricsWithData = [
+          moodChanges.length > 0,
+          sleepChanges.length > 0,
+          clarityChanges.length > 0,
+          productivityChanges.length > 0
+        ].filter(Boolean).length;
+        
+        if (totalDataPoints >= 20 && uniqueMetricsWithData >= 3) confidence = 'high';
+        else if (totalDataPoints >= 10 && uniqueMetricsWithData >= 2) confidence = 'medium';
 
         activityImpacts.push({
           activityName,
@@ -1423,44 +1769,68 @@ export class AnalyticsService {
       // Sort by impact score descending
       activityImpacts.sort((a, b) => b.impactScore - a.impactScore);
 
-      // Generate insights
+      // Generate smart, actionable insights
       const insights: string[] = [];
 
-      // Top positive impact
-      const topPositive = activityImpacts.filter(a => a.impactScore > 55).slice(0, 3);
+      // Top positive impact with specific benefits
+      const topPositive = activityImpacts.filter(a => a.impactScore >= 60 && a.confidence !== 'low').slice(0, 2);
       if (topPositive.length > 0) {
-        const names = topPositive.map(a => a.activityName).join(', ');
-        insights.push(`${names} showed the strongest positive impact on your well-being.`);
+        topPositive.forEach(activity => {
+          const benefits: string[] = [];
+          if (activity.avgMoodChange > 0.5) benefits.push(`mood (+${activity.avgMoodChange.toFixed(1)})`);
+          if (activity.avgSleepChange > 0.5) benefits.push(`sleep (+${activity.avgSleepChange.toFixed(1)})`);
+          if (activity.avgClarityChange > 0.5) benefits.push(`clarity (+${activity.avgClarityChange.toFixed(1)})`);
+          if (activity.avgProductivityChange > 0.5) benefits.push(`productivity (+${activity.avgProductivityChange.toFixed(1)})`);
+          
+          if (benefits.length > 0) {
+            insights.push(`${activity.emoji} ${activity.activityName} boosts your ${benefits.join(', ')}. Keep it up!`);
+          }
+        });
       }
 
-      // Top negative impact
-      const topNegative = activityImpacts.filter(a => a.impactScore < 45).slice(0, 2);
+      // Top negative impact with specific concerns
+      const topNegative = activityImpacts.filter(a => a.impactScore < 45 && a.confidence !== 'low').slice(0, 1);
       if (topNegative.length > 0) {
-        const names = topNegative.map(a => a.activityName).join(', ');
-        insights.push(`${names} correlated with lower well-being metrics - consider alternatives.`);
+        const activity = topNegative[0];
+        const concerns: string[] = [];
+        if (activity.avgMoodChange < -0.5) concerns.push('mood');
+        if (activity.avgSleepChange < -0.5) concerns.push('sleep quality');
+        if (activity.avgClarityChange < -0.5) concerns.push('mental clarity');
+        if (activity.avgProductivityChange < -0.5) concerns.push('productivity');
+        
+        if (concerns.length > 0) {
+          insights.push(`⚠️ ${activity.activityName} may be affecting your ${concerns.join(' and ')} negatively. Consider reducing frequency.`);
+        }
       }
 
-      // Most frequent activity
-      const mostFrequent = activityImpacts.sort((a, b) => b.frequencyPercent - a.frequencyPercent)[0];
-      if (mostFrequent && mostFrequent.frequencyPercent >= 15) {
-        insights.push(`${mostFrequent.activityName} accounted for ${mostFrequent.frequencyPercent}% of your activities.`);
+      // Strong correlation insights
+      const strongMoodCorrelation = activityImpacts.find(a => 
+        Math.abs(a.correlations.mood) > 0.5 && a.confidence !== 'low' && a.totalOccurrences >= 3
+      );
+      if (strongMoodCorrelation && insights.length < 3) {
+        const direction = strongMoodCorrelation.correlations.mood > 0 ? 'strongly linked to better' : 'associated with lower';
+        insights.push(`${strongMoodCorrelation.activityName} is ${direction} mood (${Math.abs(strongMoodCorrelation.correlations.mood * 100).toFixed(0)}% correlation).`);
       }
 
-      // Strong mood booster
-      const strongMoodBooster = activityImpacts.find(a => a.avgMoodChange > 0.5 && a.confidence !== 'low');
-      if (strongMoodBooster) {
-        insights.push(`${strongMoodBooster.activityName} consistently improved mood by ${strongMoodBooster.avgMoodChange.toFixed(1)} points.`);
+      // Trending activity
+      const trendingUp = activityImpacts.find(a => a.trend === 'up' && a.confidence !== 'low' && a.totalOccurrences >= 3);
+      if (trendingUp && insights.length < 3) {
+        insights.push(`📈 ${trendingUp.activityName} shows improving impact over time - your body is adapting well!`);
       }
 
-      // Sleep quality impact
-      const sleepBooster = activityImpacts.find(a => a.avgSleepChange > 0.5 && a.confidence !== 'low');
-      if (sleepBooster) {
-        insights.push(`${sleepBooster.activityName} enhanced sleep quality by ${sleepBooster.avgSleepChange.toFixed(1)} points.`);
+      // High frequency activity check
+      const highFrequency = activityImpacts.find(a => a.frequencyPercent >= 20);
+      if (highFrequency && insights.length < 3) {
+        if (highFrequency.impactScore >= 60) {
+          insights.push(`${highFrequency.activityName} is your most common activity (${highFrequency.frequencyPercent}%) and it's working great!`);
+        } else if (highFrequency.impactScore < 50) {
+          insights.push(`${highFrequency.activityName} accounts for ${highFrequency.frequencyPercent}% of activities. Consider diversifying for better balance.`);
+        }
       }
 
       // Default insight
       if (insights.length === 0) {
-        insights.push('Continue logging to reveal activity impact patterns.');
+        insights.push('Continue logging activities and wellbeing metrics to reveal detailed impact patterns.');
       }
 
       console.log(`✅ Generated ${activityImpacts.length} activity impacts with ${insights.length} insights`);

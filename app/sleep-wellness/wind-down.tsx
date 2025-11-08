@@ -28,6 +28,7 @@ import {
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SleepService } from '@/services/sleep.service';
 import { RewardsService, POINT_VALUES } from '@/services/rewards.service';
+import { HabitsService } from '@/services/habits.service';
 
 const SLEEP_PROFILE_KEY = 'sleep_profile';
 const WIND_DOWN_SESSION_KEY = 'wind_down_session';
@@ -124,18 +125,6 @@ interface WindDownHabit {
   completed: boolean;
 }
 
-// Mock active sleep habits from database
-const MOCK_ACTIVE_SLEEP_HABITS: WindDownHabit[] = [
-  { id: 'meditation_30min', label: 'Meditate for 30 minutes', completed: false },
-  { id: 'bath_shower', label: 'Take a warm bath or shower', completed: false },
-  { id: 'no_caffeine', label: 'No caffeine after 2 PM', completed: false },
-  { id: 'reading_20min', label: 'Read for 20 minutes', completed: false },
-  { id: 'dim_lights', label: 'Dim the lights 1 hour before bed', completed: false },
-  { id: 'screen_off', label: 'Turn off screens 30 min before bed', completed: false },
-  { id: 'room_temp', label: 'Set room temperature to 18-20°C', completed: false },
-  { id: 'journal', label: 'Write in gratitude journal', completed: false },
-];
-
 // Categories for audio library
 const AUDIO_CATEGORIES = ['All', 'Guided Meditation', 'Bedtime Stories', 'Nature Sounds', 'Ambient', 'Quick Tools'];
 
@@ -161,16 +150,40 @@ export default function WindDownFlow() {
   }, []);
 
   const loadActiveHabits = async () => {
+    if (!user) return;
+    
     try {
-      // TODO: Replace with actual database query
-      // const habits = await HabitService.getByCategory('sleep', userId);
-      // For now, use mock data
-      const userId = user?.id || 'guest_user';
-      const mockHabits = MOCK_ACTIVE_SLEEP_HABITS;
-      setActiveHabitsFromDB(mockHabits);
+      // Fetch real habits from database filtered by Sleep category
+      const result = await HabitsService.getAll(user.id);
       
-      // Also set as wind-down habits (merge with existing)
-      setWindDownHabits(mockHabits);
+      if (result.error) {
+        console.error('Error loading habits:', result.error);
+        return;
+      }
+
+      // Filter for sleep category habits and map to WindDownHabit format
+      const sleepHabits = (result.data || [])
+        .filter(habit => habit.category === 'Sleep')
+        .map(habit => ({
+          id: habit.id,
+          label: habit.name,
+          completed: false, // Will be checked against today's logs
+        }));
+
+      // Check today's completion status
+      const today = new Date().toISOString().split('T')[0];
+      const habitsWithStatus = await Promise.all(
+        sleepHabits.map(async (habit) => {
+          const logResult = await HabitsService.getHabitLogByDate(habit.id, today, user.id);
+          return {
+            ...habit,
+            completed: logResult.data?.completed || false,
+          };
+        })
+      );
+
+      setActiveHabitsFromDB(habitsWithStatus);
+      setWindDownHabits(habitsWithStatus);
     } catch (error) {
       console.error('Error loading active habits:', error);
     }
@@ -236,13 +249,39 @@ export default function WindDownFlow() {
   };
 
   const toggleHabit = async (habitId: string) => {
+    if (!user) return;
+
+    // Optimistically update UI
     setWindDownHabits(prev =>
       prev.map(h => (h.id === habitId ? { ...h, completed: !h.completed } : h))
     );
     
-    // TODO: Save habit completion to database
-    // const userId = user?.id || 'guest_user';
-    // await HabitService.markComplete(habitId, userId);
+    try {
+      // Get current completion status
+      const habit = windDownHabits.find(h => h.id === habitId);
+      if (!habit) return;
+
+      const today = new Date().toISOString().split('T')[0];
+      const newCompletionStatus = !habit.completed;
+
+      // Log habit completion to database
+      await HabitsService.logHabit(
+        habitId,
+        {
+          completed: newCompletionStatus,
+          date: today,
+        },
+        user.id
+      );
+
+      console.log(`Habit ${habitId} marked as ${newCompletionStatus ? 'completed' : 'incomplete'}`);
+    } catch (error) {
+      console.error('Error saving habit completion:', error);
+      // Revert UI on error
+      setWindDownHabits(prev =>
+        prev.map(h => (h.id === habitId ? { ...h, completed: !h.completed } : h))
+      );
+    }
   };
 
   const getFilteredTracks = () => {
@@ -344,7 +383,9 @@ export default function WindDownFlow() {
             Prepare for restful sleep
           </Text>
         </View>
-        <View style={{ width: 24 }} />
+        <TouchableOpacity onPress={() => router.replace('/sleep-wellness')} style={styles.backButton}>
+          <X size={24} color={theme.colors.text} />
+        </TouchableOpacity>
       </View>
 
       <ScrollView

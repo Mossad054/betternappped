@@ -228,7 +228,9 @@ export default function TrendsScreen() {
             Data-driven insights
           </Text>
         </View>
-        <View style={{ width: 24 }} />
+        <TouchableOpacity onPress={() => router.replace('/sleep-wellness')} style={styles.backButton}>
+          <X size={24} color={theme.colors.text} />
+        </TouchableOpacity>
       </View>
 
       <ScrollView
