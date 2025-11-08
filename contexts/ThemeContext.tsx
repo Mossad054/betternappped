@@ -60,21 +60,21 @@ const darkColors = {
   surface: '#0F0F0F',                    // Elevated surface - slightly raised
   surfaceVariant: '#1A1A1A',             // Card variants - visible depth
   
-  textPrimary: '#B8B8B8',                // Muted gray - comfortable
-  textSecondary: '#A0A0A0',              // Softer gray - easy on eyes
-  textTertiary: '#888888',               // Light gray - subtle
-  textLight: '#707070',                  // Dim gray - background text
+  textPrimary: '#E8E8E8',                // Brighter gray - better contrast
+  textSecondary: '#C8C8C8',              // Bright gray - readable
+  textTertiary: '#A8A8A8',               // Medium gray - visible
+  textLight: '#909090',                  // Subtle gray - background text
   
   border: 'rgba(255, 255, 255, 0.15)',   // Bright borders
   borderLight: 'rgba(255, 255, 255, 0.10)',
   divider: 'rgba(255, 255, 255, 0.12)',
   
-  icon: '#B8B8B8',                       // Muted gray icons
+  icon: '#E8E8E8',                       // Bright gray icons
   iconActive: '#FFB088',                 // Vibrant coral
-  iconInactive: '#999999',               // Muted gray inactive
+  iconInactive: '#A8A8A8',               // Medium gray inactive
   
   // Legacy aliases
-  text: '#B8B8B8',
+  text: '#E8E8E8',
   textInverted: '#000000',
   card: '#0F0F0F',
   cardSecondary: '#1A1A1A',

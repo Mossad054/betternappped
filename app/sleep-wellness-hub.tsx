@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { SleepService } from '@/services/sleep.service';
+import { useAuth } from '@/contexts/AuthContext';
 import {
   View,
   Text,
@@ -284,6 +285,7 @@ export default function SleepWellnessHub() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { theme } = useTheme();
+  const { user, isGuest } = useAuth();
   const [selectedAchievement, setSelectedAchievement] = useState<Achievement | null>(null);
   const [achievementModalVisible, setAchievementModalVisible] = useState(false);
   const [selectedRecommendation, setSelectedRecommendation] = useState<Recommendation | null>(null);
@@ -308,6 +310,9 @@ export default function SleepWellnessHub() {
       setSleepStats(null);
       setSleepTrends(null);
       
+      // Get the effective user ID
+      const effectiveUserId = user?.id || 'guest_user';
+      
       // Get last 30 days of sleep logs
       const date = new Date();
       const endDate = date.toISOString().split('T')[0];
@@ -315,14 +320,21 @@ export default function SleepWellnessHub() {
       const startDate = date.toISOString().split('T')[0];
 
       const [logsResult, avgHoursResult, qualityTrendResult] = await Promise.all([
-        SleepService.getByDateRange('', startDate, endDate),
-        SleepService.getAverageHours('', 30),
-        SleepService.getQualityTrend('', 30)
+        SleepService.getByDateRange(effectiveUserId, startDate, endDate),
+        SleepService.getAverageHours(effectiveUserId, 30),
+        SleepService.getQualityTrend(effectiveUserId, 30)
       ]);
 
-      if (logsResult.error) throw new Error('Failed to fetch sleep logs');
-      if (avgHoursResult.error) throw new Error('Failed to fetch average hours');
-      if (qualityTrendResult.error) throw new Error('Failed to fetch quality trend');
+      // Handle errors gracefully - "No data found" is not an error
+      if (logsResult.error && logsResult.error !== 'No data found') {
+        console.warn('Failed to fetch sleep logs:', logsResult.error);
+      }
+      if (avgHoursResult.error && avgHoursResult.error !== 'No data found') {
+        console.warn('Failed to fetch average hours:', avgHoursResult.error);
+      }
+      if (qualityTrendResult.error && qualityTrendResult.error !== 'No data found') {
+        console.warn('Failed to fetch quality trend:', qualityTrendResult.error);
+      }
 
       const logs = Array.isArray(logsResult?.data) ? logsResult.data : [];
       setSleepLogs(logs);
@@ -345,7 +357,9 @@ export default function SleepWellnessHub() {
 
       // Calculate average quality
       const qualityScores = qualityTrendResult.data || [];
-      const avgQualityScore = qualityScores.reduce((sum, score) => sum + score, 0) / qualityScores.length;
+      const avgQualityScore = qualityScores.length > 0 
+        ? qualityScores.reduce((sum, score) => sum + score, 0) / qualityScores.length 
+        : 3;
       const qualityMap = {
         1: 'Poor',
         2: 'Fair',
@@ -470,8 +484,12 @@ export default function SleepWellnessHub() {
         const date = new Date(log.date);
         return date.getDay() === 0 || date.getDay() === 6;
       });
-      const avgWeekday = weekdayLogs.reduce((sum, log) => sum + Number(log.hours || 0), 0) / (weekdayLogs.length || 1);
-        const avgWeekend = weekendLogs.reduce((sum, log) => sum + Number(log.hours), 0) / weekendLogs.length;
+      const avgWeekday = weekdayLogs.length > 0 
+        ? weekdayLogs.reduce((sum, log) => sum + Number(log.hours || 0), 0) / weekdayLogs.length 
+        : 0;
+      const avgWeekend = weekendLogs.length > 0 
+        ? weekendLogs.reduce((sum, log) => sum + Number(log.hours || 0), 0) / weekendLogs.length 
+        : 0;
         return Math.abs(avgWeekend - avgWeekday) > 1;
       }
     },
@@ -488,7 +506,7 @@ export default function SleepWellnessHub() {
   const getRelevantSleepTips = () => {
     // Start with essential tips if no data
     if (!sleepStats || !sleepLogs) {
-      return sleepTipsDb.filter(tip => tip.conditions(null));
+      return sleepTipsDb.filter(tip => tip.conditions(null, []));
     }
 
     // Filter tips based on user's sleep data
@@ -583,8 +601,10 @@ export default function SleepWellnessHub() {
 
   // Use effect for data fetching
   useEffect(() => {
-    fetchSleepData();
-  }, []);
+    if (user || isGuest) {
+      fetchSleepData();
+    }
+  }, [user, isGuest]);
 
   const handlePlayPlaylist = (playlistId: string) => {
     console.log('Playing playlist:', playlistId);
@@ -753,7 +773,7 @@ export default function SleepWellnessHub() {
             <Text style={[styles.quickLogTitle, { color: theme.colors.text }]}>Quick Log</Text>
             <TouchableOpacity
               style={[styles.toolButton, { backgroundColor: theme.colors.primary }]}
-              onPress={() => router.push('/(tabs)/add-entry?type=sleep')}
+              onPress={() => router.push('/(tabs)/add-entry' as any)}
             >
               <Plus size={20} color="#FFFFFF" />
               <Text style={styles.toolButtonText}>Log Last Night's Sleep</Text>
@@ -805,6 +825,16 @@ export default function SleepWellnessHub() {
           <View style={styles.quickActionsSection}>
             <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Quick Actions</Text>
             <View style={styles.quickActionsGrid}>
+              <TouchableOpacity
+                style={[styles.quickActionButton, { backgroundColor: theme.colors.primary + '20' }]}
+                onPress={() => router.push('/sleep-wellness/programme-hub')}
+              >
+                <BookOpen size={20} color={theme.colors.primary} />
+                <Text style={[styles.quickActionText, { color: theme.colors.text }]}>
+                  4-Week Sleep Programme
+                </Text>
+              </TouchableOpacity>
+
               <TouchableOpacity
                 style={[styles.quickActionButton, { backgroundColor: theme.colors.primary + '20' }]}
                 onPress={() => router.push('/experiments-hub')}
@@ -1075,10 +1105,10 @@ export default function SleepWellnessHub() {
 
                 <View style={styles.progressSection}>
                   <Text style={[styles.progressTitle, { color: theme.colors.text }]}>Progress</Text>
-                  <View style={styles.progressBar}>
+                  <View style={styles.modalProgressBar}>
                     <View
                       style={[
-                        styles.progressFill,
+                        styles.modalProgressFill,
                         { 
                           width: `${((selectedAchievement?.progress || 0) / (selectedAchievement?.total || 1)) * 100}%`,
                           backgroundColor: theme.colors.primary 
@@ -1151,12 +1181,12 @@ export default function SleepWellnessHub() {
               </Text>
 
               <View style={styles.feedbackSection}>
-                <Text style={[styles.feedbackTitle, { color: theme.colors.text }]}>
+                <Text style={[styles.modalFeedbackTitle, { color: theme.colors.text }]}>
                   Did you try this activity tonight?
                 </Text>
-                <View style={styles.feedbackButtons}>
+                <View style={styles.modalFeedbackButtons}>
                   <TouchableOpacity
-                    style={[styles.feedbackButton, { backgroundColor: theme.colors.success }]}
+                    style={[styles.modalFeedbackButton, { backgroundColor: theme.colors.success }]}
                     onPress={() => {
                       // TODO: Save as logged activity
                       console.log('Activity logged: Yes');
@@ -1167,7 +1197,7 @@ export default function SleepWellnessHub() {
                     <Text style={styles.feedbackButtonText}>Yes</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
-                    style={[styles.feedbackButton, { backgroundColor: theme.colors.error }]}
+                    style={[styles.modalFeedbackButton, { backgroundColor: theme.colors.error }]}
                     onPress={() => {
                       console.log('Activity logged: No');
                       setRecommendationModalVisible(false);
@@ -1719,13 +1749,13 @@ const styles = StyleSheet.create({
     fontWeight: '600' as const,
     color: '#1F2937',
   },
-  progressBar: {
+  modalProgressBar: {
     height: 8,
     backgroundColor: '#E5E7EB',
     borderRadius: 4,
     overflow: 'hidden',
   },
-  progressFill: {
+  modalProgressFill: {
     height: '100%',
     backgroundColor: '#34B27B',
     borderRadius: 4,
@@ -1766,16 +1796,16 @@ const styles = StyleSheet.create({
   feedbackSection: {
     gap: 16,
   },
-  feedbackTitle: {
+  modalFeedbackTitle: {
     fontSize: 16,
     fontWeight: '600' as const,
     color: '#1F2937',
   },
-  feedbackButtons: {
+  modalFeedbackButtons: {
     flexDirection: 'row',
     gap: 12,
   },
-  feedbackButton: {
+  modalFeedbackButton: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',

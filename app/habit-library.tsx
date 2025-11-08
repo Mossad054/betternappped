@@ -50,6 +50,18 @@ export default function HabitLibraryScreen() {
 
   // Handle prefill from Impact Analysis
   useEffect(() => {
+    // Handle direct category filter from URL (e.g., from Sleep Programme)
+    if (params.category && !params.prefill) {
+      const category = params.category as string;
+      if (category === 'Sleep' || category === 'Intimacy' || category === 'Health' || 
+          category === 'Anxiety' || category === 'Mood' || category === 'MentalClarity') {
+        setSelectedCategory(category as HabitCategory);
+        console.log('📂 Filtering by category:', category);
+      }
+      return;
+    }
+
+    // Handle prefill from Impact Analysis with name
     if (params.prefill === 'true' && params.name) {
       setIsFromPrefill(true);
       console.log('📥 Prefill params received:', params);

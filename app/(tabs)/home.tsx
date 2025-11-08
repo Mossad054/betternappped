@@ -1367,7 +1367,7 @@ export default function HomeScreen() {
 
         <TouchableOpacity 
           style={[styles.featureCard, { backgroundColor: theme.colors.card }]}
-          onPress={() => router.push('/sleep-wellness-hub')}
+          onPress={() => router.push('/sleep-wellness' as any)}
         >
           <View style={styles.featureContent}>
             <Moon size={32} color={theme.colors.primary} />
@@ -1394,7 +1394,7 @@ export default function HomeScreen() {
               </Text>
             </View>
           ) : error ? (
-            <View style={[styles.errorContainer, { backgroundColor: theme.colors.errorContainer }]}>
+            <View style={[styles.errorContainer, { backgroundColor: theme.colors.card }]}>
               <Text style={[styles.errorText, { color: theme.colors.error }]}>
                 {error}
               </Text>
@@ -1402,24 +1402,27 @@ export default function HomeScreen() {
                 style={[styles.retryButton, { backgroundColor: theme.colors.primary }]}
                 onPress={loadData}
               >
-                <Text style={[styles.retryButtonText, { color: theme.colors.onPrimary }]}>Retry</Text>
+                <Text style={[styles.retryButtonText, { color: '#FFFFFF' }]}>Retry</Text>
               </TouchableOpacity>
             </View>
           ) : (
             <>
-              {/* Summary Card - Show top insight */}
-              {impactData?.insights && impactData.insights.length > 0 && (
+              {/* Dynamic Top Impact Activity Card */}
+              {impactData?.topActivity && (
                 <View style={[
                   styles.summaryCard, 
-                  { backgroundColor: impactData.summary.positiveImpact > 0 ? theme.colors.success : theme.colors.warning }
+                  { 
+                    backgroundColor: theme.colors.accent,
+                    borderLeftColor: theme.colors.primary
+                  }
                 ]}>
-                  <Text style={[styles.summaryText, { color: theme.colors.onPrimary }]}>
-                    {impactData.insights[0]}
+                  <Text style={[styles.summaryText, { color: theme.colors.text }]}>
+                    {impactData.topActivity.emoji} {impactData.topActivity.name} has the highest positive impact on your wellbeing! Keep it up! 🎉
                   </Text>
                 </View>
               )}
 
-              <View style={styles.impactGrid}>
+              <View styles={styles.impactGrid}>
                 {/* Mental Clarity Impact */}
                 {impactData?.correlations?.map((correlation) => {
                   if (!correlation.metrics) return null;
@@ -1452,7 +1455,7 @@ export default function HomeScreen() {
                       
                       <View style={styles.impactInfo}>
                         <Text style={[styles.impactLabel, { color: theme.colors.text }]}>
-                          {correlation.category}
+                          {correlation.name || correlation.category}
                         </Text>
                         <View style={[styles.impactBar, { backgroundColor: theme.colors.border }]}>
                           <View style={[
@@ -1483,10 +1486,10 @@ export default function HomeScreen() {
                 )}
               </View>
               
-              {/* Additional Insights */}
-              {impactData?.insights && impactData.insights.length > 1 && (
+                {/* Additional Insights */}
+              {impactData?.insights && impactData.insights.length > 0 && (
                 <View style={styles.insightsContainer}>
-                  {impactData.insights.slice(1).map((insight, index) => (
+                  {impactData.insights.map((insight, index) => (
                     <Text key={index} style={[styles.insightText, { color: theme.colors.textSecondary }]}>
                       • {insight}
                     </Text>
@@ -2658,17 +2661,14 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
   summaryCard: {
-    backgroundColor: '#D9F7A3',
     padding: 18,
     borderRadius: 16,
     marginBottom: 16,
     borderLeftWidth: 4,
-    borderLeftColor: '#A8E6CF',
   },
   summaryText: {
     fontSize: 15,
-    color: '#1E1E1E',
-    fontWeight: '500' as const,
+    fontWeight: '600' as const,
     lineHeight: 22,
   },
   modalContainer: {
@@ -2797,7 +2797,7 @@ const styles = StyleSheet.create({
   streakDescription: {
     fontSize: 15,
     fontWeight: '600' as const,
-    marginTop: 8,
+    marginTop: 16,
     textAlign: 'center',
     fontStyle: 'italic' as const,
   },
