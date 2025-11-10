@@ -8,7 +8,7 @@ import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Plus, X } from 'lu
 import { AnalyticsService } from '@/services/analytics.service';
 import { useRealtimeMoods, useRealtimeActivities, useRealtimeSleep, useRealtimeHabits, useRealtimeExperiments } from '@/hooks/useRealtimeData';
 import DayDetailModal from '@/components/DayDetailModal';
-import type { DailyDetailData, MonthlySummary, WellBeingLegend } from '@/services/analytics.service';
+import type { DailyDetailData, MonthlySummary, WellBeingLegend, MonthOverview } from '@/services/analytics.service';
 
 export default function CalendarScreen() {
   const insets = useSafeAreaInsets();
@@ -30,6 +30,8 @@ export default function CalendarScreen() {
   const [summaryLoading, setSummaryLoading] = useState(false);
   const [wellBeingLegend, setWellBeingLegend] = useState<WellBeingLegend | null>(null);
   const [legendLoading, setLegendLoading] = useState(false);
+  const [monthOverview, setMonthOverview] = useState<MonthOverview | null>(null);
+  const [overviewLoading, setOverviewLoading] = useState(false);
 
   const year = useMemo(() => currentDate.getFullYear(), [currentDate]);
   const month = useMemo(() => currentDate.getMonth() + 1, [currentDate]);
@@ -208,17 +210,45 @@ export default function CalendarScreen() {
     }
   }, [user, year, month]);
 
+  const loadMonthOverview = useCallback(async () => {
+    if (!user) {
+      setMonthOverview(null);
+      return;
+    }
+
+    setOverviewLoading(true);
+    try {
+      console.log(`📊 Loading month overview for ${year}-${month}`);
+      const { data, error } = await AnalyticsService.getMonthOverview(user.id, year, month);
+      
+      if (error) {
+        console.error('Error loading month overview:', error);
+        setMonthOverview(null);
+      } else {
+        setMonthOverview(data);
+        console.log('📊 Month overview loaded:', data);
+      }
+    } catch (err) {
+      console.error('Error loading month overview:', err);
+      setMonthOverview(null);
+    } finally {
+      setOverviewLoading(false);
+    }
+  }, [user, year, month]);
+
   useEffect(() => {
     if (user) {
       loadCalendarData(false);
       loadMonthlySummary(); // Load monthly summary alongside calendar data
       loadWellBeingLegend(); // Load well-being legend alongside calendar data
+      loadMonthOverview(); // Load month overview for "This Month Overview" card
     } else {
       // If no user, ensure loading is false
       setLoading(false);
       setCalendarData({});
       setMonthlySummary(null);
       setWellBeingLegend(null);
+      setMonthOverview(null);
     }
   }, [user, year, month]); // Removed loadCalendarData from deps to prevent infinite loop
 
@@ -238,11 +268,12 @@ export default function CalendarScreen() {
 
   // Set up real-time subscriptions - these will trigger loadCalendarData on changes
   const handleRealtimeUpdate = useCallback(() => {
-    console.log('Realtime update detected - refreshing calendar, summary, and legend');
+    console.log('Realtime update detected - refreshing calendar, summary, legend, and overview');
     loadCalendarData(true); // Force refresh on realtime updates
     loadMonthlySummary(); // Also refresh monthly summary
     loadWellBeingLegend(); // Also refresh well-being legend
-  }, [loadCalendarData, loadMonthlySummary, loadWellBeingLegend]);
+    loadMonthOverview(); // Also refresh month overview
+  }, [loadCalendarData, loadMonthlySummary, loadWellBeingLegend, loadMonthOverview]);
 
   useRealtimeMoods(user?.id || '', handleRealtimeUpdate);
   useRealtimeActivities(user?.id || '', handleRealtimeUpdate);
@@ -255,8 +286,9 @@ export default function CalendarScreen() {
     await loadCalendarData(true); // Force refresh on manual pull-to-refresh
     await loadMonthlySummary(); // Also refresh monthly summary
     await loadWellBeingLegend(); // Also refresh well-being legend
+    await loadMonthOverview(); // Also refresh month overview
     setRefreshing(false);
-  }, [loadCalendarData, loadMonthlySummary, loadWellBeingLegend]);
+  }, [loadCalendarData, loadMonthlySummary, loadWellBeingLegend, loadMonthOverview]);
 
   const selectedDayData = useMemo(() => {
     return selectedDayDetailData;
@@ -277,7 +309,47 @@ export default function CalendarScreen() {
     return new Date(year, month - 1, 1).getDay();
   };
 
+  // Calculate the minimum allowed date (3 months back from today)
+  const getMinAllowedDate = () => {
+    const today = new Date();
+    const minDate = new Date(today.getFullYear(), today.getMonth() - 3, 1);
+    return minDate;
+  };
+
+  // Check if we can navigate to previous month (not more than 3 months back)
+  const canNavigateToPrevMonth = useMemo(() => {
+    const minDate = getMinAllowedDate();
+    const currentMonthStart = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
+    return currentMonthStart > minDate;
+  }, [currentDate]);
+
+  // Check if we can navigate to next month (not future months)
+  const canNavigateToNextMonth = useMemo(() => {
+    const today = new Date();
+    const currentMonthStart = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
+    const todayMonthStart = new Date(today.getFullYear(), today.getMonth(), 1);
+    return currentMonthStart < todayMonthStart;
+  }, [currentDate]);
+
   const navigateMonth = (direction: 'prev' | 'next') => {
+    if (direction === 'prev' && !canNavigateToPrevMonth) {
+      Alert.alert(
+        '3-Month Limit',
+        'You can only view and log data for the last 3 months.',
+        [{ text: 'OK', style: 'default' }]
+      );
+      return;
+    }
+
+    if (direction === 'next' && !canNavigateToNextMonth) {
+      Alert.alert(
+        'Current Month',
+        'You cannot navigate to future months.',
+        [{ text: 'OK', style: 'default' }]
+      );
+      return;
+    }
+
     const newDate = new Date(currentDate);
     if (direction === 'prev') {
       newDate.setMonth(newDate.getMonth() - 1);
@@ -301,6 +373,18 @@ export default function CalendarScreen() {
       Alert.alert(
         'Future Date',
         'You cannot log data for future dates. Please select today or a past date.',
+        [{ text: 'OK', style: 'default' }]
+      );
+      return;
+    }
+
+    // Check if date is within the allowed 3-month range
+    const minDate = getMinAllowedDate();
+    const selectedDateObj = new Date(date + 'T00:00:00');
+    if (selectedDateObj < minDate) {
+      Alert.alert(
+        '3-Month Limit',
+        'You can only view and log data for the last 3 months. This date is too far in the past.',
         [{ text: 'OK', style: 'default' }]
       );
       return;
@@ -375,9 +459,9 @@ export default function CalendarScreen() {
   const handleConfirmLogData = () => {
     if (selectedDate) {
       setConfirmLogModalVisible(false);
-      console.log(`Navigating to add-entry for date: ${selectedDate}`);
-      // Navigate to add-entry page with date parameter
-      router.push(`/add-entry?date=${selectedDate}`);
+      console.log(`Navigating to journal for date: ${selectedDate}`);
+      // Navigate to journal page with date parameter
+      router.push(`/(tabs)/journal?date=${selectedDate}`);
     }
   };
 
@@ -414,105 +498,118 @@ export default function CalendarScreen() {
       const date = `${year}-${month.toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}`;
       const dayData = calendarData[date];
       const isToday = date === new Date().toISOString().split('T')[0];
+      
+      // Check if date is within the allowed 3-month range
+      const minDate = getMinAllowedDate();
+      const dateObj = new Date(date + 'T00:00:00');
+      const isOutOfRange = dateObj < minDate;
+      const isFutureDate = date > new Date().toISOString().split('T')[0];
+      
+      // Only disable dates that are truly out of range (beyond 3 months or future)
+      const isDisabled = isOutOfRange || isFutureDate;
 
       // Check if this date has data - simplified since we only store days with data
       const hasData = !!dayData && dayData.hasData === true;
+      
+      // Get mood-based styling
+      const getMoodStyle = () => {
+        if (!hasData || !dayData.mood) return null;
+        
+        const score = dayData.mood.score;
+        if (score >= 4.5) return { bg: '#A78BFA', emoji: '😊' }; // Purple - Very Happy
+        if (score >= 4) return { bg: '#34D399', emoji: '😊' }; // Green - Happy
+        if (score >= 3.5) return { bg: '#FBBF24', emoji: '😌' }; // Yellow - Content
+        if (score >= 3) return { bg: '#60A5FA', emoji: '😐' }; // Blue - Neutral
+        if (score >= 2.5) return { bg: '#93C5FD', emoji: '😕' }; // Light Blue - Slightly Down
+        return { bg: '#FB923C', emoji: '😔' }; // Orange - Tough
+      };
+      
+      const moodStyle = getMoodStyle();
       
       days.push(
         <TouchableOpacity
           key={date}
           style={[
             styles.dayCell,
+            isDisabled && styles.dayCellDisabled
           ]}
           onPress={() => handleDatePress(date)}
           activeOpacity={0.7}
+          disabled={isDisabled}
         >
-          <View style={[
-            styles.dayCircle,
-            isToday && [
-              styles.todayCircle,
-              { 
-                borderColor: theme.colors.primary,
-                backgroundColor: theme.colors.primary + '10',
-              }
-            ],
-            hasData && [
-              styles.dataCircle,
-              { 
-                borderColor: '#86EFAC',
-                backgroundColor: theme.colors.success + '08',
-              }
-            ],
-            !hasData && !isToday && [
-              styles.emptyCircle,
-              { borderColor: theme.colors.border }
-            ],
-          ]}>
-            <Text style={[
-              styles.dayText,
-              { color: theme.colors.textSecondary },
-              isToday && [styles.todayText, { color: theme.colors.primary }],
-              hasData && [styles.dataText, { color: theme.colors.text }],
-            ]}>
-              {day}
-            </Text>
-            {hasData && dayData ? (
-              <View style={styles.dataIndicators}>
-                {/* Mood emoji - primary indicator */}
-                {dayData.mood && (
-                  <Text style={styles.moodEmoji}>
-                    {dayData.mood.score >= 4 ? '😊' : dayData.mood.score >= 3 ? '😐' : '😕'}
-                  </Text>
-                )}
+          {hasData && moodStyle ? (
+            // Day with mood data - date above colored circle
+            <View style={styles.dayWithMoodContainer}>
+              <Text style={[
+                styles.dayNumberAbove, 
+                { color: theme.colors.text },
+                isToday && styles.todayNumberAbove,
+                isDisabled && styles.disabledText
+              ]}>
+                {day}
+              </Text>
+              <View style={[
+                styles.dayCircleWithMood,
+                { 
+                  backgroundColor: moodStyle.bg,
+                  borderWidth: 2,
+                  borderColor: '#1F2937',
+                },
+                isToday && styles.todayCircleWithMood,
+              ]}>
+                <Text style={styles.moodEmojiLarge}>
+                  {moodStyle.emoji}
+                </Text>
                 {/* Micro-indicators for additional data types */}
                 {(dayData.sleep || dayData.activities || dayData.habits) && (
                   <View style={styles.microIndicators}>
                     {dayData.sleep && (
-                      <View style={[styles.microDot, { backgroundColor: '#3B82F6' }]} />
+                      <View style={[styles.microDot, { backgroundColor: '#1E40AF' }]} />
                     )}
                     {dayData.activities && dayData.activities.length > 0 && (
-                      <View style={[styles.microDot, { backgroundColor: '#A855F7' }]} />
+                      <View style={[styles.microDot, { backgroundColor: '#7C3AED' }]} />
                     )}
                     {dayData.habits && dayData.habits.completed > 0 && (
-                      <View style={[styles.microDot, { backgroundColor: '#10B981' }]} />
+                      <View style={[styles.microDot, { backgroundColor: '#059669' }]} />
                     )}
                   </View>
                 )}
               </View>
-            ) : (
-              !isToday && (
+            </View>
+          ) : (
+            // Day without mood data - show simple circle with black border
+            <View style={[
+              styles.dayCircle,
+              { borderColor: '#1F2937' }, // Black border for all circles
+              isToday && [
+                styles.todayCircle,
+                { 
+                  borderColor: theme.colors.primary,
+                  backgroundColor: theme.colors.primary + '10',
+                }
+              ],
+              isDisabled && styles.disabledCircle
+            ]}>
+              <Text style={[
+                styles.dayText,
+                { color: theme.colors.text },
+                isToday && [styles.todayText, { color: theme.colors.primary }],
+                isDisabled && styles.disabledText
+              ]}>
+                {day}
+              </Text>
+              {!isToday && !isDisabled && (
                 <View style={styles.emptyIndicator}>
                   <Plus size={10} color={theme.colors.textSecondary} opacity={0.25} />
                 </View>
-              )
-            )}
-          </View>
+              )}
+            </View>
+          )}
         </TouchableOpacity>
       );
     }
 
     return days;
-  };
-
-  const getMoodStats = () => {
-    const dates = Object.keys(calendarData);
-    const moodScores = dates.map(date => calendarData[date].mood?.score).filter(score => typeof score === 'number');
-    
-    // Updated thresholds per requirements:
-    // Good Days: mood >= 4
-    // Neutral Days: mood between 2.5 and 3.9
-    // Tough Days: mood < 2.5
-    const goodDays = moodScores.filter(score => score >= 4).length;
-    const neutralDays = moodScores.filter(score => score >= 2.5 && score < 4).length;
-    const toughDays = moodScores.filter(score => score < 2.5).length;
-    const avgMood = moodScores.length > 0 ? (moodScores.reduce((sum, score) => sum + score, 0) / moodScores.length) : 0;
-
-    return { 
-      goodDays, 
-      neutralDays, 
-      badDays: toughDays, // Keep 'badDays' key for backward compatibility with UI
-      avgMood: avgMood.toFixed(1) 
-    };
   };
 
   const getSummaryStats = () => {
@@ -532,7 +629,6 @@ export default function CalendarScreen() {
     return { avgSleep, avgMentalClarity, avgHabitCompletion };
   };
 
-  const moodStats = getMoodStats();
   const summaryStats = getSummaryStats();
 
   if (loading && !refreshing) {
@@ -567,9 +663,16 @@ export default function CalendarScreen() {
         <View style={styles.monthNavigation}>
           <TouchableOpacity 
             onPress={() => navigateMonth('prev')}
-            style={styles.navButton}
+            style={[
+              styles.navButton,
+              !canNavigateToPrevMonth && styles.navButtonDisabled
+            ]}
+            disabled={!canNavigateToPrevMonth}
           >
-            <ChevronLeft size={20} color={theme.colors.textSecondary} />
+            <ChevronLeft 
+              size={20} 
+              color={canNavigateToPrevMonth ? theme.colors.textSecondary : theme.colors.surfaceVariant} 
+            />
           </TouchableOpacity>
           
           <Text style={[styles.monthYear, { color: theme.colors.text }]}>
@@ -578,11 +681,27 @@ export default function CalendarScreen() {
           
           <TouchableOpacity 
             onPress={() => navigateMonth('next')}
-            style={styles.navButton}
+            style={[
+              styles.navButton,
+              !canNavigateToNextMonth && styles.navButtonDisabled
+            ]}
+            disabled={!canNavigateToNextMonth}
           >
-            <ChevronRight size={20} color={theme.colors.textSecondary} />
+            <ChevronRight 
+              size={20} 
+              color={canNavigateToNextMonth ? theme.colors.textSecondary : theme.colors.surfaceVariant} 
+            />
           </TouchableOpacity>
         </View>
+
+        {/* 3-Month Limit Info Banner */}
+        {!canNavigateToPrevMonth && (
+          <View style={[styles.infoBanner, { backgroundColor: theme.colors.primary + '15', borderColor: theme.colors.primary + '30' }]}>
+            <Text style={[styles.infoBannerText, { color: theme.colors.primary }]}>
+              📅 You've reached the 3-month history limit
+            </Text>
+          </View>
+        )}
       </View>
 
       <ScrollView 
@@ -599,7 +718,14 @@ export default function CalendarScreen() {
         {/* Month Stats */}
         <View style={[styles.statsContainer, { backgroundColor: theme.colors.card }]}>
           <Text style={[styles.statsTitle, { color: theme.colors.text }]}>This Month Overview</Text>
-          {moodStats.goodDays === 0 && moodStats.neutralDays === 0 && moodStats.badDays === 0 ? (
+          {overviewLoading ? (
+            <View style={styles.overviewLoadingContainer}>
+              <ActivityIndicator size="small" color={theme.colors.primary} />
+              <Text style={[styles.overviewLoadingText, { color: theme.colors.textSecondary }]}>
+                Analyzing your mood data...
+              </Text>
+            </View>
+          ) : !monthOverview || monthOverview.totalDays === 0 ? (
             <View style={styles.overviewEmptyState}>
               <Text style={[styles.overviewEmptyText, { color: theme.colors.textSecondary }]}>
                 No mood data available for this month.
@@ -608,30 +734,30 @@ export default function CalendarScreen() {
           ) : (
             <View style={styles.statsRow}>
               <View style={styles.statItem}>
-                <View style={[styles.statDot, { backgroundColor: theme.colors.primary }]} />
+                <View style={[styles.statDot, { backgroundColor: theme.colors.success }]} />
                 <Text style={[styles.statLabel, { color: theme.colors.textSecondary }]}>Good Days</Text>
-                <Text style={[styles.statValue, { color: theme.colors.text }]}>{moodStats.goodDays}</Text>
+                <Text style={[styles.statValue, { color: theme.colors.text }]}>{monthOverview.goodDays}</Text>
               </View>
               <View style={styles.statItem}>
                 <View style={[styles.statDot, { backgroundColor: theme.colors.warning }]} />
                 <Text style={[styles.statLabel, { color: theme.colors.textSecondary }]}>Neutral Days</Text>
-                <Text style={[styles.statValue, { color: theme.colors.text }]}>{moodStats.neutralDays}</Text>
+                <Text style={[styles.statValue, { color: theme.colors.text }]}>{monthOverview.neutralDays}</Text>
               </View>
               <View style={styles.statItem}>
                 <View style={[styles.statDot, { backgroundColor: theme.colors.error }]} />
                 <Text style={[styles.statLabel, { color: theme.colors.textSecondary }]}>Tough Days</Text>
-                <Text style={[styles.statValue, { color: theme.colors.text }]}>{moodStats.badDays}</Text>
+                <Text style={[styles.statValue, { color: theme.colors.text }]}>{monthOverview.toughDays}</Text>
               </View>
               <View style={styles.statItem}>
                 <Text style={[styles.statLabel, { color: theme.colors.textSecondary }]}>Avg Mood</Text>
-                <Text style={[styles.statValue, { color: theme.colors.text }]}>{moodStats.avgMood}/5</Text>
+                <Text style={[styles.statValue, { color: theme.colors.text }]}>{monthOverview.avgMood}/5</Text>
               </View>
             </View>
           )}
         </View>
 
         {/* Calendar */}
-        <View style={styles.calendarContainer}>
+        <View style={[styles.calendarContainer, { backgroundColor: theme.colors.card }]}>
           {/* Day headers */}
           <View style={styles.dayHeaders}>
             {dayNames.map(day => (
@@ -649,7 +775,7 @@ export default function CalendarScreen() {
               </Text>
               <TouchableOpacity
                 style={[styles.emptyStateButton, { backgroundColor: theme.colors.primary }]}
-                onPress={() => router.push('/(tabs)/add-entry')}
+                onPress={() => router.push('/(tabs)/journal')}
               >
                 <Text style={[styles.emptyStateButtonText, { color: '#FFFFFF' }]}>Add Entry</Text>
               </TouchableOpacity>
@@ -659,6 +785,89 @@ export default function CalendarScreen() {
               {renderCalendarDays()}
             </View>
           )}
+
+          {/* Compact Mood Color Guide - Inside Calendar Card */}
+          <View style={styles.compactLegendContainer}>
+            <View style={[styles.compactLegendDivider, { backgroundColor: theme.colors.border }]} />
+            
+            <Text style={[styles.compactLegendTitle, { color: theme.colors.textSecondary }]}>
+              Mood Colors
+            </Text>
+            
+            <View style={styles.compactLegendGrid}>
+              {/* Row 1 */}
+              <View style={styles.compactLegendItem}>
+                <View style={[styles.compactColorCircle, { backgroundColor: '#A78BFA' }]}>
+                  <Text style={styles.compactEmoji}>😊</Text>
+                </View>
+                <Text style={[styles.compactLegendText, { color: theme.colors.textSecondary }]}>
+                  Excellent
+                </Text>
+              </View>
+              
+              <View style={styles.compactLegendItem}>
+                <View style={[styles.compactColorCircle, { backgroundColor: '#34D399' }]}>
+                  <Text style={styles.compactEmoji}>😊</Text>
+                </View>
+                <Text style={[styles.compactLegendText, { color: theme.colors.textSecondary }]}>
+                  Happy
+                </Text>
+              </View>
+              
+              <View style={styles.compactLegendItem}>
+                <View style={[styles.compactColorCircle, { backgroundColor: '#FBBF24' }]}>
+                  <Text style={styles.compactEmoji}>😌</Text>
+                </View>
+                <Text style={[styles.compactLegendText, { color: theme.colors.textSecondary }]}>
+                  Content
+                </Text>
+              </View>
+
+              {/* Row 2 */}
+              <View style={styles.compactLegendItem}>
+                <View style={[styles.compactColorCircle, { backgroundColor: '#60A5FA' }]}>
+                  <Text style={styles.compactEmoji}>😐</Text>
+                </View>
+                <Text style={[styles.compactLegendText, { color: theme.colors.textSecondary }]}>
+                  Neutral
+                </Text>
+              </View>
+              
+              <View style={styles.compactLegendItem}>
+                <View style={[styles.compactColorCircle, { backgroundColor: '#93C5FD' }]}>
+                  <Text style={styles.compactEmoji}>😕</Text>
+                </View>
+                <Text style={[styles.compactLegendText, { color: theme.colors.textSecondary }]}>
+                  Low
+                </Text>
+              </View>
+              
+              <View style={styles.compactLegendItem}>
+                <View style={[styles.compactColorCircle, { backgroundColor: '#FB923C' }]}>
+                  <Text style={styles.compactEmoji}>😔</Text>
+                </View>
+                <Text style={[styles.compactLegendText, { color: theme.colors.textSecondary }]}>
+                  Tough
+                </Text>
+              </View>
+            </View>
+
+            {/* Dots Legend */}
+            <View style={styles.compactDotsLegend}>
+              <View style={styles.compactDotItem}>
+                <View style={[styles.microDot, { backgroundColor: '#1E40AF' }]} />
+                <Text style={[styles.compactDotText, { color: theme.colors.textSecondary }]}>Sleep</Text>
+              </View>
+              <View style={styles.compactDotItem}>
+                <View style={[styles.microDot, { backgroundColor: '#7C3AED' }]} />
+                <Text style={[styles.compactDotText, { color: theme.colors.textSecondary }]}>Activities</Text>
+              </View>
+              <View style={styles.compactDotItem}>
+                <View style={[styles.microDot, { backgroundColor: '#059669' }]} />
+                <Text style={[styles.compactDotText, { color: theme.colors.textSecondary }]}>Habits</Text>
+              </View>
+            </View>
+          </View>
         </View>
 
         {/* Summary Card */}
@@ -936,6 +1145,22 @@ const styles = StyleSheet.create({
     shadowRadius: 3,
     elevation: 1,
   },
+  navButtonDisabled: {
+    opacity: 0.3,
+  },
+  infoBanner: {
+    marginHorizontal: 16,
+    marginTop: 12,
+    padding: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+    alignItems: 'center',
+  },
+  infoBannerText: {
+    fontSize: 13,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
   monthYear: {
     fontSize: 19,
     fontWeight: '700',
@@ -1000,12 +1225,21 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 20,
   },
+  overviewLoadingContainer: {
+    paddingVertical: 30,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  overviewLoadingText: {
+    marginTop: 12,
+    fontSize: 14,
+    color: '#6B7280',
+  },
   calendarContainer: {
-    backgroundColor: '#FFFFFF',
     marginHorizontal: 20,
-    marginBottom: 20,
+    marginBottom: 12, // Reduced to give more space for calendar
     borderRadius: 20,
-    padding: 24,
+    padding: 16, // Reduced padding to maximize calendar space
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.08,
@@ -1014,15 +1248,15 @@ const styles = StyleSheet.create({
   },
   dayHeaders: {
     flexDirection: 'row',
-    marginBottom: 20,
-    paddingBottom: 12,
+    marginBottom: 12, // Reduced margin
+    paddingBottom: 8,
     borderBottomWidth: 1,
     borderBottomColor: '#F3F4F6',
   },
   dayHeader: {
     flex: 1,
     textAlign: 'center',
-    fontSize: 13,
+    fontSize: 12, // Slightly smaller
     fontWeight: '700',
     color: '#6B7280',
     paddingVertical: 4,
@@ -1031,28 +1265,65 @@ const styles = StyleSheet.create({
   calendarGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 2,
+    gap: 8, // Add horizontal spacing between columns
+    justifyContent: 'space-between',
+    rowGap: 14, // Add vertical spacing between rows
   },
   emptyDay: {
-    width: '14.28%',
+    width: '12%', // Reduced from 14.28% to allow for gap spacing
     aspectRatio: 1,
   },
   dayCell: {
-    width: '13.8%',
+    width: '12%', // Reduced from 14.28% to allow for gap spacing (7 cells + gaps = 100%)
     aspectRatio: 1,
-    padding: 3,
-    margin: 1,
+    padding: 2,
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'flex-start', // Align to top for consistent layout
+  },
+  dayCellDisabled: {
+    opacity: 0.3,
   },
   dayCircle: {
-    width: '100%',
-    height: '100%',
-    borderRadius: 12, // Moderate rounded corners (mobile-friendly)
-    borderWidth: 1.5,
+    width: '95%', // Increased from 90% to use more space
+    aspectRatio: 1,
+    borderRadius: 12,
+    borderWidth: 2, // Increased from 1.5 to match mood circles
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: 'transparent',
+  },
+  dayWithMoodContainer: {
+    width: '100%',
+    height: '100%',
+    alignItems: 'center',
+    justifyContent: 'flex-start',
+    paddingTop: 2,
+  },
+  dayNumberAbove: {
+    fontSize: 11,
+    fontWeight: '600',
+    marginBottom: 2,
+    textAlign: 'center',
+  },
+  todayNumberAbove: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  dayCircleWithMood: {
+    width: '90%', // Increased from 85% to use more space
+    aspectRatio: 1,
+    borderRadius: 50,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  todayCircleWithMood: {
+    borderWidth: 3,
+    borderColor: '#1F2937',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 4,
   },
   emptyCircle: {
     borderStyle: 'solid',
@@ -1069,13 +1340,24 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   emptyIndicator: {
-    marginTop: 4,
+    marginTop: 2, // Reduced margin
     opacity: 0.4,
   },
   dayText: {
-    fontSize: 14,
+    fontSize: 15, // Larger for better visibility
     fontWeight: '500',
     letterSpacing: -0.2,
+  },
+  dayTextOnMood: {
+    fontSize: 10, // Reduced from 11 for better fit
+    fontWeight: '700',
+    color: '#1F2937',
+    letterSpacing: -0.3,
+    marginBottom: 1, // Reduced from 2
+  },
+  todayTextOnMood: {
+    fontSize: 11, // Reduced from 12
+    fontWeight: '800',
   },
   dataText: {
     fontWeight: '600',
@@ -1083,6 +1365,12 @@ const styles = StyleSheet.create({
   todayText: {
     fontWeight: '700',
     fontSize: 15,
+  },
+  disabledText: {
+    opacity: 0.3,
+  },
+  disabledCircle: {
+    opacity: 0.3,
   },
   dataIndicators: {
     alignItems: 'center',
@@ -1093,23 +1381,91 @@ const styles = StyleSheet.create({
     fontSize: 14,
     marginTop: 1,
   },
+  moodEmojiLarge: {
+    fontSize: 22, // Increased to use available space
+    lineHeight: 24,
+  },
   microIndicators: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 3,
-    gap: 3,
+    marginTop: 2, // Reduced margin
+    gap: 2, // Reduced gap
   },
   microDot: {
-    width: 4,
-    height: 4,
-    borderRadius: 2,
+    width: 5, // Slightly smaller
+    height: 5,
+    borderRadius: 2.5,
   },
   indicatorDot: {
     width: 4,
     height: 4,
     borderRadius: 2,
     marginHorizontal: 1,
+  },
+  compactLegendContainer: {
+    marginTop: 12, // Reduced from 20 to save space
+    paddingTop: 12, // Reduced from 16
+  },
+  compactLegendDivider: {
+    height: 1,
+    backgroundColor: '#E5E7EB',
+    marginBottom: 8, // Reduced from 12
+  },
+  compactLegendTitle: {
+    fontSize: 11, // Reduced from 12
+    fontWeight: '600',
+    color: '#6B7280',
+    marginBottom: 8, // Reduced from 12
+    textAlign: 'center',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  compactLegendGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    gap: 6, // Reduced from 8
+    marginBottom: 8, // Reduced from 12
+  },
+  compactLegendItem: {
+    width: '31%',
+    alignItems: 'center',
+    gap: 3, // Reduced from 4
+  },
+  compactColorCircle: {
+    width: 28, // Reduced from 32
+    height: 28,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  compactEmoji: {
+    fontSize: 14, // Reduced from 16
+  },
+  compactLegendText: {
+    fontSize: 9, // Reduced from 10
+    fontWeight: '500',
+    color: '#6B7280',
+    textAlign: 'center',
+  },
+  compactDotsLegend: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 20,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#F3F4F6',
+  },
+  compactDotItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  compactDotText: {
+    fontSize: 12,
+    color: '#1F2937',
+    fontWeight: '600',
   },
   legendContainer: {
     backgroundColor: '#FFFFFF',

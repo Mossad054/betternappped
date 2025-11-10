@@ -8,11 +8,15 @@ import {
   Modal,
   ActivityIndicator,
   Dimensions,
+  Alert,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import Svg, { Circle, G, Text as SvgText } from 'react-native-svg';
 import { useTheme } from '../contexts/ThemeContext';
 import { AnalyticsService } from '../services/analytics.service';
+import { ExperimentsService } from '../services/experiments.service';
+import { HabitsService } from '../services/habits.service';
+import { useAuth } from '../contexts/AuthContext';
 import { useRouter } from 'expo-router';
 
 const { width } = Dimensions.get('window');
@@ -28,11 +32,13 @@ const ExperimentResultsCard: React.FC<ExperimentResultsCardProps> = ({
 }) => {
   const { theme } = useTheme();
   const router = useRouter();
+  const { user } = useAuth();
   const [selectedFilter, setSelectedFilter] = useState<'all' | 'active' | 'completed'>(filter);
   const [loading, setLoading] = useState(true);
   const [experimentData, setExperimentData] = useState<any>(null);
   const [selectedExperiment, setSelectedExperiment] = useState<any>(null);
   const [modalVisible, setModalVisible] = useState(false);
+  const [convertingToHabit, setConvertingToHabit] = useState(false);
 
   useEffect(() => {
     loadExperimentData();
@@ -50,6 +56,61 @@ const ExperimentResultsCard: React.FC<ExperimentResultsCardProps> = ({
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleConvertToHabit = async () => {
+    if (!selectedExperiment || !user) return;
+
+    Alert.alert(
+      'Convert to Habit',
+      `Convert "${selectedExperiment.name}" into a habit? This will add it to your habit library so you can track it daily.`,
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel'
+        },
+        {
+          text: 'Convert',
+          onPress: async () => {
+            setConvertingToHabit(true);
+            try {
+              // Use the ExperimentsService convertToHabit method
+              const result = await ExperimentsService.convertToHabit(selectedExperiment.id, user.id);
+              
+              if (result.error) {
+                throw new Error(result.error);
+              }
+
+              Alert.alert(
+                'Success! 🎉',
+                `"${selectedExperiment.name}" has been added to your habit library!`,
+                [
+                  {
+                    text: 'View Habits',
+                    onPress: () => {
+                      setModalVisible(false);
+                      router.push('/habit-library');
+                    }
+                  },
+                  {
+                    text: 'OK',
+                    onPress: () => setModalVisible(false)
+                  }
+                ]
+              );
+            } catch (error) {
+              console.error('Error converting to habit:', error);
+              Alert.alert(
+                'Error',
+                error instanceof Error ? error.message : 'Failed to convert experiment to habit. Please try again.'
+              );
+            } finally {
+              setConvertingToHabit(false);
+            }
+          }
+        }
+      ]
+    );
   };
 
   const getImpactBadge = (impactLevel: string) => {
@@ -363,14 +424,23 @@ const ExperimentResultsCard: React.FC<ExperimentResultsCardProps> = ({
               <View style={styles.modalActions}>
                 {selectedExperiment.impactLevel === 'positive' && (
                   <TouchableOpacity
-                    style={[styles.actionButton, { backgroundColor: '#10B981' }]}
-                    onPress={() => {
-                      setModalVisible(false);
-                      router.push('/habit-library');
-                    }}
+                    style={[
+                      styles.actionButton, 
+                      { backgroundColor: '#10B981' },
+                      convertingToHabit && styles.actionButtonDisabled
+                    ]}
+                    onPress={handleConvertToHabit}
                     activeOpacity={0.7}
+                    disabled={convertingToHabit}
                   >
-                    <Text style={styles.actionButtonText}>⭐ Convert to Habit</Text>
+                    {convertingToHabit ? (
+                      <View style={styles.buttonLoadingContainer}>
+                        <ActivityIndicator size="small" color="#FFFFFF" />
+                        <Text style={styles.actionButtonText}>Converting...</Text>
+                      </View>
+                    ) : (
+                      <Text style={styles.actionButtonText}>⭐ Convert to Habit</Text>
+                    )}
                   </TouchableOpacity>
                 )}
                 <TouchableOpacity
@@ -794,6 +864,14 @@ const styles = StyleSheet.create({
     padding: 16,
     borderRadius: 12,
     alignItems: 'center',
+  },
+  actionButtonDisabled: {
+    opacity: 0.6,
+  },
+  buttonLoadingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   actionButtonText: {
     fontSize: 15,

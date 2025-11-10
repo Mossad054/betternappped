@@ -2,17 +2,18 @@ import React from 'react';
 import { View, Text, StyleSheet, Modal, ScrollView, TouchableOpacity } from 'react-native';
 import { X, Clock, Moon, Brain, CheckCircle, XCircle, TrendingUp, TrendingDown, FlaskConical, AlertCircle } from 'lucide-react-native';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useRouter } from 'expo-router';
 
 export interface DailyDetailData {
   date: string;
   mood?: {
     score: number;
-    emoji: string;
+    emoji?: string;
     note?: string;
   };
   activities?: Array<{
     name: string;
-    emoji?: string;
+    emoji: string;
     category: string;
     duration: number;
     impact: number;
@@ -30,12 +31,12 @@ export interface DailyDetailData {
   };
   habits?: Array<{
     name: string;
-    emoji?: string;
+    emoji: string;
     completed: boolean;
   }>;
   experiments?: Array<{
     name: string;
-    emoji?: string;
+    emoji: string;
     status: 'completed' | 'skipped' | 'pending';
     outcomes?: Array<{
       type: string;
@@ -53,6 +54,8 @@ interface DayDetailModalProps {
 
 export default function DayDetailModal({ visible, onClose, data }: DayDetailModalProps) {
   const { theme } = useTheme();
+  const router = useRouter();
+  
   if (!data) return null;
 
   const formatDate = (dateString: string) => {
@@ -70,23 +73,25 @@ export default function DayDetailModal({ visible, onClose, data }: DayDetailModa
     const negativeActivities = data.activities?.filter(a => a.impact < 0) || [];
     
     let analysis = '';
+    const moodScore = data.mood?.score || 3;
+    const sleepHours = data.sleep?.hours || 0;
     
-    if (data.mood?.score >= 4) {
+    if (moodScore >= 4) {
       analysis = `You had a great day! Your mood was boosted by `;
       if (positiveActivities.length > 0) {
         analysis += positiveActivities.map(a => a.name.toLowerCase()).join(', ');
       }
-      if (data.sleep?.hours >= 7) {
-        analysis += ` and getting ${data.sleep.hours} hours of quality sleep`;
+      if (sleepHours >= 7) {
+        analysis += ` and getting ${sleepHours} hours of quality sleep`;
       }
       analysis += '.';
-    } else if (data.mood?.score <= 2) {
+    } else if (moodScore <= 2) {
       analysis = `This was a challenging day. `;
       if (negativeActivities.length > 0) {
         analysis += `Activities like ${negativeActivities.map(a => a.name.toLowerCase()).join(', ')} may have contributed to lower mood. `;
       }
-      if (data.sleep?.hours < 6) {
-        analysis += `Limited sleep (${data.sleep.hours} hours) likely affected your energy levels. `;
+      if (sleepHours < 6 && sleepHours > 0) {
+        analysis += `Limited sleep (${sleepHours} hours) likely affected your energy levels. `;
       }
       analysis += 'Consider focusing on mood-boosting activities tomorrow.';
     } else {
@@ -94,7 +99,9 @@ export default function DayDetailModal({ visible, onClose, data }: DayDetailModa
       if (positiveActivities.length > 0) {
         analysis += `${positiveActivities[0].name} helped maintain your mood, `;
       }
-      analysis += `and ${data.sleep?.hours || 0} hours of sleep provided decent rest.`;
+      if (sleepHours > 0) {
+        analysis += `and ${sleepHours} hours of sleep provided decent rest.`;
+      }
     }
     
     return analysis;
@@ -113,9 +120,9 @@ export default function DayDetailModal({ visible, onClose, data }: DayDetailModa
             <View>
               <Text style={[styles.modalTitle, { color: theme.colors.text }]}>{formatDate(data.date)}</Text>
               <View style={styles.moodContainer}>
-                <Text style={styles.moodEmoji}>{data.mood?.emoji || '😐'}</Text>
+                {data.mood?.emoji && <Text style={styles.moodEmoji}>{data.mood.emoji}</Text>}
                 <Text style={[styles.moodText, { color: theme.colors.textSecondary }]}>
-                  Mood: {data.mood?.score || 0}/5
+                  Mood: {data.mood?.score || 'N/A'}/5
                   {data.mood?.note && ` • ${data.mood.note}`}
                 </Text>
               </View>
@@ -142,7 +149,7 @@ export default function DayDetailModal({ visible, onClose, data }: DayDetailModa
                 <View key={index} style={styles.activityItem}>
                   <View style={styles.activityHeader}>
                     <View style={styles.activityInfo}>
-                      <Text style={styles.activityEmoji}>{activity.emoji || '📍'}</Text>
+                      <Text style={styles.activityEmoji}>{activity.emoji}</Text>
                       <View>
                         <Text style={[styles.activityName, { color: theme.colors.text }]}>{activity.name}</Text>
                         <Text style={[styles.activityCategory, { color: theme.colors.textSecondary }]}>{activity.category}</Text>
@@ -179,18 +186,18 @@ export default function DayDetailModal({ visible, onClose, data }: DayDetailModa
                       ]}
                     />
                   </View>
-                </View>
-              ))}
-            </View>
+                  </View>
+                ))}
+              </View>
             )}
 
             {/* Sleep */}
             {data.sleep && (
-            <View style={styles.section}>
+              <View style={styles.section}>
               <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Sleep Analysis</Text>
               <View style={[styles.sleepCard, { backgroundColor: theme.colors.background }]}>
                 <View style={styles.sleepHeader}>
-                  <Text style={styles.sleepEmoji}>{data.sleep.emoji || '😴'}</Text>
+                  {data.sleep.emoji && <Text style={styles.sleepEmoji}>{data.sleep.emoji}</Text>}
                   <View>
                     <Text style={[styles.sleepHours, { color: theme.colors.text }]}>{data.sleep.hours} hours</Text>
                     <Text style={[styles.sleepQuality, { color: theme.colors.textSecondary }]}>{data.sleep.quality} quality</Text>
@@ -214,7 +221,7 @@ export default function DayDetailModal({ visible, onClose, data }: DayDetailModa
 
             {/* Mental Clarity */}
             {data.mentalClarity && (
-            <View style={styles.section}>
+              <View style={styles.section}>
               <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Mental Clarity</Text>
               <View style={[styles.clarityCard, { backgroundColor: theme.colors.background }]}>
                 <View style={styles.clarityHeader}>
@@ -235,17 +242,17 @@ export default function DayDetailModal({ visible, onClose, data }: DayDetailModa
 
             {/* Habits */}
             {data.habits && data.habits.length > 0 && (
-            <View style={styles.section}>
-              <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Habits Tracking</Text>
-              <View style={styles.habitsGrid}>
-                {data.habits.map((habit, index) => (
+              <View style={styles.section}>
+                <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Habits Tracking</Text>
+                <View style={styles.habitsGrid}>
+                  {data.habits.map((habit, index) => (
                   <View key={index} style={styles.habitItem}>
                     {habit.completed ? (
                       <CheckCircle size={16} color={theme.colors.primary} />
                     ) : (
                       <XCircle size={16} color={theme.colors.error} />
                     )}
-                    <Text style={styles.habitEmoji}>{habit.emoji || '📌'}</Text>
+                    <Text style={styles.habitEmoji}>{habit.emoji}</Text>
                     <Text style={[
                       styles.habitName,
                       { color: habit.completed ? theme.colors.primary : theme.colors.textSecondary }
@@ -261,33 +268,60 @@ export default function DayDetailModal({ visible, onClose, data }: DayDetailModa
             {/* Experiments */}
             {data.experiments && data.experiments.length > 0 && (
               <View style={styles.section}>
-                <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Experiments on this Day</Text>
+                <View style={styles.experimentsHeader}>
+                  <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Experiments</Text>
+                  {data.experiments.some(exp => exp.status === 'pending') && (
+                    <TouchableOpacity 
+                      style={[styles.viewAllButton, { backgroundColor: theme.colors.primary }]}
+                      onPress={() => {
+                        onClose();
+                        router.push('/experiments-hub');
+                      }}
+                    >
+                      <FlaskConical size={14} color="#FFFFFF" />
+                      <Text style={styles.viewAllButtonText}>Log Ongoing</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+                
                 {data.experiments.map((experiment, index) => (
                   <View
                     key={index}
                     style={[
                       styles.experimentItem,
-                      experiment.status === 'completed' ? styles.experimentCompleted : 
-                      experiment.status === 'skipped' ? styles.experimentSkipped : 
-                      styles.experimentPending
+                      { backgroundColor: theme.colors.background },
+                      experiment.status === 'completed' && styles.experimentCompleted,
+                      experiment.status === 'skipped' && styles.experimentSkipped,
+                      experiment.status === 'pending' && styles.experimentPending,
                     ]}
                   >
                     <View style={styles.experimentHeader}>
-                      <FlaskConical size={20} color={theme.colors.info} />
                       <View style={styles.experimentInfo}>
-                        <Text style={styles.experimentEmoji}>{experiment.emoji || '🧪'}</Text>
+                        <Text style={styles.experimentEmoji}>{experiment.emoji}</Text>
                         <Text style={[styles.experimentName, { color: theme.colors.text }]}>{experiment.name}</Text>
                       </View>
-                      {experiment.status === 'completed' && (
-                        <CheckCircle size={16} color={theme.colors.primary} />
-                      )}
-                      {experiment.status === 'skipped' && (
-                        <XCircle size={16} color={theme.colors.error} />
-                      )}
-                      {experiment.status === 'pending' && (
-                        <AlertCircle size={16} color={theme.colors.warning} />
-                      )}
+                      <View style={styles.experimentStatus}>
+                        {experiment.status === 'completed' && (
+                          <>
+                            <CheckCircle size={18} color={theme.colors.success} />
+                            <Text style={[styles.statusText, { color: theme.colors.success }]}>Completed</Text>
+                          </>
+                        )}
+                        {experiment.status === 'skipped' && (
+                          <>
+                            <XCircle size={18} color={theme.colors.error} />
+                            <Text style={[styles.statusText, { color: theme.colors.error }]}>Skipped</Text>
+                          </>
+                        )}
+                        {experiment.status === 'pending' && (
+                          <>
+                            <AlertCircle size={18} color={theme.colors.warning} />
+                            <Text style={[styles.statusText, { color: theme.colors.warning }]}>Pending</Text>
+                          </>
+                        )}
+                      </View>
                     </View>
+                    
                     {experiment.outcomes && experiment.outcomes.length > 0 && (
                       <View style={styles.experimentOutcomes}>
                         <Text style={[styles.outcomesTitle, { color: theme.colors.textSecondary }]}>Tracked Outcomes:</Text>
@@ -300,7 +334,8 @@ export default function DayDetailModal({ visible, onClose, data }: DayDetailModa
                                   key={level}
                                   style={[
                                     styles.outcomeDot,
-                                    level <= outcome.value && styles.outcomeDotFilled
+                                    { backgroundColor: theme.colors.border },
+                                    level <= outcome.value && [styles.outcomeDotFilled, { backgroundColor: theme.colors.primary }]
                                   ]}
                                 />
                               ))}
@@ -310,9 +345,20 @@ export default function DayDetailModal({ visible, onClose, data }: DayDetailModa
                         ))}
                       </View>
                     )}
+                    
                     {experiment.status === 'pending' && (
-                      <TouchableOpacity style={[styles.logButton, { backgroundColor: theme.colors.primary }]}>
-                        <Text style={[styles.logButtonText, { color: theme.colors.text }]}>✔️ Log Now</Text>
+                      <TouchableOpacity 
+                        style={[styles.logExperimentButton, { 
+                          backgroundColor: theme.colors.primary,
+                          borderColor: theme.colors.primary 
+                        }]}
+                        onPress={() => {
+                          onClose();
+                          router.push('/experiments-hub');
+                        }}
+                      >
+                        <FlaskConical size={16} color="#FFFFFF" />
+                        <Text style={styles.logExperimentButtonText}>Log This Experiment</Text>
                       </TouchableOpacity>
                     )}
                   </View>
@@ -390,6 +436,26 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#1F2937',
     marginBottom: 12,
+  },
+  experimentsHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  viewAllButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#3B82F6',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+    gap: 6,
+  },
+  viewAllButtonText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#FFFFFF',
   },
   analysisCard: {
     backgroundColor: '#F0F9FF',
@@ -587,13 +653,22 @@ const styles = StyleSheet.create({
   experimentHeader: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
     marginBottom: 12,
   },
   experimentInfo: {
     flexDirection: 'row',
     alignItems: 'center',
     flex: 1,
-    marginLeft: 10,
+  },
+  experimentStatus: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  statusText: {
+    fontSize: 12,
+    fontWeight: '600',
   },
   experimentEmoji: {
     fontSize: 18,
@@ -642,6 +717,23 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: '#6B7280',
     marginLeft: 4,
+  },
+  logExperimentButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#3B82F6',
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 10,
+    gap: 8,
+    marginTop: 8,
+    borderWidth: 1,
+  },
+  logExperimentButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#FFFFFF',
   },
   logButton: {
     backgroundColor: '#FFFFFF',

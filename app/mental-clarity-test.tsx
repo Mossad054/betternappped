@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -6,386 +6,392 @@ import {
   ScrollView,
   TouchableOpacity,
   Alert,
+  Animated,
 } from 'react-native';
 import { Stack, router } from 'expo-router';
-import { Brain, X, CheckCircle, Circle } from 'lucide-react-native';
+import {
+  Brain,
+  X,
+  Target,
+  Zap,
+  Clock,
+  Sparkles,
+  TrendingUp,
+  CheckCircle,
+  Lock,
+} from 'lucide-react-native';
+import { useAuth } from '@/contexts/AuthContext';
+import { useTheme } from '@/contexts/ThemeContext';
+import { MentalClarityService } from '@/services/mental-clarity.service';
+import { Typography } from '@/constants/Typography';
 
-interface Question {
-  id: number;
-  question: string;
-  options: string[];
+interface TestCard {
+  id: string;
+  title: string;
+  description: string;
+  icon: React.ReactNode;
+  color: string;
+  duration: string;
+  route: string;
 }
 
-const mentalClarityQuestions: Question[] = [
-  {
-    id: 1,
-    question: "How clear is your thinking right now?",
-    options: ["Very foggy", "Somewhat unclear", "Neutral", "Pretty clear", "Crystal clear"]
-  },
-  {
-    id: 2,
-    question: "How well can you focus on tasks?",
-    options: ["Can't focus at all", "Very distracted", "Somewhat focused", "Good focus", "Laser focused"]
-  },
-  {
-    id: 3,
-    question: "How is your memory today?",
-    options: ["Very forgetful", "Some memory issues", "Average", "Good memory", "Excellent memory"]
-  },
-  {
-    id: 4,
-    question: "How quickly can you process information?",
-    options: ["Very slow", "Slower than usual", "Normal speed", "Quick", "Very quick"]
-  },
-  {
-    id: 5,
-    question: "How creative do you feel?",
-    options: ["No creativity", "Low creativity", "Moderate", "Creative", "Very creative"]
-  }
-];
-
 export default function MentalClarityTestScreen() {
-  const [answers, setAnswers] = useState<{ [key: number]: number }>({});
-  const [currentQuestion, setCurrentQuestion] = useState<number>(0);
+  const { user } = useAuth();
+  const { theme } = useTheme();
+  const [completedTests, setCompletedTests] = useState<string[]>([]);
+  const [clarityIndex, setClarityIndex] = useState<number | null>(null);
+  const [loading, setLoading] = useState(true);
+  const fadeAnim = new Animated.Value(0);
 
-  const handleAnswerSelect = (questionId: number, answerIndex: number) => {
-    setAnswers(prev => ({ ...prev, [questionId]: answerIndex }));
-  };
+  useEffect(() => {
+    loadDailyProgress();
+    Animated.timing(fadeAnim, {
+      toValue: 1,
+      duration: 600,
+      useNativeDriver: true,
+    }).start();
+  }, []);
 
-  const handleNext = () => {
-    if (currentQuestion < mentalClarityQuestions.length - 1) {
-      setCurrentQuestion(prev => prev + 1);
-    } else {
-      handleComplete();
-    }
-  };
-
-  const handlePrevious = () => {
-    if (currentQuestion > 0) {
-      setCurrentQuestion(prev => prev - 1);
-    }
-  };
-
-  const handleComplete = () => {
-    const totalQuestions = mentalClarityQuestions.length;
-    const answeredQuestions = Object.keys(answers).length;
-    
-    if (answeredQuestions < totalQuestions) {
-      Alert.alert(
-        'Incomplete Test',
-        'Please answer all questions before completing the test.',
-        [{ text: 'OK' }]
-      );
+  const loadDailyProgress = async () => {
+    if (!user) {
+      setLoading(false);
       return;
     }
 
-    // Calculate score (0-4 scale converted to 1-5)
-    const totalScore = Object.values(answers).reduce((sum, score) => sum + score + 1, 0);
-    const averageScore = (totalScore / totalQuestions).toFixed(1);
-    
-    Alert.alert(
-      'Mental Clarity Test Complete!',
-      `Your mental clarity score: ${averageScore}/5\n\nThis score has been saved to your wellness data.`,
-      [
-        { text: 'OK', onPress: () => router.back() }
-      ]
-    );
+    const today = new Date().toISOString().split('T')[0];
+    const completion = await MentalClarityService.checkDailyCompletion(user.id, today);
+    setCompletedTests(completion.completed as string[]);
+
+    if (completion.allCompleted) {
+      const { data } = await MentalClarityService.getLatestClarityIndex(user.id);
+      if (data) {
+        setClarityIndex(data.combined_score);
+      }
+    }
+
+    setLoading(false);
   };
 
-  const currentQ = mentalClarityQuestions[currentQuestion];
-  const progress = ((currentQuestion + 1) / mentalClarityQuestions.length) * 100;
+  const tests: TestCard[] = [
+    {
+      id: 'focus',
+      title: 'Focus Test',
+      description: 'Measure sustained attention and response inhibition',
+      icon: <Target size={28} color="#8B5CF6" />,
+      color: '#8B5CF6',
+      duration: '90 sec',
+      route: '/tests/focus-test',
+    },
+    {
+      id: 'flexibility',
+      title: 'Mental Flexibility',
+      description: 'Test cognitive adaptability and rule switching',
+      icon: <TrendingUp size={28} color="#EC4899" />,
+      color: '#EC4899',
+      duration: '60 sec',
+      route: '/tests/flexibility-test',
+    },
+    {
+      id: 'speed',
+      title: 'Processing Speed',
+      description: 'Assess quick thinking and pattern recognition',
+      icon: <Zap size={28} color="#F59E0B" />,
+      color: '#F59E0B',
+      duration: '45 sec',
+      route: '/tests/speed-test',
+    },
+    {
+      id: 'memory',
+      title: 'Working Memory',
+      description: 'Evaluate short-term recall under pressure',
+      icon: <Brain size={28} color="#10B981" />,
+      color: '#10B981',
+      duration: '60 sec',
+      route: '/tests/memory-test',
+    },
+    {
+      id: 'subjective',
+      title: 'Self Check-In',
+      description: 'Rate your perceived mental clarity',
+      icon: <Sparkles size={28} color="#3B82F6" />,
+      color: '#3B82F6',
+      duration: '30 sec',
+      route: '/tests/subjective-test',
+    },
+  ];
+
+  const completedCount = completedTests.length;
+  const progress = (completedCount / tests.length) * 100;
+
+  const styles = StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: theme.colors.background,
+    },
+    headerButton: {
+      padding: 8,
+    },
+    content: {
+      flex: 1,
+    },
+    header: {
+      padding: 20,
+      paddingTop: 30,
+    },
+    headerTitle: {
+      fontSize: Typography.fontSize.title,
+      fontWeight: 'bold',
+      color: theme.colors.textPrimary,
+      marginBottom: 8,
+    },
+    headerSubtitle: {
+      fontSize: Typography.fontSize.body,
+      color: theme.colors.textSecondary,
+      lineHeight: 22,
+    },
+    progressSection: {
+      backgroundColor: theme.colors.surface,
+      marginHorizontal: 20,
+      marginBottom: 20,
+      borderRadius: 16,
+      padding: 20,
+      ...theme.shadows.medium,
+    },
+    progressHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: 12,
+    },
+    progressTitle: {
+      fontSize: Typography.fontSize.body,
+      fontWeight: '600',
+      color: theme.colors.textPrimary,
+    },
+    progressCount: {
+      fontSize: Typography.fontSize.medium,
+      fontWeight: '600',
+      color: '#8B5CF6',
+    },
+    progressBar: {
+      height: 8,
+      backgroundColor: theme.colors.surfaceVariant,
+      borderRadius: 4,
+      overflow: 'hidden',
+      marginBottom: 16,
+    },
+    progressFill: {
+      height: '100%',
+      backgroundColor: '#8B5CF6',
+    },
+    clarityIndexContainer: {
+      alignItems: 'center',
+      paddingTop: 16,
+      borderTopWidth: 1,
+      borderTopColor: theme.colors.border,
+    },
+    clarityIndexLabel: {
+      fontSize: Typography.fontSize.medium,
+      color: theme.colors.textSecondary,
+      marginBottom: 8,
+    },
+    clarityIndexValue: {
+      fontSize: Typography.fontSize.display,
+      fontWeight: 'bold',
+      color: '#8B5CF6',
+    },
+    clarityIndexSubtext: {
+      fontSize: Typography.fontSize.medium,
+      color: theme.colors.textSecondary,
+      marginTop: 4,
+    },
+    testsContainer: {
+      paddingHorizontal: 20,
+      paddingBottom: 30,
+    },
+    testCard: {
+      backgroundColor: theme.colors.surface,
+      borderRadius: 16,
+      padding: 20,
+      marginBottom: 16,
+      ...theme.shadows.small,
+    },
+    testCardHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginBottom: 12,
+    },
+    testIconContainer: {
+      width: 56,
+      height: 56,
+      borderRadius: 28,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginRight: 16,
+    },
+    testInfo: {
+      flex: 1,
+    },
+    testTitle: {
+      fontSize: Typography.fontSize.large,
+      fontWeight: '600',
+      color: theme.colors.textPrimary,
+      marginBottom: 4,
+    },
+    testDuration: {
+      fontSize: Typography.fontSize.small,
+      color: theme.colors.textTertiary,
+      fontWeight: '500',
+    },
+    testDescription: {
+      fontSize: Typography.fontSize.medium,
+      color: theme.colors.textSecondary,
+      lineHeight: 20,
+      marginBottom: 16,
+    },
+    testButton: {
+      backgroundColor: theme.colors.primary || '#8B5CF6',
+      borderRadius: 12,
+      padding: 14,
+      alignItems: 'center',
+    },
+    testButtonCompleted: {
+      backgroundColor: theme.colors.success || '#10B981',
+    },
+    testButtonText: {
+      fontSize: Typography.fontSize.body,
+      fontWeight: '600',
+      color: '#FFFFFF',
+    },
+    completedBadge: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: '#D1FAE5',
+      paddingHorizontal: 12,
+      paddingVertical: 6,
+      borderRadius: 20,
+    },
+    completedBadgeText: {
+      fontSize: Typography.fontSize.small,
+      fontWeight: '600',
+      color: '#059669',
+      marginLeft: 4,
+    },
+  });
 
   return (
     <View style={styles.container}>
       <Stack.Screen
         options={{
           headerShown: true,
-          title: 'Mental Clarity Test',
-          headerStyle: { backgroundColor: '#FFFFFF' },
-          headerTitleStyle: { color: '#1F2937', fontWeight: '600' },
+          title: 'Mental Clarity Tests',
+          headerStyle: { backgroundColor: theme.colors.surface },
+          headerTitleStyle: { color: theme.colors.textPrimary, fontWeight: '600' },
           headerLeft: () => (
             <TouchableOpacity onPress={() => router.back()} style={styles.headerButton}>
-              <X size={24} color="#6B7280" />
+              <X size={24} color={theme.colors.icon} />
             </TouchableOpacity>
           ),
         }}
       />
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        {/* Progress Bar */}
-        <View style={styles.progressContainer}>
+        {/* Header Section */}
+        <Animated.View style={[styles.header, { opacity: fadeAnim }]}>
+          <Text style={styles.headerTitle}>Mental Clarity Tests</Text>
+          <Text style={styles.headerSubtitle}>
+            Complete all 5 tests to get your daily Clarity Index
+          </Text>
+        </Animated.View>
+
+        {/* Progress Section */}
+        <Animated.View style={[styles.progressSection, { opacity: fadeAnim }]}>
+          <View style={styles.progressHeader}>
+            <Text style={styles.progressTitle}>Today's Progress</Text>
+            <Text style={styles.progressCount}>
+              {completedCount}/{tests.length} completed
+            </Text>
+          </View>
+
           <View style={styles.progressBar}>
-            <View style={[styles.progressFill, { width: `${progress}%` }]} />
+            <Animated.View
+              style={[
+                styles.progressFill,
+                {
+                  width: fadeAnim.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: ['0%', `${progress}%`],
+                  }),
+                },
+              ]}
+            />
           </View>
-          <Text style={styles.progressText}>
-            {currentQuestion + 1} of {mentalClarityQuestions.length}
-          </Text>
-        </View>
 
-        {/* Question Card */}
-        <View style={styles.questionCard}>
-          <View style={styles.questionHeader}>
-            <Brain size={24} color="#8B5CF6" />
-            <Text style={styles.questionNumber}>Question {currentQuestion + 1}</Text>
-          </View>
-          
-          <Text style={styles.questionText}>{currentQ.question}</Text>
-          
-          <View style={styles.optionsContainer}>
-            {currentQ.options.map((option, index) => {
-              const isSelected = answers[currentQ.id] === index;
-              return (
+          {clarityIndex !== null && (
+            <View style={styles.clarityIndexContainer}>
+              <Text style={styles.clarityIndexLabel}>Your Clarity Index</Text>
+              <Text style={styles.clarityIndexValue}>{clarityIndex}</Text>
+              <Text style={styles.clarityIndexSubtext}>
+                {clarityIndex >= 80
+                  ? 'Excellent mental clarity!'
+                  : clarityIndex >= 60
+                  ? 'Good cognitive balance'
+                  : clarityIndex >= 40
+                  ? 'Moderate clarity'
+                  : 'Room for improvement'}
+              </Text>
+            </View>
+          )}
+        </Animated.View>
+
+        {/* Test Cards */}
+        <Animated.View style={[styles.testsContainer, { opacity: fadeAnim }]}>
+          {tests.map((test, index) => {
+            const isCompleted = completedTests.includes(test.id);
+            
+            return (
+              <View key={test.id} style={styles.testCard}>
+                <View style={styles.testCardHeader}>
+                  <View
+                    style={[
+                      styles.testIconContainer,
+                      {
+                        backgroundColor: `${test.color}15`,
+                      },
+                    ]}
+                  >
+                    {test.icon}
+                  </View>
+                  <View style={styles.testInfo}>
+                    <Text style={styles.testTitle}>{test.title}</Text>
+                    <Text style={styles.testDuration}>⏱️ {test.duration}</Text>
+                  </View>
+                  {isCompleted && (
+                    <View style={styles.completedBadge}>
+                      <CheckCircle size={14} color="#059669" />
+                      <Text style={styles.completedBadgeText}>Done</Text>
+                    </View>
+                  )}
+                </View>
+
+                <Text style={styles.testDescription}>{test.description}</Text>
+
                 <TouchableOpacity
-                  key={index}
                   style={[
-                    styles.optionButton,
-                    isSelected && styles.selectedOption,
+                    styles.testButton,
+                    isCompleted && styles.testButtonCompleted,
                   ]}
-                  onPress={() => handleAnswerSelect(currentQ.id, index)}
+                  onPress={() => router.push(test.route as any)}
                 >
-                  <View style={styles.optionContent}>
-                    {isSelected ? (
-                      <CheckCircle size={20} color="#8B5CF6" />
-                    ) : (
-                      <Circle size={20} color="#9CA3AF" />
-                    )}
-                    <Text style={[
-                      styles.optionText,
-                      isSelected && styles.selectedOptionText,
-                    ]}>
-                      {option}
-                    </Text>
-                  </View>
-                  <View style={styles.scoreIndicator}>
-                    <Text style={[
-                      styles.scoreText,
-                      isSelected && styles.selectedScoreText,
-                    ]}>
-                      {index + 1}
-                    </Text>
-                  </View>
+                  <Text style={styles.testButtonText}>
+                    {isCompleted ? 'Retake Test' : 'Start Test'}
+                  </Text>
                 </TouchableOpacity>
-              );
-            })}
-          </View>
-        </View>
-
-        {/* Navigation Buttons */}
-        <View style={styles.navigationContainer}>
-          <TouchableOpacity
-            style={[
-              styles.navButton,
-              styles.previousButton,
-              currentQuestion === 0 && styles.disabledButton,
-            ]}
-            onPress={handlePrevious}
-            disabled={currentQuestion === 0}
-          >
-            <Text style={[
-              styles.navButtonText,
-              styles.previousButtonText,
-              currentQuestion === 0 && styles.disabledButtonText,
-            ]}>
-              Previous
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[
-              styles.navButton,
-              styles.nextButton,
-              answers[currentQ.id] === undefined && styles.disabledButton,
-            ]}
-            onPress={handleNext}
-            disabled={answers[currentQ.id] === undefined}
-          >
-            <Text style={[
-              styles.navButtonText,
-              styles.nextButtonText,
-              answers[currentQ.id] === undefined && styles.disabledButtonText,
-            ]}>
-              {currentQuestion === mentalClarityQuestions.length - 1 ? 'Complete' : 'Next'}
-            </Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Test Info */}
-        <View style={styles.infoCard}>
-          <Text style={styles.infoTitle}>About This Test</Text>
-          <Text style={styles.infoText}>
-            This mental clarity assessment helps track your cognitive performance over time. 
-            Your responses are used to identify patterns and correlations with your activities, 
-            sleep, and mood.
-          </Text>
-        </View>
+              </View>
+            );
+          })}
+        </Animated.View>
       </ScrollView>
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#F9FAFB',
-  },
-  headerButton: {
-    padding: 8,
-  },
-  content: {
-    flex: 1,
-    padding: 20,
-  },
-  progressContainer: {
-    marginBottom: 24,
-  },
-  progressBar: {
-    height: 8,
-    backgroundColor: '#E5E7EB',
-    borderRadius: 4,
-    overflow: 'hidden',
-    marginBottom: 8,
-  },
-  progressFill: {
-    height: '100%',
-    backgroundColor: '#8B5CF6',
-    borderRadius: 4,
-  },
-  progressText: {
-    fontSize: 14,
-    color: '#6B7280',
-    textAlign: 'center',
-    fontWeight: '500',
-  },
-  questionCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 24,
-    marginBottom: 24,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  questionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  questionNumber: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#8B5CF6',
-    marginLeft: 8,
-  },
-  questionText: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: '#1F2937',
-    marginBottom: 24,
-    lineHeight: 28,
-  },
-  optionsContainer: {
-    gap: 12,
-  },
-  optionButton: {
-    backgroundColor: '#F9FAFB',
-    borderRadius: 12,
-    padding: 16,
-    borderWidth: 2,
-    borderColor: 'transparent',
-  },
-  selectedOption: {
-    backgroundColor: '#F3F4F6',
-    borderColor: '#8B5CF6',
-  },
-  optionContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-  },
-  optionText: {
-    fontSize: 16,
-    color: '#374151',
-    marginLeft: 12,
-    flex: 1,
-  },
-  selectedOptionText: {
-    color: '#1F2937',
-    fontWeight: '500',
-  },
-  scoreIndicator: {
-    position: 'absolute',
-    right: 16,
-    top: 16,
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: '#E5E7EB',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  scoreText: {
-    fontSize: 12,
-    color: '#6B7280',
-    fontWeight: '600',
-  },
-  selectedScoreText: {
-    color: '#8B5CF6',
-  },
-  navigationContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 24,
-    gap: 16,
-  },
-  navButton: {
-    flex: 1,
-    padding: 16,
-    borderRadius: 12,
-    alignItems: 'center',
-  },
-  previousButton: {
-    backgroundColor: '#F3F4F6',
-  },
-  nextButton: {
-    backgroundColor: '#8B5CF6',
-  },
-  disabledButton: {
-    backgroundColor: '#E5E7EB',
-  },
-  navButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  previousButtonText: {
-    color: '#374151',
-  },
-  nextButtonText: {
-    color: '#FFFFFF',
-  },
-  disabledButtonText: {
-    color: '#9CA3AF',
-  },
-  infoCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  infoTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#1F2937',
-    marginBottom: 8,
-  },
-  infoText: {
-    fontSize: 14,
-    color: '#6B7280',
-    lineHeight: 20,
-  },
-});

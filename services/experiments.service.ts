@@ -85,16 +85,43 @@ export class ExperimentsService {
     data: Omit<ExperimentLogInsert, 'experiment_id' | 'user_id'>, 
     userId: string
   ): Promise<{ data: ExperimentLog | null; error: any }> {
-    const result = await SupabaseSafe.insert('experiment_logs', { ...data, experiment_id: experimentId }, userId);
+    // Check if log already exists for this experiment and date (prevent duplicates)
+    const existing = await this.getExperimentLogByDate(experimentId, data.date, userId);
     
-    if (result.error) return { data: null, error: result.error };
+    if (existing.data) {
+      // Update existing log instead of creating duplicate
+      const result = await SupabaseSafe.update('experiment_logs', existing.data.id, data, userId);
+      
+      if (result.error) return { data: null, error: result.error };
 
-    // Update experiment current_day if completed
-    if (data.completed) {
-      await this.updateExperimentProgress(experimentId, userId);
+      // Update experiment current_day if completed
+      if (data.completed && !existing.data.completed) {
+        await this.updateExperimentProgress(experimentId, userId);
+      }
+
+      return { data: result.data, error: null };
+    } else {
+      // Create new log
+      const result = await SupabaseSafe.insert('experiment_logs', { ...data, experiment_id: experimentId }, userId);
+      
+      if (result.error) return { data: null, error: result.error };
+
+      // Update experiment current_day if completed
+      if (data.completed) {
+        await this.updateExperimentProgress(experimentId, userId);
+      }
+
+      return { data: result.data, error: null };
     }
+  }
 
-    return { data: result.data, error: null };
+  // Upsert experiment log (update if exists, insert if not)
+  static async upsertExperimentLog(
+    experimentId: string,
+    data: Omit<ExperimentLogInsert, 'experiment_id' | 'user_id'>,
+    userId: string
+  ): Promise<{ data: ExperimentLog | null; error: any }> {
+    return await this.logExperiment(experimentId, data, userId);
   }
 
   static async getExperimentLogs(experimentId: string, userId: string): Promise<{ data: ExperimentLog[] | null; error: any }> {
@@ -165,16 +192,36 @@ export class ExperimentsService {
     const experiment = experimentResult.data?.[0];
     if (!experiment) return { data: null, error: 'Experiment not found' };
 
-    // Create habit from experiment
+    // Check if habit with same name already exists
+    const existingHabitResult = await SupabaseSafe.select('habits', { 
+      eq: { name: experiment.activity_name } 
+    }, userId);
+    
+    if (existingHabitResult.data && existingHabitResult.data.length > 0) {
+      return { data: null, error: `A habit named "${experiment.activity_name}" already exists in your library.` };
+    }
+
+    // Create habit from experiment with detailed information
     const habitResult = await SupabaseSafe.insert('habits', {
       name: experiment.activity_name,
-      description: `Converted from experiment: ${experiment.activity_name}`,
-      category: 'Health', // Default category
-      total_days: 30,
+      description: `Converted from ${experiment.duration}-day experiment. Showed positive impact on your wellness.`,
+      category: 'Wellness', // Default category for experiment-based habits
+      emoji: experiment.activity_emoji || '⭐',
+      total_days: 30, // Default 30-day tracking period
       streak: 0,
-      reminder_enabled: false
+      reminder_enabled: false,
+      instruction: `Continue this activity that showed positive results during your experiment.`
     }, userId);
 
-    return { data: habitResult.data, error: habitResult.error };
+    if (habitResult.error) return { data: null, error: habitResult.error };
+
+    // Optionally update experiment status to indicate it's been converted
+    await SupabaseSafe.update('experiments', experimentId, {
+      insights: experiment.insights 
+        ? `${experiment.insights}\n\nConverted to habit on ${new Date().toLocaleDateString()}.`
+        : `Converted to habit on ${new Date().toLocaleDateString()}.`
+    }, userId);
+
+    return { data: habitResult.data, error: null };
   }
 }

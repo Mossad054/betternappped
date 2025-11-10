@@ -137,4 +137,46 @@ export class ActivitiesService {
     
     return { error: null };
   }
+
+  // Upsert activity (check for existing activity by date+name, update if exists, insert if not)
+  static async upsert(
+    activityData: Omit<ActivityInsert, 'user_id'>,
+    userId: string
+  ): Promise<{ data: Activity | null; error: any }> {
+    // Check if activity with same name exists for this date
+    const existing = await this.getByDate(userId, activityData.date);
+    
+    if (existing.error) return { data: null, error: existing.error };
+    
+    // Find activity with same name and category
+    const duplicateActivity = existing.data?.find(
+      activity => activity.name === activityData.name && activity.category === activityData.category
+    );
+    
+    if (duplicateActivity) {
+      // Update existing activity instead of creating duplicate
+      return await this.update(duplicateActivity.id, activityData, userId);
+    } else {
+      // Create new activity
+      return await this.create(activityData, userId);
+    }
+  }
+
+  // Upsert multiple activities (useful for batch operations)
+  static async upsertMany(
+    activities: Omit<ActivityInsert, 'user_id'>[],
+    userId: string
+  ): Promise<{ data: Activity[] | null; error: any }> {
+    const results = await Promise.all(
+      activities.map(activity => this.upsert(activity, userId))
+    );
+    
+    const errors = results.filter(r => r.error);
+    if (errors.length > 0) {
+      return { data: null, error: errors[0].error };
+    }
+    
+    const data = results.map(r => r.data).filter(Boolean) as Activity[];
+    return { data, error: null };
+  }
 }

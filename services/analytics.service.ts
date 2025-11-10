@@ -88,6 +88,14 @@ export interface WellBeingLegend {
   impactInsights: string[];
 }
 
+export interface MonthOverview {
+  goodDays: number;
+  neutralDays: number;
+  toughDays: number;
+  avgMood: number;
+  totalDays: number;
+}
+
 export interface ActivityImpactData {
   activityName: string;
   category: string;
@@ -1402,6 +1410,92 @@ export class AnalyticsService {
       };
     } catch (error) {
       console.error('Error generating well-being legend:', error);
+      return { data: null, error };
+    }
+  }
+
+  /**
+   * Get simplified month overview for "This Month Overview" card
+   * Returns good days, neutral days, tough days, and average mood
+   * Classification:
+   * - Good Days: mood >= 4
+   * - Neutral Days: 2.5 <= mood < 4
+   * - Tough Days: mood < 2.5
+   */
+  static async getMonthOverview(userId: string, year: number, month: number): Promise<{ data: MonthOverview | null; error: any }> {
+    try {
+      console.log(`📊 Generating month overview for user ${userId}, ${year}-${month}`);
+      
+      // Calculate date range for the month
+      const startDate = new Date(year, month - 1, 1).toISOString().split('T')[0];
+      const endDate = new Date(year, month, 0).toISOString().split('T')[0];
+      
+      // Fetch calendar data for the month
+      const { data: calendarData, error: calendarError } = await this.getCalendarData(userId, startDate, endDate);
+      
+      if (calendarError || !calendarData) {
+        console.error('Error fetching calendar data for month overview:', calendarError);
+        return { data: null, error: calendarError || 'No calendar data' };
+      }
+
+      // Filter days with mood data
+      const daysWithMood = calendarData.filter(day => day.mood?.score);
+
+      console.log(`📊 Found ${daysWithMood.length} days with mood data for month overview`);
+
+      if (daysWithMood.length === 0) {
+        return {
+          data: {
+            goodDays: 0,
+            neutralDays: 0,
+            toughDays: 0,
+            avgMood: 0,
+            totalDays: 0,
+          },
+          error: null
+        };
+      }
+
+      // Classify each day based on mood score
+      // Good Days: mood >= 4
+      // Neutral Days: 2.5 <= mood < 4
+      // Tough Days: mood < 2.5
+      let goodDays = 0;
+      let neutralDays = 0;
+      let toughDays = 0;
+      let totalMoodScore = 0;
+
+      daysWithMood.forEach(day => {
+        const moodScore = day.mood!.score;
+        totalMoodScore += moodScore;
+
+        if (moodScore >= 4) {
+          goodDays++;
+        } else if (moodScore >= 2.5) {
+          neutralDays++;
+        } else {
+          toughDays++;
+        }
+      });
+
+      const avgMood = daysWithMood.length > 0 
+        ? Math.round((totalMoodScore / daysWithMood.length) * 10) / 10 
+        : 0;
+
+      console.log(`📊 Month Overview - Good: ${goodDays}, Neutral: ${neutralDays}, Tough: ${toughDays}, Avg: ${avgMood}`);
+
+      return {
+        data: {
+          goodDays,
+          neutralDays,
+          toughDays,
+          avgMood,
+          totalDays: daysWithMood.length,
+        },
+        error: null
+      };
+    } catch (error) {
+      console.error('Error generating month overview:', error);
       return { data: null, error };
     }
   }

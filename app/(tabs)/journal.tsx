@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -12,13 +12,14 @@ import {
   Modal,
 } from 'react-native';
 
-import { Stack, router } from 'expo-router';
+import { Stack, router, useLocalSearchParams } from 'expo-router';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { MoodsService } from '@/services/moods.service';
 import { ActivitiesService } from '@/services/activities.service';
 import { SleepService } from '@/services/sleep.service';
 import { ProductivityService } from '@/services/productivity.service';
+import { Typography } from '@/constants/Typography';
 import { IntimacyService } from '@/services/intimacy.service';
 import ActivityIconGrid from '@/components/ActivityIconGrid';
 import ActivityDetailModal from '@/components/ActivityDetailModal';
@@ -86,6 +87,24 @@ interface SleepData {
   wakingFeeling: string;
 }
 
+// Mood ID to Score Mapping (1-5 scale for database)
+// Positive moods: 4-5, Neutral: 3, Negative: 1-2
+const moodScoreMap: { [key: number]: number } = {
+  1: 5,   // Happy -> 5 (Very Positive)
+  2: 2,   // Sad -> 2 (Negative)
+  3: 1,   // Angry -> 1 (Very Negative)
+  4: 3,   // Bored -> 3 (Neutral)
+  5: 2,   // Tired -> 2 (Negative)
+  6: 4,   // Relaxed -> 4 (Positive)
+  7: 5,   // Excited -> 5 (Very Positive)
+  8: 1,   // Desperate -> 1 (Very Negative)
+  9: 2,   // Stressed -> 2 (Negative)
+  10: 2,  // Anxious -> 2 (Negative)
+  11: 3,  // Unsure -> 3 (Neutral)
+  12: 4,  // Content -> 4 (Positive)
+  13: 5,  // Grateful -> 5 (Very Positive)
+};
+
 const moodOptions: MoodOption[] = [
   { id: 1, label: 'Happy', emoji: '😊', selected: false },
   { id: 2, label: 'Sad', emoji: '😔', selected: false },
@@ -143,6 +162,82 @@ const defaultActivityCategories: ActivityCategory[] = [
       { id: 'cleaning', name: 'cleaning', selected: false },
       { id: 'cooking', name: 'cooking', selected: false },
       { id: 'laundry', name: 'laundry', selected: false },
+      { id: 'dust-removal', name: 'dust removal', selected: false },
+      { id: 'empty-trash', name: 'empty trash', selected: false },
+      { id: 'handwashing', name: 'handwashing', selected: false },
+      { id: 'wipe-off', name: 'wipe off', selected: false },
+      { id: 'set-schedule', name: 'set a schedule', selected: false },
+      { id: 'maximize-storage', name: 'maximize storage', selected: false },
+    ],
+  },
+  {
+    id: 'daily-routines',
+    name: 'Daily Routines',
+    emoji: '🏠',
+    expanded: false,
+    items: [
+      { id: 'sleep', name: 'sleep', selected: false },
+      { id: 'workout', name: 'workout', selected: false },
+      { id: 'drink-water', name: 'drink water', selected: false },
+      { id: 'coffee', name: 'coffee', selected: false },
+      { id: 'work', name: 'work', selected: false },
+      { id: 'meal', name: 'meal', selected: false },
+      { id: 'chatting', name: 'chatting', selected: false },
+      { id: 'reading', name: 'reading', selected: false },
+    ],
+  },
+  {
+    id: 'sports-activities',
+    name: 'Sports & Activities',
+    emoji: '🏃',
+    expanded: false,
+    items: [
+      { id: 'stroll', name: 'stroll', selected: false },
+      { id: 'hiking', name: 'hiking', selected: false },
+      { id: 'jump-rope', name: 'jump rope', selected: false },
+      { id: 'jogging', name: 'jogging', selected: false },
+      { id: 'tai-chi', name: 'tai chi', selected: false },
+      { id: 'yoga', name: 'yoga', selected: false },
+      { id: 'gym', name: 'gym', selected: false },
+      { id: 'sport', name: 'sport', selected: false },
+    ],
+  },
+  {
+    id: 'hobby',
+    name: 'Hobby',
+    emoji: '🎨',
+    expanded: false,
+    items: [
+      { id: 'travel', name: 'travel', selected: false },
+      { id: 'music', name: 'music', selected: false },
+      { id: 'game', name: 'game', selected: false },
+      { id: 'movies', name: 'movies', selected: false },
+      { id: 'pets', name: 'pets', selected: false },
+      { id: 'diy', name: 'DIY', selected: false },
+      { id: 'dance', name: 'dance', selected: false },
+      { id: 'photography', name: 'photography', selected: false },
+      { id: 'drawing', name: 'drawing', selected: false },
+      { id: 'board-game', name: 'board game', selected: false },
+      { id: 'painting', name: 'painting', selected: false },
+      { id: 'crafting', name: 'crafting', selected: false },
+      { id: 'knitting', name: 'knitting', selected: false },
+      { id: 'gardening', name: 'gardening', selected: false },
+      { id: 'cooking-hobby', name: 'cooking for fun', selected: false },
+      { id: 'baking', name: 'baking', selected: false },
+      { id: 'writing', name: 'writing', selected: false },
+      { id: 'blogging', name: 'blogging', selected: false },
+      { id: 'video-games', name: 'video games', selected: false },
+      { id: 'puzzles', name: 'puzzles', selected: false },
+      { id: 'collecting', name: 'collecting', selected: false },
+      { id: 'fishing', name: 'fishing', selected: false },
+      { id: 'camping', name: 'camping', selected: false },
+      { id: 'cycling', name: 'cycling', selected: false },
+      { id: 'skateboarding', name: 'skateboarding', selected: false },
+      { id: 'singing', name: 'singing', selected: false },
+      { id: 'playing-instrument', name: 'playing instrument', selected: false },
+      { id: 'theater', name: 'theater', selected: false },
+      { id: 'pottery', name: 'pottery', selected: false },
+      { id: 'origami', name: 'origami', selected: false },
     ],
   },
   {
@@ -152,14 +247,24 @@ const defaultActivityCategories: ActivityCategory[] = [
     expanded: false,
     items: [
       { id: 'home', name: 'home', selected: false },
-      { id: 'work', name: 'work', selected: false },
+      { id: 'work-place', name: 'work', selected: false },
       { id: 'school', name: 'school', selected: false },
       { id: 'visit', name: 'visit', selected: false },
-      { id: 'travel', name: 'travel', selected: false },
-      { id: 'gym', name: 'gym', selected: false },
       { id: 'cinema', name: 'cinema', selected: false },
       { id: 'nature', name: 'nature', selected: false },
       { id: 'vacation', name: 'vacation', selected: false },
+    ],
+  },
+  {
+    id: 'health',
+    name: 'Health',
+    emoji: '🏥',
+    expanded: false,
+    items: [
+      { id: 'period', name: 'period', selected: false },
+      { id: 'checkup', name: 'check-up', selected: false },
+      { id: 'pain', name: 'pain', selected: false },
+      { id: 'put-it-off', name: 'put it off', selected: false },
     ],
   },
   {
@@ -184,6 +289,7 @@ const defaultActivityCategories: ActivityCategory[] = [
       { id: 'kindness', name: 'kindness', selected: false },
       { id: 'listen', name: 'listen', selected: false },
       { id: 'donate', name: 'donate', selected: false },
+      { id: 'practice-force', name: 'practice the Force', selected: false },
     ],
   },
 ];
@@ -207,9 +313,33 @@ const wakingFeelings = ['Refreshed', 'Energetic', 'Tired', 'Groggy', 'Rested'];
 export default function AddEntryScreen() {
   const { user, isGuest } = useAuth();
   const { theme } = useTheme();
+  const params = useLocalSearchParams();
   const [saving, setSaving] = useState(false);
-  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  
+  // Initialize selectedDate from params if provided, otherwise use current date
+  const [selectedDate, setSelectedDate] = useState<Date>(() => {
+    if (params.date && typeof params.date === 'string') {
+      // Parse the date from calendar (format: YYYY-MM-DD)
+      // Use date parts to avoid timezone issues
+      const [year, month, day] = params.date.split('-').map(Number);
+      const dateFromParams = new Date(year, month - 1, day);
+      console.log('📅 Journal initialized with date from params:', params.date);
+      console.log('📅 Parsed date object:', dateFromParams);
+      return isNaN(dateFromParams.getTime()) ? new Date() : dateFromParams;
+    }
+    console.log('📅 Journal initialized with today\'s date');
+    return new Date();
+  });
   const [showDatePicker, setShowDatePicker] = useState<boolean>(false);
+
+  // Check if we're logging for a past date
+  const isLoggingPastDate = useMemo(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const selected = new Date(selectedDate);
+    selected.setHours(0, 0, 0, 0);
+    return selected < today;
+  }, [selectedDate]);
 
   const [moodCardExpanded, setMoodCardExpanded] = useState<boolean>(true);
   const [moods, setMoods] = useState<MoodOption[]>(moodOptions);
@@ -230,6 +360,11 @@ export default function AddEntryScreen() {
     activityId: string;
     activityName: string;
   } | null>(null);
+
+  // Custom activity modal state
+  const [customActivityModalVisible, setCustomActivityModalVisible] = useState<boolean>(false);
+  const [currentCategoryForCustom, setCurrentCategoryForCustom] = useState<string | null>(null);
+  const [customActivityName, setCustomActivityName] = useState<string>('');
 
   const [productivityCardExpanded, setProductivityCardExpanded] = useState<boolean>(false);
   const [productivityRating, setProductivityRating] = useState<number>(3);
@@ -257,6 +392,21 @@ export default function AddEntryScreen() {
   });
   const [showBedtimePicker, setShowBedtimePicker] = useState<boolean>(false);
   const [showWakeTimePicker, setShowWakeTimePicker] = useState<boolean>(false);
+
+  // Update selectedDate when params.date changes (e.g., when navigating from calendar)
+  useEffect(() => {
+    if (params.date && typeof params.date === 'string') {
+      // Use date parts to avoid timezone issues
+      const [year, month, day] = params.date.split('-').map(Number);
+      const dateFromParams = new Date(year, month - 1, day);
+      if (!isNaN(dateFromParams.getTime())) {
+        console.log('📅 Date updated from params:', params.date);
+        console.log('📅 Setting selectedDate to:', dateFromParams);
+        console.log('📅 Date will be saved as:', dateFromParams.toISOString().split('T')[0]);
+        setSelectedDate(dateFromParams);
+      }
+    }
+  }, [params.date]);
 
   const handleMoodSelect = (moodId: number) => {
     const updatedMoods = moods.map(mood => ({
@@ -399,6 +549,107 @@ export default function AddEntryScreen() {
     );
   };
 
+  const handleAddCustomActivity = (categoryId: string) => {
+    setCurrentCategoryForCustom(categoryId);
+    setCustomActivityName('');
+    setCustomActivityModalVisible(true);
+  };
+
+  const handleSaveCustomActivity = () => {
+    if (!customActivityName.trim() || !currentCategoryForCustom) {
+      Alert.alert('Error', 'Please enter an activity name');
+      return;
+    }
+
+    // Generate a unique ID for the custom activity
+    const customId = `custom-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+
+    // Add the custom activity to the category
+    setActivityCategories(prev =>
+      prev.map(cat =>
+        cat.id === currentCategoryForCustom
+          ? {
+              ...cat,
+              items: [
+                ...cat.items,
+                {
+                  id: customId,
+                  name: customActivityName.trim().toLowerCase(),
+                  selected: false,
+                },
+              ],
+            }
+          : cat
+      )
+    );
+
+    // Close modal and reset
+    setCustomActivityModalVisible(false);
+    setCustomActivityName('');
+    setCurrentCategoryForCustom(null);
+
+    Alert.alert('Success', `"${customActivityName}" has been added to the category!`);
+  };
+
+  // Reset all form fields to default state
+  const resetAllFields = () => {
+    console.log('🔄 Resetting all form fields to default state');
+    
+    // Reset moods
+    setMoods(moodOptions.map(mood => ({ ...mood, selected: false })));
+    setEmotionTriggers([]);
+    setSelectedMoodEmoji('😐');
+    setMoodNotes('');
+    
+    // Reset activities
+    setActivityCategories(defaultActivityCategories.map(category => ({
+      ...category,
+      expanded: false,
+      items: category.items.map(item => ({ ...item, selected: false, followUpAnswer: '' }))
+    })));
+    
+    // Reset productivity
+    setProductivityRating(3);
+    setFocusedHours('');
+    setSelectedFactors([]);
+    setOtherFactor('');
+    
+    // Reset intimacy
+    setIntimacyData({
+      type: 'solo',
+      timeOfDay: null,
+      orgasm: false,
+      location: '',
+      toyUsed: false,
+      timeToSleep: 0,
+      moodBefore: 3,
+      moodAfter: 3,
+    });
+    
+    // Reset sleep (set to reasonable defaults)
+    const now = new Date();
+    const bedtime = new Date();
+    bedtime.setHours(22, 0, 0, 0); // 10 PM default
+    const wakeTime = new Date();
+    wakeTime.setHours(7, 0, 0, 0); // 7 AM default
+    
+    setSleepData({
+      bedtime,
+      wakeTime,
+      quality: 3,
+      wakingFeeling: 'Refreshed',
+    });
+    
+    // Reset card expansion states
+    setMoodCardExpanded(true);
+    setMoodNotesCardExpanded(false);
+    setActivitiesCardExpanded(false);
+    setProductivityCardExpanded(false);
+    setIntimacyCardExpanded(false);
+    
+    console.log('✅ All form fields reset successfully');
+  };
+
   const handleSaveEntry = async () => {
     if (!user && !isGuest) {
       Alert.alert('Error', 'You must be logged in to save entries');
@@ -412,13 +663,27 @@ export default function AddEntryScreen() {
     }
 
     setSaving(true);
-    const date = selectedDate.toISOString().split('T')[0];
+    // Format date properly to avoid timezone issues
+    const year = selectedDate.getFullYear();
+    const month = String(selectedDate.getMonth() + 1).padStart(2, '0');
+    const day = String(selectedDate.getDate()).padStart(2, '0');
+    const date = `${year}-${month}-${day}`;
     const userId = user?.id || 'guest_user';
+
+    console.log('💾 SAVING DATA:');
+    console.log('   Selected Date Object:', selectedDate);
+    console.log('   Date String for DB:', date);
+    console.log('   User ID:', userId);
 
     try {
       // Save mood data (use upsert to handle existing entries for the same date)
-      // Use overall mood score from Step 3, or fallback to calculated score if not set
-      const finalMoodScore = Math.round(selectedMoods.reduce((sum, mood) => sum + mood.id, 0) / selectedMoods.length);
+      // Map mood IDs to 1-5 score scale using moodScoreMap
+      const mappedScores = selectedMoods.map(mood => moodScoreMap[mood.id] || 3);
+      const finalMoodScore = Math.round(mappedScores.reduce((sum, score) => sum + score, 0) / mappedScores.length);
+      
+      // Ensure score is within valid range (1-5) to satisfy database constraint
+      const validatedScore = Math.max(1, Math.min(5, finalMoodScore));
+      
       const finalMoodEmoji = selectedMoodEmoji !== '😐' ? selectedMoodEmoji : (selectedMoods[0]?.emoji || '😐');
       
       // Combine trigger notes with additional notes
@@ -434,14 +699,14 @@ export default function AddEntryScreen() {
           }
           return acc;
         }, {} as any),
-        score: finalMoodScore,
+        score: validatedScore,
         emoji: finalMoodEmoji,
         notes: finalNotes || null
       }, userId);
 
       if (moodError) throw new Error('Failed to save mood data');
 
-      // Save activities (delete existing ones for this date first to avoid duplicates)
+      // Save activities (use upsert to prevent duplicates for the same date)
       const selectedActivities = activityCategories.flatMap(category => 
         category.items.filter(item => item.selected).map(item => {
           // Parse duration from stored details if it exists
@@ -467,11 +732,12 @@ export default function AddEntryScreen() {
       );
 
       if (selectedActivities.length > 0) {
-        // Delete existing activities for this date first
-        await ActivitiesService.deleteByDate(userId, date);
-        // Then create new ones
-        const { error: activitiesError } = await ActivitiesService.createMany(selectedActivities, userId);
+        // Use upsertMany to prevent duplicate activities (updates if exists, creates if not)
+        const { error: activitiesError } = await ActivitiesService.upsertMany(selectedActivities, userId);
         if (activitiesError) throw new Error('Failed to save activities');
+      } else {
+        // If no activities selected, delete existing activities for this date
+        await ActivitiesService.deleteByDate(userId, date);
       }
 
       // Save sleep data
@@ -514,6 +780,9 @@ export default function AddEntryScreen() {
 
         if (intimacyError) throw new Error('Failed to save intimacy data');
       }
+
+      // Reset all form fields after successful save
+      resetAllFields();
 
       Alert.alert(
         'Entry Saved!',
@@ -559,6 +828,78 @@ export default function AddEntryScreen() {
     content: {
       flex: 1,
     },
+    pastDateBanner: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginHorizontal: 20,
+      marginTop: 10,
+      marginBottom: 5,
+      padding: 12,
+      borderRadius: 12,
+      borderWidth: 1,
+      gap: 8,
+    },
+    pastDateText: {
+      fontSize: Typography.fontSize.medium,
+      fontWeight: Typography.fontWeight.semibold,
+      flex: 1,
+    },
+    selectedDateDisplay: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      padding: 16,
+      borderRadius: 12,
+      gap: 12,
+      marginBottom: 16,
+    },
+    selectedDateInfo: {
+      flex: 1,
+    },
+    selectedDateLabel: {
+      fontSize: Typography.fontSize.small,
+      fontWeight: Typography.fontWeight.medium,
+      marginBottom: 4,
+    },
+    selectedDateValue: {
+      fontSize: Typography.fontSize.large,
+      fontWeight: Typography.fontWeight.bold,
+    },
+    pastDateNote: {
+      fontSize: Typography.fontSize.small,
+      fontWeight: Typography.fontWeight.medium,
+      marginTop: 4,
+    },
+    quickDateButtons: {
+      flexDirection: 'row',
+      gap: 12,
+      marginBottom: 12,
+    },
+    quickDateButton: {
+      flex: 1,
+      paddingVertical: 12,
+      paddingHorizontal: 16,
+      borderRadius: 12,
+      borderWidth: 1.5,
+      borderColor: '#E5E7EB',
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    quickDateButtonActive: {
+      borderWidth: 0,
+    },
+    quickDateButtonText: {
+      fontSize: Typography.fontSize.medium,
+      fontWeight: Typography.fontWeight.semibold,
+      color: '#6B7280',
+    },
+    quickDateButtonTextActive: {
+      color: '#FFFFFF',
+    },
+    dateHelpText: {
+      fontSize: Typography.fontSize.small,
+      textAlign: 'center',
+      lineHeight: 18,
+    },
     section: {
       backgroundColor: theme.colors.surface,
       marginHorizontal: 20,
@@ -568,8 +909,8 @@ export default function AddEntryScreen() {
       ...theme.shadows.small,
     },
     sectionTitle: {
-      fontSize: 18,
-      fontWeight: '600',
+      fontSize: Typography.fontSize.large,
+      fontWeight: Typography.fontWeight.semibold,
       color: theme.colors.textPrimary,
     },
     dateSelector: {
@@ -581,7 +922,7 @@ export default function AddEntryScreen() {
       marginTop: 12,
     },
     dateText: {
-      fontSize: 16,
+      fontSize: Typography.fontSize.body,
       color: theme.colors.textSecondary,
       marginLeft: 12,
     },
@@ -605,8 +946,8 @@ export default function AddEntryScreen() {
       alignItems: 'center',
     },
     cardTitle: {
-      fontSize: 18,
-      fontWeight: '600',
+      fontSize: Typography.fontSize.large,
+      fontWeight: Typography.fontWeight.semibold,
       color: theme.colors.textPrimary,
       marginLeft: 8,
     },
@@ -634,13 +975,13 @@ export default function AddEntryScreen() {
       borderColor: theme.colors.warning || '#F59E0B',
     },
     moodEmoji: {
-      fontSize: 28,
+      fontSize: Typography.fontSize.title,
       marginBottom: 4,
     },
     moodLabel: {
-      fontSize: 12,
+      fontSize: Typography.fontSize.small,
       color: theme.colors.textSecondary,
-      fontWeight: '500',
+      fontWeight: Typography.fontWeight.medium,
       textAlign: 'center',
     },
     selectedMoodLabel: {
@@ -658,7 +999,7 @@ export default function AddEntryScreen() {
       justifyContent: 'center',
     },
     characterCount: {
-      fontSize: 12,
+      fontSize: Typography.fontSize.small,
       color: theme.colors.textTertiary,
       textAlign: 'right',
       marginTop: 4,
@@ -667,7 +1008,7 @@ export default function AddEntryScreen() {
       backgroundColor: theme.colors.surfaceVariant,
       padding: 12,
       borderRadius: 8,
-      fontSize: 14,
+      fontSize: Typography.fontSize.medium,
       color: theme.colors.textPrimary,
       textAlignVertical: 'top',
       minHeight: 100,
@@ -689,12 +1030,12 @@ export default function AddEntryScreen() {
       alignItems: 'center',
     },
     categoryEmoji: {
-      fontSize: 18,
+      fontSize: Typography.fontSize.large,
       marginRight: 8,
     },
     categoryName: {
-      fontSize: 16,
-      fontWeight: '600',
+      fontSize: Typography.fontSize.body,
+      fontWeight: Typography.fontWeight.semibold,
       color: theme.colors.textPrimary,
     },
     categoryItems: {
@@ -716,9 +1057,9 @@ export default function AddEntryScreen() {
       backgroundColor: theme.colors.success || '#10B981',
     },
     activityItemText: {
-      fontSize: 14,
+      fontSize: Typography.fontSize.medium,
       color: theme.colors.textPrimary,
-      fontWeight: '500',
+      fontWeight: Typography.fontWeight.medium,
     },
     selectedActivityItemText: {
       color: '#FFFFFF',
@@ -731,7 +1072,7 @@ export default function AddEntryScreen() {
       marginBottom: 12,
     },
     durationLabel: {
-      fontSize: 13,
+      fontSize: Typography.fontSize.small,
       color: theme.colors.textSecondary,
       marginBottom: 6,
       fontWeight: '500',
@@ -740,7 +1081,7 @@ export default function AddEntryScreen() {
       backgroundColor: theme.colors.surfaceVariant,
       padding: 10,
       borderRadius: 6,
-      fontSize: 14,
+      fontSize: Typography.fontSize.medium,
       color: theme.colors.textPrimary,
     },
     followUpContainer: {
@@ -748,7 +1089,7 @@ export default function AddEntryScreen() {
       marginLeft: 12,
     },
     followUpQuestion: {
-      fontSize: 13,
+      fontSize: Typography.fontSize.small,
       color: theme.colors.textSecondary,
       marginBottom: 6,
     },
@@ -756,12 +1097,12 @@ export default function AddEntryScreen() {
       backgroundColor: theme.colors.surfaceVariant,
       padding: 10,
       borderRadius: 6,
-      fontSize: 14,
+      fontSize: Typography.fontSize.medium,
       color: theme.colors.textPrimary,
     },
     productivityQuestion: {
-      fontSize: 15,
-      fontWeight: '600',
+      fontSize: Typography.fontSize.body,
+      fontWeight: Typography.fontWeight.semibold,
       color: theme.colors.textPrimary,
       marginBottom: 16,
     },
@@ -786,9 +1127,9 @@ export default function AddEntryScreen() {
       ...theme.shadows.small,
     },
     ratingText: {
-      fontSize: 16,
+      fontSize: Typography.fontSize.body,
       color: theme.colors.textSecondary,
-      fontWeight: '600',
+      fontWeight: Typography.fontWeight.semibold,
     },
     selectedRatingText: {
       color: '#FFFFFF',
@@ -799,9 +1140,9 @@ export default function AddEntryScreen() {
       marginBottom: 0,
     },
     ratingLabel: {
-      fontSize: 11,
+      fontSize: Typography.fontSize.tiny,
       color: theme.colors.textTertiary,
-      fontWeight: '500',
+      fontWeight: Typography.fontWeight.medium,
     },
     productivityDivider: {
       height: 1,
@@ -822,9 +1163,9 @@ export default function AddEntryScreen() {
       alignItems: 'center',
     },
     focusedHoursLabel: {
-      fontSize: 14,
+      fontSize: Typography.fontSize.medium,
       color: theme.colors.textPrimary,
-      fontWeight: '600',
+      fontWeight: Typography.fontWeight.semibold,
       flex: 1,
     },
     focusedHoursInputContainer: {
@@ -841,9 +1182,9 @@ export default function AddEntryScreen() {
       justifyContent: 'center',
     },
     hoursButtonText: {
-      fontSize: 18,
+      fontSize: Typography.fontSize.large,
       color: '#FFFFFF',
-      fontWeight: '600',
+      fontWeight: Typography.fontWeight.semibold,
     },
     focusedHoursInputCompact: {
       width: 50,
@@ -851,17 +1192,17 @@ export default function AddEntryScreen() {
       paddingVertical: 6,
       paddingHorizontal: 10,
       borderRadius: 8,
-      fontSize: 14,
+      fontSize: Typography.fontSize.medium,
       textAlign: 'center',
-      fontWeight: '600',
+      fontWeight: Typography.fontWeight.semibold,
       color: theme.colors.textPrimary,
       borderWidth: 1,
       borderColor: theme.colors.border,
     },
     hoursUnitText: {
-      fontSize: 13,
+      fontSize: Typography.fontSize.small,
       color: theme.colors.textSecondary,
-      fontWeight: '500',
+      fontWeight: Typography.fontWeight.medium,
     },
     // Old styles for backward compatibility
     focusedHoursContainer: {
@@ -880,7 +1221,7 @@ export default function AddEntryScreen() {
       backgroundColor: theme.colors.surfaceVariant,
       padding: 12,
       borderRadius: 8,
-      fontSize: 14,
+      fontSize: Typography.fontSize.medium,
       color: theme.colors.textPrimary,
       textAlign: 'center',
     },
@@ -889,8 +1230,8 @@ export default function AddEntryScreen() {
       marginTop: 0,
     },
     factorsSectionTitle: {
-      fontSize: 15,
-      fontWeight: '600',
+      fontSize: Typography.fontSize.body,
+      fontWeight: Typography.fontWeight.semibold,
       color: theme.colors.textPrimary,
       marginBottom: 16,
     },
@@ -929,11 +1270,11 @@ export default function AddEntryScreen() {
       borderColor: theme.colors.primary || '#4DD4AC',
     },
     factorEmoji: {
-      fontSize: 15,
+      fontSize: Typography.fontSize.body,
       marginRight: 6,
     },
     factorLabel: {
-      fontSize: 13,
+      fontSize: Typography.fontSize.small,
       color: theme.colors.textPrimary,
       fontWeight: '500',
     },
@@ -953,7 +1294,7 @@ export default function AddEntryScreen() {
       justifyContent: 'center',
     },
     factorsQuestion: {
-      fontSize: 14,
+      fontSize: Typography.fontSize.medium,
       fontWeight: '600',
       color: theme.colors.textPrimary,
       marginBottom: 12,
@@ -962,7 +1303,7 @@ export default function AddEntryScreen() {
       backgroundColor: theme.colors.surfaceVariant,
       padding: 12,
       borderRadius: 10,
-      fontSize: 14,
+      fontSize: Typography.fontSize.medium,
       marginTop: 8,
       borderWidth: 1,
       borderColor: theme.colors.border,
@@ -976,7 +1317,7 @@ export default function AddEntryScreen() {
       marginBottom: 20,
     },
     intimacyInfoText: {
-      fontSize: 14,
+      fontSize: Typography.fontSize.medium,
       color: theme.mode === 'dark' ? theme.colors.warning : '#92400E',
       textAlign: 'center',
       fontWeight: '500',
@@ -985,7 +1326,7 @@ export default function AddEntryScreen() {
       marginBottom: 4,
     },
     intimacySectionTitle: {
-      fontSize: 13,
+      fontSize: Typography.fontSize.small,
       fontWeight: '600',
       color: theme.colors.textPrimary,
       marginBottom: 10,
@@ -1031,7 +1372,7 @@ export default function AddEntryScreen() {
       fontSize: 16,
     },
     intimacyTypeText: {
-      fontSize: 13,
+      fontSize: Typography.fontSize.small,
       color: theme.colors.textSecondary,
       fontWeight: '500',
     },
@@ -1110,7 +1451,7 @@ export default function AddEntryScreen() {
       paddingVertical: 6,
       paddingHorizontal: 10,
       borderRadius: 8,
-      fontSize: 13,
+      fontSize: Typography.fontSize.small,
       textAlign: 'center',
       fontWeight: '600',
       color: theme.colors.textPrimary,
@@ -1130,7 +1471,7 @@ export default function AddEntryScreen() {
       marginBottom: 12,
     },
     intimacyDetailLabel: {
-      fontSize: 13,
+      fontSize: Typography.fontSize.small,
       color: theme.colors.textPrimary,
       fontWeight: '500',
     },
@@ -1149,7 +1490,7 @@ export default function AddEntryScreen() {
       borderColor: '#EC4899',
     },
     intimacyToggleText: {
-      fontSize: 13,
+      fontSize: Typography.fontSize.small,
       color: theme.colors.textSecondary,
       fontWeight: '500',
     },
@@ -1162,7 +1503,7 @@ export default function AddEntryScreen() {
       paddingHorizontal: 10,
       paddingVertical: 7,
       borderRadius: 8,
-      fontSize: 13,
+      fontSize: Typography.fontSize.small,
       minWidth: 120,
       textAlign: 'right',
       borderWidth: 1,
@@ -1239,7 +1580,7 @@ export default function AddEntryScreen() {
       marginTop: 4,
     },
     intimacyHubText: {
-      fontSize: 15,
+      fontSize: Typography.fontSize.body,
       color: '#EC4899',
       fontWeight: '600',
       marginLeft: 8,
@@ -1252,7 +1593,7 @@ export default function AddEntryScreen() {
       marginBottom: 16,
     },
     intimacyLabel: {
-      fontSize: 14,
+      fontSize: Typography.fontSize.medium,
       color: theme.colors.textPrimary,
       fontWeight: '500',
       flex: 1,
@@ -1273,7 +1614,7 @@ export default function AddEntryScreen() {
       ...theme.shadows.small,
     },
     toggleText: {
-      fontSize: 14,
+      fontSize: Typography.fontSize.medium,
       color: theme.colors.textSecondary,
     },
     selectedToggleText: {
@@ -1292,7 +1633,7 @@ export default function AddEntryScreen() {
       backgroundColor: '#EC4899',
     },
     booleanToggleText: {
-      fontSize: 14,
+      fontSize: Typography.fontSize.medium,
       color: theme.colors.textSecondary,
       fontWeight: '500',
     },
@@ -1304,7 +1645,7 @@ export default function AddEntryScreen() {
       paddingHorizontal: 12,
       paddingVertical: 8,
       borderRadius: 8,
-      fontSize: 14,
+      fontSize: Typography.fontSize.medium,
       color: theme.colors.textPrimary,
       minWidth: 120,
       textAlign: 'right',
@@ -1350,7 +1691,7 @@ export default function AddEntryScreen() {
       marginHorizontal: 8,
     },
     timeLabel: {
-      fontSize: 14,
+      fontSize: Typography.fontSize.medium,
       color: theme.colors.textSecondary,
       marginBottom: 8,
       fontWeight: '500',
@@ -1370,7 +1711,7 @@ export default function AddEntryScreen() {
       marginTop: 20,
     },
     qualityLabel: {
-      fontSize: 14,
+      fontSize: Typography.fontSize.medium,
       color: theme.colors.textSecondary,
       marginBottom: 12,
       fontWeight: '500',
@@ -1391,7 +1732,7 @@ export default function AddEntryScreen() {
       backgroundColor: '#6366F1',
     },
     qualityDotText: {
-      fontSize: 14,
+      fontSize: Typography.fontSize.medium,
       color: theme.colors.textSecondary,
       fontWeight: '500',
     },
@@ -1399,7 +1740,7 @@ export default function AddEntryScreen() {
       marginTop: 20,
     },
     wakingLabel: {
-      fontSize: 14,
+      fontSize: Typography.fontSize.medium,
       color: theme.colors.textSecondary,
       marginBottom: 12,
       fontWeight: '500',
@@ -1422,7 +1763,7 @@ export default function AddEntryScreen() {
       borderColor: '#6366F1',
     },
     wakingText: {
-      fontSize: 14,
+      fontSize: Typography.fontSize.medium,
       color: theme.colors.textPrimary,
       fontWeight: '500',
     },
@@ -1497,7 +1838,7 @@ export default function AddEntryScreen() {
       padding: 20,
     },
     triggerQuestionCompact: {
-      fontSize: 14,
+      fontSize: Typography.fontSize.medium,
       color: theme.colors.textSecondary,
       marginBottom: 12,
       fontWeight: '500',
@@ -1536,12 +1877,12 @@ export default function AddEntryScreen() {
       borderColor: theme.colors.warning || '#F59E0B',
     },
     triggerChipIcon: {
-      fontSize: 14,
+      fontSize: Typography.fontSize.medium,
       fontWeight: '700',
       color: theme.colors.textTertiary,
     },
     triggerChipText: {
-      fontSize: 13,
+      fontSize: Typography.fontSize.small,
       color: theme.colors.textSecondary,
       fontWeight: '500',
     },
@@ -1558,7 +1899,7 @@ export default function AddEntryScreen() {
       paddingVertical: 12,
       paddingHorizontal: 14,
       borderRadius: 10,
-      fontSize: 14,
+      fontSize: Typography.fontSize.medium,
       color: theme.colors.textPrimary,
       borderWidth: 1,
       borderColor: theme.colors.border,
@@ -1575,6 +1916,28 @@ export default function AddEntryScreen() {
       color: '#FFFFFF',
       fontSize: 16,
       fontWeight: '600',
+    },
+    addCustomButton: {
+      backgroundColor: theme.colors.primary || '#4DD4AC',
+      paddingHorizontal: 10,
+      paddingVertical: 5,
+      borderRadius: 6,
+    },
+    addCustomButtonText: {
+      color: '#FFFFFF',
+      fontSize: 11,
+      fontWeight: '600',
+    },
+    customActivityInput: {
+      backgroundColor: theme.colors.surfaceVariant,
+      paddingVertical: 12,
+      paddingHorizontal: 14,
+      borderRadius: 10,
+      fontSize: Typography.fontSize.medium,
+      color: theme.colors.textPrimary,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      marginTop: 12,
     },
   });
 
@@ -1595,16 +1958,73 @@ export default function AddEntryScreen() {
       />
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        {/* Date Selection */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Date</Text>
-          <TouchableOpacity
-            style={styles.dateSelector}
-            onPress={() => setShowDatePicker(true)}
-          >
-            <Calendar size={20} color="#34B27B" />
-            <Text style={styles.dateText}>{formatDate(selectedDate)}</Text>
-          </TouchableOpacity>
+        {/* Date Selection Card */}
+        <View style={styles.card}>
+          <View style={styles.cardHeader}>
+            <View style={styles.cardTitleContainer}>
+              <Calendar size={20} color={theme.colors.primary} />
+              <Text style={styles.cardTitle}>Select Date</Text>
+            </View>
+          </View>
+          
+          <View style={styles.cardContent}>
+            {/* Current Selected Date Display */}
+            <View style={[styles.selectedDateDisplay, { backgroundColor: theme.colors.surfaceVariant }]}>
+              <Calendar size={24} color={theme.colors.primary} />
+              <View style={styles.selectedDateInfo}>
+                <Text style={[styles.selectedDateLabel, { color: theme.colors.textSecondary }]}>
+                  Logging data for:
+                </Text>
+                <Text style={[styles.selectedDateValue, { color: theme.colors.text }]}>
+                  {formatDate(selectedDate)}
+                </Text>
+                {isLoggingPastDate && (
+                  <Text style={[styles.pastDateNote, { color: theme.colors.warning }]}>
+                    📅 Past date selected
+                  </Text>
+                )}
+              </View>
+            </View>
+
+            {/* Quick Date Selection Buttons */}
+            <View style={styles.quickDateButtons}>
+              <TouchableOpacity
+                style={[
+                  styles.quickDateButton,
+                  !isLoggingPastDate && [styles.quickDateButtonActive, { backgroundColor: theme.colors.primary }]
+                ]}
+                onPress={() => {
+                  const today = new Date();
+                  setSelectedDate(today);
+                  console.log('📅 Switched to today:', today.toISOString().split('T')[0]);
+                }}
+              >
+                <Text style={[
+                  styles.quickDateButtonText,
+                  !isLoggingPastDate && styles.quickDateButtonTextActive
+                ]}>
+                  📆 Today
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.quickDateButton,
+                  { borderColor: theme.colors.border }
+                ]}
+                onPress={() => setShowDatePicker(true)}
+              >
+                <Text style={[styles.quickDateButtonText, { color: theme.colors.text }]}>
+                  🗓️ Pick Date
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Help Text */}
+            <Text style={[styles.dateHelpText, { color: theme.colors.textSecondary }]}>
+              💡 Tip: You can log data for past dates to keep your records complete
+            </Text>
+          </View>
         </View>
 
         {/* CARD 1: Mood Selection */}
@@ -1737,6 +2157,67 @@ export default function AddEntryScreen() {
           </TouchableOpacity>
         </Modal>
 
+        {/* Custom Activity Modal */}
+        <Modal
+          visible={customActivityModalVisible}
+          transparent={true}
+          animationType="fade"
+          onRequestClose={() => setCustomActivityModalVisible(false)}
+        >
+          <TouchableOpacity 
+            style={styles.modalOverlay}
+            activeOpacity={1}
+            onPress={() => setCustomActivityModalVisible(false)}
+          >
+            <TouchableOpacity 
+              style={styles.modalContent}
+              activeOpacity={1}
+              onPress={(e) => e.stopPropagation()}
+            >
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Add Custom Activity</Text>
+                <TouchableOpacity onPress={() => setCustomActivityModalVisible(false)}>
+                  <X size={20} color="#6B7280" />
+                </TouchableOpacity>
+              </View>
+
+              <View style={styles.modalBody}>
+                <Text style={styles.triggerQuestionCompact}>
+                  {currentCategoryForCustom && 
+                    `Adding to: ${activityCategories.find(c => c.id === currentCategoryForCustom)?.name}`}
+                </Text>
+                
+                <TextInput
+                  style={styles.customActivityInput}
+                  placeholder="Enter activity name..."
+                  placeholderTextColor="#9CA3AF"
+                  value={customActivityName}
+                  onChangeText={setCustomActivityName}
+                  maxLength={50}
+                  autoFocus
+                  returnKeyType="done"
+                  onSubmitEditing={handleSaveCustomActivity}
+                />
+
+                <View style={{ flexDirection: 'row', gap: 12, marginTop: 20 }}>
+                  <TouchableOpacity 
+                    style={[styles.modalDoneButton, { flex: 1, backgroundColor: '#6B7280' }]}
+                    onPress={() => setCustomActivityModalVisible(false)}
+                  >
+                    <Text style={styles.modalDoneButtonText}>Cancel</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity 
+                    style={[styles.modalDoneButton, { flex: 1 }]}
+                    onPress={handleSaveCustomActivity}
+                  >
+                    <Text style={styles.modalDoneButtonText}>Add</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </TouchableOpacity>
+          </TouchableOpacity>
+        </Modal>
+
         {/* CARD 3: Add Notes */}
         {emotionTriggers.length > 0 && (
           <View style={styles.card}>
@@ -1804,11 +2285,22 @@ export default function AddEntryScreen() {
                       <Text style={styles.categoryEmoji}>{category.emoji}</Text>
                       <Text style={styles.categoryName}>{category.name}</Text>
                     </View>
-                    {category.expanded ? (
-                      <ChevronUp size={16} color="#9CA3AF" />
-                    ) : (
-                      <ChevronDown size={16} color="#9CA3AF" />
-                    )}
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                      <TouchableOpacity
+                        onPress={(e) => {
+                          e.stopPropagation();
+                          handleAddCustomActivity(category.id);
+                        }}
+                        style={styles.addCustomButton}
+                      >
+                        <Text style={styles.addCustomButtonText}>+ Add</Text>
+                      </TouchableOpacity>
+                      {category.expanded ? (
+                        <ChevronUp size={16} color="#9CA3AF" />
+                      ) : (
+                        <ChevronDown size={16} color="#9CA3AF" />
+                      )}
+                    </View>
                   </TouchableOpacity>
 
                   {category.expanded && (
@@ -2476,6 +2968,12 @@ export default function AddEntryScreen() {
           value={selectedDate}
           mode="date"
           display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+          minimumDate={(() => {
+            const minDate = new Date();
+            minDate.setMonth(minDate.getMonth() - 3);
+            return minDate;
+          })()}
+          maximumDate={new Date()}
           onChange={(event: DateTimePickerEvent, date?: Date) => {
             setShowDatePicker(false);
             if (date) setSelectedDate(date);
