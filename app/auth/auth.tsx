@@ -16,16 +16,18 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
 import GradientBackground from '@/components/GradientBackground';
-import { Mail, Lock, Eye, EyeOff, UserPlus, LogIn } from 'lucide-react-native';
+import { Mail, Lock, Eye, EyeOff, UserPlus, LogIn, Chrome, User } from 'lucide-react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Apple } from 'lucide-react-native';
 
 export default function Auth() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { theme } = useTheme();
-  const { signIn, signUp, continueAsGuest } = useAuth();
+  const { signIn, signUp, signInWithGoogle, signInWithApple, resetPassword } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [preferredName, setPreferredName] = useState('');
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [isSignUp, setIsSignUp] = useState(false);
@@ -102,7 +104,7 @@ export default function Auth() {
 
     setLoading(true);
     try {
-      const result = await signUp(email.trim(), password);
+      const result = await signUp(email.trim(), password, preferredName.trim() || undefined);
 
       if (!result.success) {
         let errorMessage = 'An unexpected error occurred. Please try again.';
@@ -145,16 +147,59 @@ export default function Auth() {
     }
   };
 
-  const handleContinueAsGuest = async () => {
+  const handleForgotPassword = async () => {
+    if (!email.trim()) {
+      Alert.alert('Email Required', 'Please enter your email address to reset your password.');
+      return;
+    }
+
+    if (!validateEmail(email.trim())) {
+      Alert.alert('Invalid Email', 'Please enter a valid email address.');
+      return;
+    }
+
+    setLoading(true);
     try {
-      setLoading(true);
-      await continueAsGuest();
-      // Mark onboarding as completed
-      await AsyncStorage.setItem('onboarding_completed', 'true');
-      router.replace('/(tabs)/home');
+      const result = await resetPassword(email.trim());
+      if (result.success) {
+        Alert.alert(
+          'Password Reset Email Sent',
+          'Check your inbox for instructions to reset your password.',
+          [{ text: 'OK' }]
+        );
+      } else {
+        Alert.alert('Error', result.error || 'Failed to send reset email. Please try again.');
+      }
     } catch (error) {
-      console.error('Error continuing as guest:', error);
-      Alert.alert('Error', 'Failed to continue as guest. Please try again.');
+      Alert.alert('Error', 'Failed to send reset email. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleGoogleSignIn = async () => {
+    setLoading(true);
+    try {
+      const result = await signInWithGoogle();
+      if (!result.success) {
+        Alert.alert('Sign In Failed', result.error || 'Failed to sign in with Google.');
+      }
+    } catch (error) {
+      Alert.alert('Error', 'Failed to sign in with Google. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleAppleSignIn = async () => {
+    setLoading(true);
+    try {
+      const result = await signInWithApple();
+      if (!result.success) {
+        Alert.alert('Sign In Failed', result.error || 'Failed to sign in with Apple.');
+      }
+    } catch (error) {
+      Alert.alert('Error', 'Failed to sign in with Apple. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -191,6 +236,28 @@ export default function Auth() {
           </View>
 
           <View style={styles.form}>
+            {isSignUp && (
+              <View style={styles.inputContainer}>
+                <Text style={[styles.label, { color: theme.colors.text }]}>Preferred Name</Text>
+                <View style={[styles.inputWrapper, { backgroundColor: theme.colors.card, borderColor: theme.colors.border }]}>
+                  <User size={20} color={theme.colors.textSecondary} style={styles.inputIcon} />
+                  <TextInput
+                    style={[styles.input, { color: theme.colors.text }]}
+                    value={preferredName}
+                    onChangeText={setPreferredName}
+                    placeholder="How should we call you?"
+                    placeholderTextColor={theme.colors.textTertiary}
+                    autoCapitalize="words"
+                    autoComplete="name"
+                    editable={!loading}
+                  />
+                </View>
+                <Text style={[styles.hint, { color: theme.colors.textTertiary }]}>
+                  Optional - We'll use this to personalize your experience
+                </Text>
+              </View>
+            )}
+
             <View style={styles.inputContainer}>
               <Text style={[styles.label, { color: theme.colors.text }]}>Email</Text>
               <View style={[styles.inputWrapper, { backgroundColor: theme.colors.card, borderColor: theme.colors.border }]}>
@@ -237,6 +304,18 @@ export default function Auth() {
               </View>
             </View>
 
+            {!isSignUp && (
+              <TouchableOpacity
+                style={styles.forgotPasswordButton}
+                onPress={handleForgotPassword}
+                disabled={loading}
+              >
+                <Text style={[styles.forgotPasswordText, { color: theme.colors.primary }]}>
+                  Forgot Password?
+                </Text>
+              </TouchableOpacity>
+            )}
+
             <TouchableOpacity
               style={[styles.submitButton, { backgroundColor: theme.colors.primary }]}
               onPress={handleSubmit}
@@ -278,20 +357,28 @@ export default function Auth() {
             </View>
 
             <TouchableOpacity
-              style={[styles.guestButton, { backgroundColor: theme.colors.card, borderColor: theme.colors.border }]}
-              onPress={handleContinueAsGuest}
+              style={[styles.oauthButton, { backgroundColor: theme.colors.card, borderColor: theme.colors.border }]}
+              onPress={handleGoogleSignIn}
               disabled={loading}
             >
-              {loading ? (
-                <ActivityIndicator size="small" color={theme.colors.text} />
-              ) : (
-                <>
-                  <Text style={[styles.guestButtonText, { color: theme.colors.text }]}>
-                    Continue as Guest
-                  </Text>
-                </>
-              )}
+              <Chrome size={20} color={theme.colors.text} style={styles.oauthIcon} />
+              <Text style={[styles.oauthButtonText, { color: theme.colors.text }]}>
+                Continue with Google
+              </Text>
             </TouchableOpacity>
+
+            {Platform.OS === 'ios' && (
+              <TouchableOpacity
+                style={[styles.oauthButton, styles.appleButton, { borderColor: theme.colors.border }]}
+                onPress={handleAppleSignIn}
+                disabled={loading}
+              >
+                <Apple size={20} color="#FFFFFF" style={styles.oauthIcon} />
+                <Text style={[styles.oauthButtonText, { color: '#FFFFFF' }]}>
+                  Continue with Apple
+                </Text>
+              </TouchableOpacity>
+            )}
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -333,6 +420,11 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     marginBottom: 8,
+  },
+  hint: {
+    fontSize: 12,
+    marginTop: 4,
+    lineHeight: 16,
   },
   inputWrapper: {
     flexDirection: 'row',
@@ -404,7 +496,17 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '500',
   },
-  guestButton: {
+  forgotPasswordButton: {
+    alignSelf: 'flex-end',
+    marginTop: -8,
+    marginBottom: 16,
+    paddingVertical: 8,
+  },
+  forgotPasswordText: {
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  oauthButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -417,9 +519,16 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 8,
     elevation: 2,
+    marginBottom: 12,
   },
-  guestButtonText: {
-    fontSize: 18,
+  appleButton: {
+    backgroundColor: '#000000',
+  },
+  oauthIcon: {
+    marginRight: 8,
+  },
+  oauthButtonText: {
+    fontSize: 16,
     fontWeight: '600',
   },
 });

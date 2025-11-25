@@ -1,6 +1,7 @@
 // Sleep Programme Service - 4-Week Sleep Improvement Programme
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SleepService } from './sleep.service';
+import { HabitsService } from './habits.service';
 
 const PROGRAMME_KEY = 'sleep_programme';
 const ACTIVE_PRACTICE_KEY = 'active_practice_sessions';
@@ -319,6 +320,39 @@ class SleepProgrammeService {
       const sessions = sessionsJson ? JSON.parse(sessionsJson) : [];
       sessions.push(session);
       await AsyncStorage.setItem(sessionsKey, JSON.stringify(sessions));
+
+      // Create active habit from lesson
+      try {
+        // Check if habit already exists
+        const existingHabitsResult = await HabitsService.getAll(userId);
+        const existingHabits = existingHabitsResult.data || [];
+        const habitExists = existingHabits.some(h => h.name === lesson.habitTask.name);
+
+        if (!habitExists) {
+          // Create the habit
+          const habitData = {
+            name: lesson.habitTask.name,
+            description: lesson.habitTask.description,
+            category: 'Sleep' as const,
+            emoji: lesson.habitTask.icon,
+            instruction: lesson.habitTask.description,
+            total_days: daysCount,
+            streak: 0,
+            streak_goal: daysCount,
+            reminder_enabled: true,
+            reminder_time: '21:00', // Default to 9 PM
+          };
+
+          await HabitsService.create(habitData, userId);
+          console.log('✅ Habit created successfully:', lesson.habitTask.name);
+        } else {
+          console.log('ℹ️ Habit already exists, skipping creation:', lesson.habitTask.name);
+        }
+      } catch (habitError) {
+        // Log error but don't fail the entire operation
+        console.error('Error creating habit:', habitError);
+        // Practice session was still created successfully
+      }
 
       // Update programme
       await this.updateProgramme(userId, {

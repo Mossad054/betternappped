@@ -13,8 +13,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { MentalClarityService } from '@/services/mental-clarity.service';
 
-const SYMBOLS = ['🔺', '⚫', '🔷'];
-const SYMBOL_MAP: {[key: string]: number} = { '🔺': 1, '⚫': 2, '🔷': 3 };
+// Expanded symbol pool for randomization
+const ALL_SYMBOLS = ['🔺', '⚫', '🔷', '⭐', '🔶', '🟣', '🔸', '🟥', '🟢'];
 
 interface Match {
   symbol: string;
@@ -31,9 +31,16 @@ export default function SpeedTestScreen() {
   const [correctMatches, setCorrectMatches] = useState(0);
   const [incorrectMatches, setIncorrectMatches] = useState(0);
   const [saving, setSaving] = useState(false);
+  const [symbols, setSymbols] = useState<string[]>([]);
+  const [symbolMap, setSymbolMap] = useState<{[key: string]: number}>({});
 
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const scaleAnim = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    // Initialize symbols on component mount
+    initializeSymbols();
+  }, []);
 
   useEffect(() => {
     if (started && !finished) {
@@ -54,8 +61,24 @@ export default function SpeedTestScreen() {
     }
   }, [started, finished]);
 
+  const initializeSymbols = () => {
+    // Randomly select 3 symbols from the pool to prevent pattern memorization
+    const shuffled = [...ALL_SYMBOLS].sort(() => Math.random() - 0.5);
+    const selected = shuffled.slice(0, 3);
+    setSymbols(selected);
+
+    // Create symbol map
+    const map: {[key: string]: number} = {};
+    selected.forEach((symbol, index) => {
+      map[symbol] = index + 1;
+    });
+    setSymbolMap(map);
+  };
+
   const generateNewMatch = () => {
-    const randomSymbol = SYMBOLS[Math.floor(Math.random() * SYMBOLS.length)];
+    if (symbols.length === 0) return;
+
+    const randomSymbol = symbols[Math.floor(Math.random() * symbols.length)];
     const randomNumber = Math.floor(Math.random() * 3) + 1;
     setCurrentMatch({ symbol: randomSymbol, number: randomNumber });
 
@@ -74,8 +97,8 @@ export default function SpeedTestScreen() {
   };
 
   const handleAnswer = (isMatch: boolean) => {
-    const actualMatch = SYMBOL_MAP[currentMatch.symbol] === currentMatch.number;
-    
+    const actualMatch = symbolMap[currentMatch.symbol] === currentMatch.number;
+
     if (isMatch === actualMatch) {
       setCorrectMatches((prev) => prev + 1);
     } else {
@@ -85,12 +108,23 @@ export default function SpeedTestScreen() {
     generateNewMatch();
   };
 
+  const handleStart = () => {
+    // Re-randomize symbols for a fresh test
+    initializeSymbols();
+    setStarted(true);
+  };
+
   const handleFinish = async () => {
     setFinished(true);
     if (timerRef.current) clearInterval(timerRef.current);
 
     const totalAttempts = correctMatches + incorrectMatches;
-    const score = Math.min(100, correctMatches * 2);
+    // Improved scoring: combines accuracy and throughput
+    // - Accuracy component (50%): percentage of correct answers
+    // - Throughput component (50%): rewards more attempts, optimal ~40 in 45s
+    const accuracy = totalAttempts > 0 ? (correctMatches / totalAttempts) * 100 : 0;
+    const throughputScore = Math.min(50, (correctMatches / 40) * 50);
+    const score = Math.min(100, (accuracy * 0.5) + throughputScore);
 
     setSaving(true);
     if (user) {
@@ -338,8 +372,9 @@ export default function SpeedTestScreen() {
   });
 
   const totalAttempts = correctMatches + incorrectMatches;
-  const finalScore = Math.min(100, correctMatches * 2);
   const accuracy = totalAttempts > 0 ? (correctMatches / totalAttempts) * 100 : 0;
+  const throughputScore = Math.min(50, (correctMatches / 40) * 50);
+  const finalScore = Math.min(100, (accuracy * 0.5) + throughputScore);
 
   return (
     <View style={styles.container}>
@@ -382,22 +417,16 @@ export default function SpeedTestScreen() {
           <View style={styles.keyCard}>
             <Text style={styles.keyTitle}>Symbol Key</Text>
             <View style={styles.keyRow}>
-              <View style={styles.keyItem}>
-                <Text style={styles.keySymbol}>🔺</Text>
-                <Text style={styles.keyNumber}>1</Text>
-              </View>
-              <View style={styles.keyItem}>
-                <Text style={styles.keySymbol}>⚫</Text>
-                <Text style={styles.keyNumber}>2</Text>
-              </View>
-              <View style={styles.keyItem}>
-                <Text style={styles.keySymbol}>🔷</Text>
-                <Text style={styles.keyNumber}>3</Text>
-              </View>
+              {symbols.map((symbol, index) => (
+                <View key={symbol} style={styles.keyItem}>
+                  <Text style={styles.keySymbol}>{symbol}</Text>
+                  <Text style={styles.keyNumber}>{index + 1}</Text>
+                </View>
+              ))}
             </View>
           </View>
 
-          <TouchableOpacity style={styles.startButton} onPress={() => setStarted(true)}>
+          <TouchableOpacity style={styles.startButton} onPress={handleStart}>
             <Text style={styles.startButtonText}>Start Test (45s)</Text>
           </TouchableOpacity>
         </View>
@@ -407,18 +436,11 @@ export default function SpeedTestScreen() {
             <View style={[styles.timerFill, { width: `${(timeLeft / 45) * 100}%` }]} />
           </View>
 
+          {/* Timer Only - Hide stats to prevent cramming */}
           <View style={styles.statsRow}>
             <View style={styles.statItem}>
               <Text style={styles.statValue}>{timeLeft}s</Text>
-              <Text style={styles.statLabel}>Time Left</Text>
-            </View>
-            <View style={styles.statItem}>
-              <Text style={[styles.statValue, { color: '#10B981' }]}>{correctMatches}</Text>
-              <Text style={styles.statLabel}>Correct</Text>
-            </View>
-            <View style={styles.statItem}>
-              <Text style={[styles.statValue, { color: '#EF4444' }]}>{incorrectMatches}</Text>
-              <Text style={styles.statLabel}>Errors</Text>
+              <Text style={styles.statLabel}>Time Remaining</Text>
             </View>
           </View>
 

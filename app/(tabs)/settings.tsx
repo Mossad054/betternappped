@@ -3,6 +3,8 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'rea
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
+import * as Lucide from 'lucide-react-native';
+import { Feather } from '@expo/vector-icons';
 import { 
   Bell, 
   User, 
@@ -23,11 +25,12 @@ import { ThemeSettings } from '@/components/settings/ThemeSettings';
 import { HelpSettings } from '@/components/settings/HelpSettings';
 import { LanguageSettings } from '@/components/settings/LanguageSettings';
 import { SecuritySettings } from '@/components/settings/SecuritySettings';
+import { CloudSyncSettings } from '@/components/settings/CloudSyncSettings';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { testSupabaseConnection } from '@/lib/supabase-debug';
 import { SUPABASE_URL } from '@/lib/constants';
 
-type SettingSection = 'notifications' | 'account' | 'privacy' | 'theme' | 'help' | 'language' | 'security' | 'developer' | null;
+type SettingSection = 'notifications' | 'account' | 'privacy' | 'theme' | 'help' | 'language' | 'security' | 'cloud-sync' | 'developer' | null;
 
 export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
@@ -128,6 +131,13 @@ export default function SettingsScreen() {
       color: theme.colors.primary
     },
     {
+      id: 'cloud-sync' as const,
+      title: 'Cloud Sync',
+      subtitle: 'Backup and sync across devices',
+      icon: (Lucide as any).Cloud ?? ((props: any) => <Feather name="cloud" {...props} />),
+      color: theme.colors.info
+    },
+    {
       id: 'theme' as const,
       title: 'Theme',
       subtitle: 'Customize appearance and colors',
@@ -215,6 +225,8 @@ export default function SettingsScreen() {
         return <AccountSettings onBack={() => setActiveSection(null)} />;
       case 'privacy':
         return <PrivacySettings onBack={() => setActiveSection(null)} />;
+      case 'cloud-sync':
+        return <CloudSyncSettings onBack={() => setActiveSection(null)} />;
       case 'theme':
         return <ThemeSettings onBack={() => setActiveSection(null)} />;
       case 'help':

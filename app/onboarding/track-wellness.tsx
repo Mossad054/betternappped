@@ -7,13 +7,13 @@ import {
   SafeAreaView,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { useTheme } from '@/contexts/ThemeContext';
 import { Activity, Moon, Brain, ArrowRight, ArrowLeft } from 'lucide-react-native';
 import GradientBackground from '@/components/GradientBackground';
+import { OnboardingTheme } from '@/constants/onboardingTheme';
 
 export default function TrackWellnessScreen() {
   const router = useRouter();
-  const { theme } = useTheme();
+  const theme = OnboardingTheme;
 
   const handleNext = () => {
     router.push('/onboarding/insights');

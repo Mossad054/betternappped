@@ -302,6 +302,35 @@ export class ProfileService {
   }
 
   // ============================================================
+  // Convenience Methods
+  // ============================================================
+
+  /**
+   * Get user's preferred name (convenience method)
+   */
+  static async getPreferredName(userId: string): Promise<string> {
+    const result = await this.getProfile(userId);
+    if (result.data?.full_name) {
+      return result.data.full_name;
+    }
+    return 'User';
+  }
+
+  /**
+   * Update preferred name
+   */
+  static async updatePreferredName(
+    userId: string,
+    name: string
+  ): Promise<{ success: boolean; error?: any }> {
+    const result = await this.updateName(userId, name);
+    return {
+      success: !result.error,
+      error: result.error,
+    };
+  }
+
+  // ============================================================
   // Utility Functions
   // ============================================================
 

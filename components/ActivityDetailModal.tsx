@@ -12,6 +12,8 @@ import {
 } from 'react-native';
 import { X } from 'lucide-react-native';
 import { useTheme } from '@/contexts/ThemeContext';
+import PostActivityFeeling from './PostActivityFeeling';
+import { shouldAskDuration, shouldAskIntensity } from '@/constants/activityFeelings';
 
 interface ActivityDetailModalProps {
   visible: boolean;
@@ -26,6 +28,7 @@ export interface ActivityDetails {
   duration?: number;
   intensity?: number;
   notes?: string;
+  postActivityFeeling?: string;
 }
 
 export default function ActivityDetailModal({
@@ -40,27 +43,23 @@ export default function ActivityDetailModal({
   const [duration, setDuration] = useState<number>(30);
   const [intensity, setIntensity] = useState<number>(3);
   const [notes, setNotes] = useState<string>('');
+  const [postActivityFeeling, setPostActivityFeeling] = useState<string | null>(null);
 
   const handleSave = () => {
     const details: ActivityDetails = {
-      duration,
-      intensity,
+      duration: showDuration ? duration : undefined,
+      intensity: showIntensity ? intensity : undefined,
       notes: notes || undefined,
+      postActivityFeeling: postActivityFeeling || undefined,
     };
 
     onSave(details);
   };
 
-  // Weather activities don't need duration/intensity - they're environmental conditions
+  // Use smart helper functions to determine which fields to show
+  const showDuration = shouldAskDuration(categoryId, activityId);
+  const showIntensity = shouldAskIntensity(categoryId, activityId);
   const isWeatherActivity = categoryId === 'weather';
-
-  // Determine if intensity is relevant for this activity (physical/mental effort activities)
-  const showIntensity = 
-    !isWeatherActivity &&
-    ((categoryId === 'places' && ['gym', 'hiking', 'swimming', 'sports'].includes(activityId)) ||
-    (categoryId === 'betterme' && ['meditation', 'workout', 'yoga', 'exercise'].includes(activityId)) ||
-    (categoryId === 'chores' && ['cleaning', 'cooking'].includes(activityId)) ||
-    (categoryId === 'productivity'));
 
   const styles = StyleSheet.create({
     modalOverlay: {
@@ -73,7 +72,7 @@ export default function ActivityDetailModal({
       justifyContent: 'flex-end',
     },
     modalContainer: {
-      backgroundColor: theme.colors.surface,
+      backgroundColor: theme.colors.background,
       borderTopLeftRadius: 24,
       borderTopRightRadius: 24,
       paddingHorizontal: 24,
@@ -254,14 +253,21 @@ export default function ActivityDetailModal({
                 </TouchableOpacity>
               </View>
 
-              {/* Duration - Skip for weather activities */}
-              {!isWeatherActivity && (
+              {/* Post-Activity Feeling - Always show first for quick feedback */}
+              <PostActivityFeeling
+                categoryId={categoryId}
+                selectedFeeling={postActivityFeeling}
+                onFeelingSelect={setPostActivityFeeling}
+              />
+
+              {/* Duration - Only for relevant activities */}
+              {showDuration && (
                 <View style={styles.fieldContainer}>
                   <Text style={styles.fieldLabel}>Duration (minutes)</Text>
                   <View style={styles.durationControls}>
                     <TouchableOpacity
                       style={styles.durationButton}
-                      onPress={() => setDuration(Math.max(5, duration - 5))}
+                      onPress={() => setDuration(Math.max(30, duration - 30))}
                     >
                       <Text style={styles.durationButtonText}>−</Text>
                     </TouchableOpacity>
@@ -274,7 +280,7 @@ export default function ActivityDetailModal({
                     />
                     <TouchableOpacity
                       style={styles.durationButton}
-                      onPress={() => setDuration(duration + 5)}
+                      onPress={() => setDuration(duration + 30)}
                     >
                       <Text style={styles.durationButtonText}>+</Text>
                     </TouchableOpacity>

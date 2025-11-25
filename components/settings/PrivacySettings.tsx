@@ -21,9 +21,10 @@ import { ActivitiesService } from '@/services/activities.service';
 import { ProductivityService } from '@/services/productivity.service';
 import { IntimacyService } from '@/services/intimacy.service';
 import { ExperimentsService } from '@/services/experiments.service';
+import * as Lucide from 'lucide-react-native';
+import { Feather } from '@expo/vector-icons';
 import { 
   ArrowLeft, 
-  Cloud, 
   Download, 
   Trash2,
   Database,
@@ -249,7 +250,7 @@ export function PrivacySettings({ onBack }: PrivacySettingsProps) {
           'Sync your data across devices',
           dataSyncEnabled,
           handleDataSync,
-          Cloud,
+          (Lucide as any).Cloud ?? ((props: any) => <Feather name="cloud" {...props} />),
           '#3B82F6'
         )}
 

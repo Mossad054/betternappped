@@ -1,12 +1,12 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { 
-  StyleSheet, 
-  ScrollView, 
-  View, 
-  Text, 
+import {
+  StyleSheet,
+  ScrollView,
+  View,
+  Text,
   TouchableOpacity,
   Animated,
   Dimensions,
@@ -17,15 +17,17 @@ import {
   Alert,
   ActivityIndicator,
   RefreshControl,
+  Image,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
+import { useFocusEffect } from '@react-navigation/native';
 import MiniCalendar from '@/components/MiniCalendar';
-import { 
-  TrendingUp, 
-  Moon, 
-  Brain, 
-  Zap, 
+import {
+  TrendingUp,
+  Moon,
+  Brain,
+  Zap,
   ChevronRight,
   Library,
   Plus,
@@ -38,6 +40,7 @@ import {
   Target,
   Save,
   Trash2,
+  User,
 } from 'lucide-react-native';
 import { HabitsService } from '@/services/habits.service';
 import { MoodsService } from '@/services/moods.service';
@@ -49,9 +52,15 @@ import { useNotifications } from '@/hooks/useNotifications';
 import { useOfflineStatus } from '@/hooks/useOfflineSync';
 import HabitCard from '@/components/HabitCard';
 import ImpactAnalysisCard from '@/components/ImpactAnalysisCard';
+import { FloatingNotificationButton, NotificationPanel } from '@/components/notifications';
+import { useNotificationWidget } from '@/contexts/NotificationContext';
+import { Ionicons } from '@expo/vector-icons';
 import AIRecommendationsCard from '@/components/AIRecommendationsCard';
+import HabitImpactFeedbackModal, { HabitImpactData } from '@/components/HabitImpactFeedbackModal';
 import { Database } from '@/lib/supabase';
 import { Wifi, WifiOff, RefreshCw } from 'lucide-react-native';
+import { showSuccess, showError, showConfirmation, OperationSuccess, OperationError } from '@/lib/userFeedback';
+import { HabitImpactService } from '@/services/habitImpact.service';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -128,6 +137,7 @@ interface ActiveHabit {
   progressPercentage?: number;
   reminderEnabled?: boolean;
   reminder_enabled?: boolean;
+  reminder_time?: string;
 }
 
 export default function HomeScreen() {
@@ -137,6 +147,7 @@ export default function HomeScreen() {
   const { user, isGuest } = useAuth();
   const notifications = useNotifications();
   const { isOnline, pendingWrites, showOfflineIndicator } = useOfflineStatus();
+  const { unreadCount, togglePanel, isPanelOpen } = useNotificationWidget();
   const [activeHabits, setActiveHabits] = useState<any[]>([]);
   const [moodData, setMoodData] = useState<any[]>([]);
   const [sleepData, setSleepData] = useState<any[]>([]);
@@ -147,6 +158,10 @@ export default function HomeScreen() {
   const [moreHabitsModalVisible, setMoreHabitsModalVisible] = useState(false);
   const [habitLibraryModalVisible, setHabitLibraryModalVisible] = useState(false);
   const [createHabitModalVisible, setCreateHabitModalVisible] = useState(false);
+
+  // Habit Impact Feedback Modal State
+  const [impactFeedbackModalVisible, setImpactFeedbackModalVisible] = useState(false);
+  const [selectedHabitForFeedback, setSelectedHabitForFeedback] = useState<{ id: string; name: string; category: string } | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   
   // Debug logging
@@ -182,6 +197,15 @@ export default function HomeScreen() {
       setLoading(false);
     }
   }, [user, isGuest]);
+
+  // Reload data when screen comes into focus (e.g., after navigating back from habit library)
+  useFocusEffect(
+    useCallback(() => {
+      if (user || isGuest) {
+        loadData();
+      }
+    }, [user, isGuest])
+  );
 
   // Set up real-time subscriptions only for authenticated users
   useRealtimeHabits(user?.id || '', () => {
@@ -277,38 +301,88 @@ export default function HomeScreen() {
   };
 
   const getTodaySleep = () => {
-    const todayEntry = sleepData.find((s: any) => s.date === today);
-    if (todayEntry) {
+    // Get the most recent sleep entry (last night's sleep)
+    // Sleep data is ordered by date desc from the API
+    if (sleepData && sleepData.length > 0) {
+      const mostRecent = sleepData[0];
+
+      // Calculate actual hours from bedtime/wake_time if available (handles midnight crossing)
+      let hours = mostRecent.hours || 0;
+      if (mostRecent.bedtime && mostRecent.wake_time) {
+        hours = SleepService.calculateSleepDuration(mostRecent.bedtime, mostRecent.wake_time);
+      }
+
+      // Default sleep target is 8 hours (can be user preference later)
+      const sleepTarget = 8;
+      const meetsTarget = hours >= sleepTarget;
+      const isClose = hours >= sleepTarget - 1; // Within 1 hour of target
+
       return {
-        hours: todayEntry.hours || 0,
-        quality: todayEntry.quality || 'fair',
-        emoji: todayEntry.emoji || '😴'
+        hours: Number(hours.toFixed(1)),
+        quality: mostRecent.quality || 'fair',
+        emoji: mostRecent.emoji || '😴',
+        date: mostRecent.date,
+        meetsTarget,
+        isClose,
+        target: sleepTarget
       };
     }
-    return { hours: 0, quality: 'none', emoji: '😴' };
+    return { hours: 0, quality: 'none', emoji: '😴', date: null, meetsTarget: false, isClose: false, target: 8 };
   };
 
   const getTodayClarity = () => {
-    const todayEntry = mentalClarityData.find((c: any) => c.date === today);
-    if (todayEntry) {
-      const score = todayEntry.score || todayEntry.clarity_score || 0;
-      let level = 'None';
-      if (score >= 80) level = 'High';
-      else if (score >= 60) level = 'Good';
-      else if (score >= 40) level = 'Fair';
-      else if (score > 0) level = 'Low';
-      
-      return { score, level };
+    // Get the most recent mental clarity test from the last 24 hours
+    if (mentalClarityData && mentalClarityData.length > 0) {
+      const now = new Date();
+      const twentyFourHoursAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+
+      // Find the most recent test within 24 hours
+      const recentTest = mentalClarityData.find((c: any) => {
+        const testDate = new Date(c.created_at || c.date);
+        return testDate >= twentyFourHoursAgo;
+      });
+
+      if (recentTest) {
+        const score = recentTest.score || recentTest.clarity_score || 0;
+        let level = 'None';
+        if (score >= 80) level = 'High';
+        else if (score >= 60) level = 'Good';
+        else if (score >= 40) level = 'Fair';
+        else if (score > 0) level = 'Low';
+
+        return { score, level };
+      }
     }
     return { score: 0, level: 'None' };
   };
 
   const getCurrentStreak = () => {
-    if (!activeHabits || activeHabits.length === 0) return 0;
-    
-    // Calculate the longest current streak across all habits
-    const streaks = activeHabits.map((habit: any) => habit.current_streak || habit.streak || 0);
-    return Math.max(...streaks, 0);
+    if (!activeHabits || activeHabits.length === 0) {
+      return { streak: 0, goal: 0, habitName: '', progress: 0 };
+    }
+
+    // Find the habit with the longest current streak
+    let bestHabit = activeHabits[0];
+    let maxStreak = bestHabit.current_streak || bestHabit.streak || 0;
+
+    for (const habit of activeHabits) {
+      const habitStreak = habit.current_streak || habit.streak || 0;
+      if (habitStreak > maxStreak) {
+        maxStreak = habitStreak;
+        bestHabit = habit;
+      }
+    }
+
+    const streak = bestHabit.current_streak || bestHabit.streak || 0;
+    const goal = bestHabit.streak_goal || bestHabit.total_days || 30;
+    const progress = goal > 0 ? Math.min((streak / goal) * 100, 100) : 0;
+
+    return {
+      streak,
+      goal,
+      habitName: bestHabit.name,
+      progress: Math.round(progress)
+    };
   };
 
   const todayMood = getTodayMood();
@@ -550,7 +624,7 @@ export default function HomeScreen() {
 
   const handleToggleComplete = async (id: string) => {
     if (!user && !isGuest) return;
-    
+
     try {
       const habit = activeHabits.find(h => h?.id === id);
       if (!habit) return;
@@ -558,7 +632,7 @@ export default function HomeScreen() {
       const today = new Date().toISOString().split('T')[0];
       const isCurrentlyCompleted = habit.completedToday;
       const newCompletedState = !isCurrentlyCompleted;
-      
+
       // Log the habit completion
       const { error } = await HabitsService.logHabit(
         id,
@@ -571,23 +645,25 @@ export default function HomeScreen() {
       );
 
       if (error) {
-        Alert.alert('Error', 'Failed to update habit');
+        OperationError.update('habit', error);
         return;
       }
 
       // Fetch updated habit with recalculated streak
       const { data: updatedHabit, error: fetchError } = await HabitsService.getById(id, user?.id || 'guest_user');
-      
+
       if (fetchError || !updatedHabit) {
         console.error('Error fetching updated habit:', fetchError);
         // Fallback: update local state with basic calculation
         setActiveHabits(prev =>
           prev.map(h =>
-            h.id === id ? { 
-              ...h, 
+            h.id === id ? {
+              ...h,
               completedToday: newCompletedState,
               streak: newCompletedState ? (h.streak || 0) + 1 : h.streak,
-              current_streak: newCompletedState ? (h.current_streak || h.streak || 0) + 1 : (h.current_streak || h.streak)
+              current_streak: newCompletedState ? (h.current_streak || h.streak || 0) + 1 : (h.current_streak || h.streak),
+              currentDay: newCompletedState ? (h.currentDay || 1) + 1 : h.currentDay,
+              progressPercentage: newCompletedState ? Math.round(((h.currentDay || 1) + 1) / (h.totalDays || h.total_days || 30) * 100) : h.progressPercentage
             } : h
           )
         );
@@ -595,29 +671,26 @@ export default function HomeScreen() {
         // Update local state with accurate data from database
         setActiveHabits(prev =>
           prev.map(h =>
-            h.id === id ? { 
-              ...h, 
+            h.id === id ? {
+              ...h,
               completedToday: newCompletedState,
               streak: updatedHabit.streak || 0,
-              current_streak: updatedHabit.streak || updatedHabit.current_streak || 0
+              current_streak: updatedHabit.streak || updatedHabit.current_streak || 0,
+              currentDay: updatedHabit.currentDay || (updatedHabit.current_day || h.currentDay || 1),
+              progressPercentage: updatedHabit.currentDay ? Math.round((updatedHabit.currentDay / (h.totalDays || h.total_days || 30)) * 100) : h.progressPercentage
             } : h
           )
         );
       }
 
-      // Show celebration for completion
+      // Show detailed impact feedback modal when completing (not uncompleting)
       if (newCompletedState) {
-        const motivationalQuote = getHabitMotivationalQuote(habit.name, habit.category);
-        
-        Alert.alert(
-          "Habit Completed! 🎉",
-          motivationalQuote,
-          [{ text: "Thanks!", style: "default" }]
-        );
+        setSelectedHabitForFeedback({ id: habit.id, name: habit.name, category: habit.category });
+        setImpactFeedbackModalVisible(true);
       }
     } catch (err) {
       console.error('Error updating habit:', err);
-      Alert.alert('Error', 'Failed to update habit');
+      OperationError.update('habit', err);
     }
   };
 
@@ -626,44 +699,102 @@ export default function HomeScreen() {
 
     try {
       const habit = activeHabits.find(h => h.id === id);
-      
-      // If feedback is bad, ask user if they want to adjust the habit
+      if (!habit) return;
+
+      // If feedback is bad, ask user if they want to pause or calibrate
       if (feedback === 'bad') {
-        Alert.alert(
-          'Habit Not Working?',
-          'This habit seems challenging. Would you like to explore other habits that might work better for you?',
-          [
-            {
-              text: 'No, Keep It',
-              style: 'cancel',
-              onPress: async () => {
-                // Still save the bad feedback
-                await saveFeedback(id, feedback);
-              }
-            },
-            {
-              text: 'Yes, Adjust',
-              style: 'default',
-              onPress: () => {
-                // Redirect to habit library
-                setHabitLibraryModalVisible(true);
-              }
-            }
-          ]
+        showConfirmation(
+          'This habit seems challenging. Would you like to pause it for now or calibrate by exploring other habits that might work better?',
+          () => {
+            // User chose to calibrate - redirect to habit library
+            setHabitLibraryModalVisible(true);
+          },
+          () => {
+            // User canceled - show pause option
+            Alert.alert(
+              'Pause Habit?',
+              `Would you like to pause "${habit.name}" temporarily?`,
+              [
+                { text: 'No, Keep Active', style: 'cancel' },
+                {
+                  text: 'Yes, Pause It',
+                  style: 'destructive',
+                  onPress: async () => {
+                    // TODO: Implement pause functionality (could be a status field in habits table)
+                    showSuccess('Habit paused. You can resume it anytime from settings.', 'Habit Paused');
+                  },
+                },
+              ]
+            );
+          },
+          'Calibrate Habit'
         );
         return;
       }
 
-      // For good or neutral feedback, save directly
-      await saveFeedback(id, feedback);
-
-      // Show feedback message for good feedback
-      if (feedback === 'good') {
-        Alert.alert('Great job! 🎉', 'Keep up the good work!');
-      }
+      // For good or neutral feedback, show the detailed impact modal
+      setSelectedHabitForFeedback({ id: habit.id, name: habit.name, category: habit.category });
+      setImpactFeedbackModalVisible(true);
     } catch (err) {
-      console.error('Error saving feedback:', err);
-      Alert.alert('Error', 'Failed to save feedback');
+      console.error('Error handling feedback:', err);
+      OperationError.update('habit feedback', err);
+    }
+  };
+
+  // Handle detailed impact feedback submission
+  const handleImpactFeedbackSubmit = async (data: HabitImpactData) => {
+    if (!user && !isGuest) return;
+    if (!selectedHabitForFeedback) return;
+
+    try {
+      const userId = user?.id || 'guest_user';
+      const today = new Date().toISOString().split('T')[0];
+
+      // Save the detailed impact feedback
+      const { error } = await HabitImpactService.saveFeedback(
+        selectedHabitForFeedback.id,
+        userId,
+        data,
+        today
+      );
+
+      if (error) {
+        OperationError.save('habit feedback', error);
+        return;
+      }
+
+      // Update local habit state with the overall feeling
+      setActiveHabits(prev =>
+        prev.map(h =>
+          h.id === selectedHabitForFeedback.id
+            ? { ...h, feedback: data.overallFeeling }
+            : h
+        )
+      );
+
+      // Show motivational message based on overall feeling
+      if (data.overallFeeling === 'good') {
+        const habit = activeHabits.find(h => h.id === selectedHabitForFeedback.id);
+        if (habit) {
+          const motivationalQuote = getHabitMotivationalQuote(habit.name, habit.category);
+          showSuccess(motivationalQuote, 'Habit Completed! 🎉');
+        } else {
+          OperationSuccess.habitCompleted();
+        }
+      } else if (data.overallFeeling === 'neutral') {
+        showSuccess('Feedback recorded. Every step counts!', 'Keep Going!');
+      }
+
+      // If bad, handle the pause/calibrate flow
+      if (data.overallFeeling === 'bad') {
+        setTimeout(() => {
+          handleFeedback(selectedHabitForFeedback.id, 'bad');
+        }, 500);
+      }
+
+    } catch (error) {
+      console.error('Error saving impact feedback:', error);
+      OperationError.save('habit feedback', error);
     }
   };
 
@@ -680,7 +811,7 @@ export default function HomeScreen() {
     );
 
     if (error) {
-      Alert.alert('Error', 'Failed to save feedback');
+      OperationError.save('feedback', error);
       return;
     }
 
@@ -690,7 +821,7 @@ export default function HomeScreen() {
     );
   };
 
-  const handleToggleReminder = async (id: string) => {
+  const handleToggleReminder = async (id: string, reminderTime?: Date) => {
     if (!user) return;
 
     const habit = activeHabits.find(h => h.id === id);
@@ -710,12 +841,18 @@ export default function HomeScreen() {
           return;
         }
 
-        // Schedule notification (default time: 9 AM)
+        // Use provided time or default to 9 AM
+        const time = reminderTime || new Date();
+        const hour = reminderTime ? time.getHours() : 9;
+        const minute = reminderTime ? time.getMinutes() : 0;
+        const timeString = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
+
+        // Schedule notification
         const notificationId = await notifications.scheduleHabitReminder(
           habit.name,
           habit.id,
-          9, // hour
-          0  // minute
+          hour,
+          minute
         );
 
         if (!notificationId) {
@@ -723,10 +860,10 @@ export default function HomeScreen() {
           return;
         }
 
-        // Update habit in database with reminder enabled
+        // Update habit in database with reminder enabled and time
         const { error } = await HabitsService.update(
           id,
-          { reminder_enabled: true, reminder_time: '09:00' },
+          { reminder_enabled: true, reminder_time: timeString },
           user.id
         );
 
@@ -739,7 +876,7 @@ export default function HomeScreen() {
 
         // Update local state
         setActiveHabits(prev =>
-          prev.map(h => (h.id === id ? { ...h, reminder_enabled: true, reminderEnabled: true } : h))
+          prev.map(h => (h.id === id ? { ...h, reminder_enabled: true, reminderEnabled: true, reminder_time: timeString } : h))
         );
       } else {
         // Cancel notification
@@ -768,25 +905,86 @@ export default function HomeScreen() {
     }
   };
 
-  const handleDeleteHabit = async (id: string) => {
+  // Handle reminder time change
+  const handleReminderTimeChange = async (id: string, newTime: Date) => {
     if (!user) return;
-    
-    try {
-      // Cancel any scheduled notifications for this habit
-      await notifications.cancelHabitReminder(id);
 
-      const { error } = await HabitsService.delete(id, user.id);
-      
-      if (error) {
-        Alert.alert('Error', 'Failed to delete habit');
+    const habit = activeHabits.find(h => h.id === id);
+    if (!habit || !(habit.reminderEnabled || habit.reminder_enabled)) return;
+
+    try {
+      const hour = newTime.getHours();
+      const minute = newTime.getMinutes();
+      const timeString = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
+
+      // Cancel old notification
+      await notifications.cancelHabitReminder(habit.id);
+
+      // Schedule new notification with updated time
+      const notificationId = await notifications.scheduleHabitReminder(
+        habit.name,
+        habit.id,
+        hour,
+        minute
+      );
+
+      if (!notificationId) {
+        Alert.alert('Error', 'Failed to update reminder time');
         return;
       }
 
-      setActiveHabits(prev => prev.filter(h => h.id !== id));
-    } catch (err) {
-      console.error('Error deleting habit:', err);
-      Alert.alert('Error', 'Failed to delete habit');
+      // Update habit in database with new time
+      const { error } = await HabitsService.update(
+        id,
+        { reminder_time: timeString },
+        user.id
+      );
+
+      if (error) {
+        await notifications.cancelNotification(notificationId);
+        Alert.alert('Error', 'Failed to update reminder time');
+        return;
+      }
+
+      // Update local state
+      setActiveHabits(prev =>
+        prev.map(h => (h.id === id ? { ...h, reminder_time: timeString } : h))
+      );
+
+      showSuccess('Reminder time updated successfully');
+    } catch (error) {
+      console.error('Error updating reminder time:', error);
+      Alert.alert('Error', 'Failed to update reminder time');
     }
+  };
+
+  const handleDeleteHabit = async (id: string) => {
+    if (!user) return;
+
+    showConfirmation(
+      'Are you sure you want to delete this habit? This action cannot be undone.',
+      async () => {
+        try {
+          // Cancel any scheduled notifications for this habit
+          await notifications.cancelHabitReminder(id);
+
+          const { error } = await HabitsService.delete(id, user.id);
+
+          if (error) {
+            OperationError.delete('habit', error);
+            return;
+          }
+
+          setActiveHabits(prev => prev.filter(h => h.id !== id));
+          OperationSuccess.deleted('Habit');
+        } catch (err) {
+          console.error('Error deleting habit:', err);
+          OperationError.delete('habit', err);
+        }
+      },
+      undefined,
+      'Delete Habit'
+    );
   };
 
   const handleAddHabitFromLibrary = async (habit: { name: string; description: string; category: string }) => {
@@ -1076,54 +1274,76 @@ export default function HomeScreen() {
           />
         }
       >
-        <View style={[
-          styles.welcomeCard,
-          {
-            backgroundColor: theme.colors.card,
-            borderRadius: theme.borderRadius.base,
-            ...theme.shadows.small
-          }
-        ]}>
+        <View style={styles.welcomeCard}>
+          {/* Header Row: Profile Image, Greeting/Name, Notification */}
+          <View style={styles.headerRow}>
+            {/* Profile Image */}
+            {user?.user_metadata?.avatar_url ? (
+              <Image
+                source={{ uri: user.user_metadata.avatar_url }}
+                style={styles.profileImage}
+              />
+            ) : (
+              <View style={[
+                styles.profileImage,
+                { backgroundColor: theme.colors.primary }
+              ]}>
+                <User size={24} color="#FFFFFF" />
+              </View>
+            )}
+
+            {/* Greeting and Name */}
+            <View style={styles.greetingContainer}>
+              <Text style={[
+                styles.greetingText,
+                { color: theme.colors.text }
+              ]}>
+                {getGreeting()}
+              </Text>
+              <View style={styles.nameRow}>
+                <Text style={[
+                  styles.nameText,
+                  { color: theme.colors.text }
+                ]}>
+                  {getUserDisplayName()}
+                </Text>
+                <Text style={styles.statusEmoji}>🌤️</Text>
+              </View>
+            </View>
+
+            {/* Notification Button */}
+            <TouchableOpacity
+              onPress={togglePanel}
+              style={styles.headerNotificationButton}
+              activeOpacity={0.7}
+            >
+              <Ionicons
+                name={isPanelOpen ? 'close' : unreadCount > 0 ? 'notifications' : 'notifications-outline'}
+                size={26}
+                color={theme.colors.text}
+              />
+              {unreadCount > 0 && !isPanelOpen && (
+                <View style={[styles.notificationBadge, { backgroundColor: theme.colors.error }]}>
+                  <Text style={[styles.notificationBadgeText, { color: theme.colors.white }]}>
+                    {unreadCount > 99 ? '99+' : unreadCount}
+                  </Text>
+                </View>
+              )}
+            </TouchableOpacity>
+          </View>
+
+          {/* Main Tagline */}
           <Text style={[
-            styles.greeting,
+            styles.tagline,
             {
               color: theme.colors.text,
-              fontSize: theme.typography.fontSize.xxl,
+              fontSize: theme.typography.fontSize.xxxl,
               fontWeight: theme.typography.fontWeight.bold
-            }
-          ]}>{getGreeting()}, {getUserDisplayName()} 🌤️</Text>
-          <Text style={[
-            styles.quote,
-            {
-              color: theme.colors.textSecondary,
-              fontSize: theme.typography.fontSize.base,
-              fontWeight: theme.typography.fontWeight.regular
             }
           ]}>
             Balance Your Mind and Life
           </Text>
         </View>
-
-        {/* Network Status Banner */}
-        {showOfflineIndicator && (
-          <View style={[styles.networkBanner, { backgroundColor: !isOnline ? theme.colors.error : theme.colors.warning }]}>
-            {!isOnline ? (
-              <>
-                <WifiOff size={18} color="#FFFFFF" />
-                <Text style={[styles.networkBannerText, { color: '#FFFFFF' }]}>
-                  No internet connection. Connect to refresh data.
-                </Text>
-              </>
-            ) : (
-              <>
-                <RefreshCw size={18} color="#FFFFFF" />
-                <Text style={[styles.networkBannerText, { color: '#FFFFFF' }]}>
-                  {pendingWrites} {pendingWrites === 1 ? 'change' : 'changes'} saved locally, will sync when online
-                </Text>
-              </>
-            )}
-          </View>
-        )}
 
         {/* Guest Mode Banner */}
         {isGuest && (
@@ -1140,51 +1360,100 @@ export default function HomeScreen() {
           </View>
         )}
 
-        <View style={[
-          styles.card,
-          {
-            backgroundColor: theme.colors.card,
-            borderColor: theme.colors.accent,
-            borderRadius: theme.borderRadius.base,
-            ...theme.shadows.small
-          }
-        ]}>
+        {/* Today's Snapshot Section */}
+        <View style={styles.snapshotSection}>
           <Text style={[
-            styles.cardTitle,
+            styles.sectionTitle,
             {
               color: theme.colors.text,
               fontSize: theme.typography.fontSize.lg,
               fontWeight: theme.typography.fontWeight.bold
             }
           ]}>Today&apos;s Snapshot</Text>
-          <View style={styles.snapshotGrid}>
-            <View style={styles.snapshotItem}>
+
+          <View style={styles.snapshotCardsRow}>
+            {/* Mood Card */}
+            <View style={[
+              styles.snapshotCard,
+              {
+                backgroundColor: theme.colors.card,
+                borderColor: theme.colors.accent,
+                borderRadius: theme.borderRadius.base,
+                ...theme.shadows.small
+              }
+            ]}>
               <Text style={styles.snapshotEmoji}>{todayMood.emoji}</Text>
               <Text style={[styles.snapshotLabel, { color: theme.colors.textSecondary }]}>Mood</Text>
               <Text style={[styles.snapshotValue, { color: theme.colors.text }]}>
                 {todayMood.score > 0 ? `${todayMood.score}/5` : '0'}
               </Text>
             </View>
-            <View style={styles.snapshotItem}>
+
+            {/* Sleep Card */}
+            <View style={[
+              styles.snapshotCard,
+              {
+                backgroundColor: theme.colors.card,
+                borderColor: theme.colors.accent,
+                borderRadius: theme.borderRadius.base,
+                ...theme.shadows.small
+              }
+            ]}>
               <Text style={styles.snapshotEmoji}>{todaySleep.emoji}</Text>
               <Text style={[styles.snapshotLabel, { color: theme.colors.textSecondary }]}>Sleep</Text>
-              <Text style={[styles.snapshotValue, { color: theme.colors.text }]}>
+              <Text style={[
+                styles.snapshotValue,
+                {
+                  color: todaySleep.hours === 0
+                    ? theme.colors.textSecondary
+                    : todaySleep.meetsTarget
+                      ? theme.colors.success || '#10B981'
+                      : todaySleep.isClose
+                        ? theme.colors.warning || '#F59E0B'
+                        : theme.colors.error || '#EF4444'
+                }
+              ]}>
                 {todaySleep.hours > 0 ? `${todaySleep.hours}h` : '0h'}
               </Text>
             </View>
-            <View style={styles.snapshotItem}>
+
+            {/* Clarity Card */}
+            <View style={[
+              styles.snapshotCard,
+              {
+                backgroundColor: theme.colors.card,
+                borderColor: theme.colors.accent,
+                borderRadius: theme.borderRadius.base,
+                ...theme.shadows.small
+              }
+            ]}>
               <Text style={styles.snapshotEmoji}>🧠</Text>
               <Text style={[styles.snapshotLabel, { color: theme.colors.textSecondary }]}>Clarity</Text>
               <Text style={[styles.snapshotValue, { color: theme.colors.text }]}>
                 {todayClarity.level}
               </Text>
             </View>
-            <View style={styles.snapshotItem}>
+
+            {/* Streak Card */}
+            <View style={[
+              styles.snapshotCard,
+              {
+                backgroundColor: theme.colors.card,
+                borderColor: theme.colors.accent,
+                borderRadius: theme.borderRadius.base,
+                ...theme.shadows.small
+              }
+            ]}>
               <Text style={styles.snapshotEmoji}>🔥</Text>
               <Text style={[styles.snapshotLabel, { color: theme.colors.textSecondary }]}>Streak</Text>
               <Text style={[styles.snapshotValue, { color: theme.colors.text }]}>
-                {currentStreak > 0 ? `${currentStreak} day${currentStreak !== 1 ? 's' : ''}` : '0'}
+                {currentStreak.streak > 0 ? `${currentStreak.streak}/${currentStreak.goal}` : '0'}
               </Text>
+              {currentStreak.streak > 0 && (
+                <Text style={[styles.snapshotProgress, { color: theme.colors.textSecondary, fontSize: 10, marginTop: 2 }]}>
+                  {currentStreak.progress}%
+                </Text>
+              )}
             </View>
           </View>
         </View>
@@ -1306,6 +1575,7 @@ export default function HomeScreen() {
                     onToggleComplete={handleToggleComplete}
                     onFeedback={handleFeedback}
                     onToggleReminder={handleToggleReminder}
+                    onReminderTimeChange={handleReminderTimeChange}
                     onDelete={(id) => {
                       console.log('Delete requested for habit:', id);
                       handleDeleteHabit(id);
@@ -1434,50 +1704,54 @@ export default function HomeScreen() {
             {/* Display remaining habits */}
             {activeHabits?.slice(3)?.map((habit) => {
               if (!habit) return null;
-              
+
               return (
-                <View key={habit.id} style={[styles.moreHabitItem, { 
+                <View key={habit.id} style={[styles.moreHabitItem, {
                   backgroundColor: theme.colors.card,
                   borderBottomColor: theme.colors.border,
                 }]}>
                   <View style={styles.moreHabitContent}>
-                    <View>
+                    <View style={{ flex: 1 }}>
                       <Text style={[styles.moreHabitName, { color: theme.colors.text }]}>{habit.name}</Text>
                       <Text style={[styles.moreHabitDescription, { color: theme.colors.textSecondary }]}>
                         {habit.description}
                       </Text>
-                    </View>
-                    <View style={styles.moreHabitActions}>
-                      <TouchableOpacity
-                        style={[styles.moreHabitAction, { backgroundColor: theme.colors.error + '20' }]}
-                        onPress={() => {
-                          setMoreHabitsModalVisible(false);
-                          handleDeleteHabit(habit.id);
-                        }}
-                      >
-                        <Trash2 size={20} color={theme.colors.error} />
-                      </TouchableOpacity>
-                      <TouchableOpacity
-                        style={[styles.moreHabitAction, { backgroundColor: theme.colors.primary + '20' }]}
-                        onPress={() => {
-                          if (!habit.completedToday) {
-                            handleToggleComplete(habit.id);
-                          }
-                        }}
-                      >
-                        <Text style={[styles.moreHabitActionText, { color: theme.colors.primary }]}>
-                          {habit.completedToday ? '✓ Done' : 'Complete'}
+
+                      {/* Stats row */}
+                      <View style={styles.moreHabitStats}>
+                        <Text style={[styles.moreHabitStreak, { color: theme.colors.warning }]}>
+                          🔥 {habit.streak} day streak
                         </Text>
-                      </TouchableOpacity>
+                        <Text style={[styles.moreHabitProgress, { color: theme.colors.textSecondary }]}>
+                          Day {habit.currentDay || 1}/{habit.totalDays || habit.total_days || 30}
+                        </Text>
+                      </View>
+
+                      {/* Mark Complete Button - matches HabitCard style */}
+                      {habit.completedToday ? (
+                        <View style={[styles.moreHabitCompletedBadge, { backgroundColor: theme.colors.success + '20', borderColor: theme.colors.success }]}>
+                          <Text style={[styles.moreHabitCompletedText, { color: theme.colors.success }]}>✅ Completed Today</Text>
+                        </View>
+                      ) : (
+                        <TouchableOpacity
+                          style={[styles.moreHabitCompleteButton, { backgroundColor: theme.colors.primary }]}
+                          onPress={() => handleToggleComplete(habit.id)}
+                        >
+                          <Text style={styles.moreHabitCompleteButtonText}>Mark as Complete</Text>
+                        </TouchableOpacity>
+                      )}
                     </View>
-                  </View>
-                  <View style={styles.moreHabitStats}>
-                    <Text style={[styles.moreHabitStreak, { color: theme.colors.warning }]}>
-                      🔥 {habit.streak} day streak
-                    </Text>
-                    <Text style={[styles.moreHabitProgress, { color: theme.colors.textSecondary }]}>
-                      Day {habit.currentDay || 1}/{habit.totalDays || habit.total_days || 30}
-                    </Text>
+
+                    {/* Delete button */}
+                    <TouchableOpacity
+                      style={[styles.moreHabitDeleteButton, { backgroundColor: theme.colors.error + '20' }]}
+                      onPress={() => {
+                        setMoreHabitsModalVisible(false);
+                        handleDeleteHabit(habit.id);
+                      }}
+                    >
+                      <Trash2 size={20} color={theme.colors.error} />
+                    </TouchableOpacity>
                   </View>
                 </View>
               );
@@ -1497,12 +1771,20 @@ export default function HomeScreen() {
         }}
       >
         <View style={[styles.modalContainer, { backgroundColor: theme.colors.background }]}>
-          <View style={[styles.modalHeader, { backgroundColor: theme.colors.card, borderBottomColor: theme.colors.border }]}>
-            <TouchableOpacity onPress={() => {
-              console.log('Closing habit library modal from header');
-              setHabitLibraryModalVisible(false);
-            }}>
-              <X size={24} color={theme.colors.textSecondary} />
+          {/* Modal Handle Bar */}
+          <View style={styles.modalHandleContainer}>
+            <View style={[styles.modalHandle, { backgroundColor: theme.colors.border }]} />
+          </View>
+
+          <View style={[styles.modalHeader, { backgroundColor: theme.colors.background, borderBottomColor: theme.colors.border }]}>
+            <TouchableOpacity
+              onPress={() => {
+                console.log('Closing habit library modal from header');
+                setHabitLibraryModalVisible(false);
+              }}
+              style={styles.modalCloseButton}
+            >
+              <X size={26} color={theme.colors.textSecondary} />
             </TouchableOpacity>
             <Text style={[styles.modalTitle, { color: theme.colors.text }]}>Habit Library</Text>
             <View style={styles.modalPlaceholder} />
@@ -1655,7 +1937,7 @@ export default function HomeScreen() {
         }}
       >
         <View style={styles.habitDetailOverlay}>
-          <View style={[styles.habitDetailModal, { backgroundColor: theme.colors.card }]}>
+          <View style={[styles.habitDetailModal, { backgroundColor: theme.colors.background }]}>
             <View style={styles.habitDetailHeader}>
               <Text style={styles.habitDetailEmoji}>{selectedHabitDetail?.emoji}</Text>
               <TouchableOpacity
@@ -1711,7 +1993,7 @@ export default function HomeScreen() {
                     style={[
                       styles.streakOptionButton,
                       {
-                        backgroundColor: customStreakGoal === days ? theme.colors.primary : theme.colors.card,
+                        backgroundColor: customStreakGoal === days ? theme.colors.primary : theme.colors.surfaceVariant,
                         borderColor: customStreakGoal === days ? theme.colors.primary : theme.colors.border,
                       }
                     ]}
@@ -1853,15 +2135,9 @@ export default function HomeScreen() {
                   </TouchableOpacity>
                 ))}
               </View>
-              <Text style={[styles.streakDescription, { color: theme.colors.textSecondary }]}>
-                {customHabitForm.streakGoal === 7 ? "" :
-                 customHabitForm.streakGoal === 14 ? "Good for building momentum" :
-                 customHabitForm.streakGoal === 21 ? "Recommended for habit formation" :
-                 "Great for long-term commitment"}
-              </Text>
             </View>
 
-            <View style={styles.formSection}>
+            <View style={[styles.formSection, { marginTop: 24 }]}>
               <View style={styles.reminderRow}>
                 <Text style={[styles.formLabel, { color: theme.colors.text }]}>Daily Reminder</Text>
                 <Switch
@@ -1925,6 +2201,22 @@ export default function HomeScreen() {
         </View>
       </Modal>
 
+      {/* Habit Impact Feedback Modal */}
+      <HabitImpactFeedbackModal
+        visible={impactFeedbackModalVisible}
+        habitName={selectedHabitForFeedback?.name || ''}
+        habitId={selectedHabitForFeedback?.id || ''}
+        category={selectedHabitForFeedback?.category as any}
+        date={new Date().toISOString().split('T')[0]}
+        onClose={() => {
+          setImpactFeedbackModalVisible(false);
+          setSelectedHabitForFeedback(null);
+        }}
+        onSubmit={handleImpactFeedbackSubmit}
+      />
+
+      {/* Notification Panel */}
+      <NotificationPanel />
     </View>
   );
 }
@@ -1983,29 +2275,67 @@ const styles = StyleSheet.create({
   },
   welcomeCard: {
     marginHorizontal: 20,
-    marginBottom: 20,
-    padding: 24,
-    backgroundColor: '#FFFFFF',
+    marginTop: 20,
+    marginBottom: 24,
   },
-  greeting: {
-    marginBottom: 8,
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: 16,
   },
-  quote: {
-    fontStyle: 'italic' as const,
+  profileImage: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
   },
-  networkBanner: {
-    marginHorizontal: 20,
-    marginBottom: 12,
-    padding: 12,
-    borderRadius: 12,
+  greetingContainer: {
+    flex: 1,
+    paddingTop: 4,
+  },
+  greetingText: {
+    fontSize: 18,
+    fontWeight: '600' as const,
+    marginBottom: 2,
+  },
+  nameRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
   },
-  networkBannerText: {
-    fontSize: 13,
-    fontWeight: '500' as const,
-    flex: 1,
+  nameText: {
+    fontSize: 20,
+    fontWeight: '700' as const,
+    marginRight: 4,
+  },
+  statusEmoji: {
+    fontSize: 14,
+  },
+  headerNotificationButton: {
+    padding: 8,
+    position: 'relative',
+    marginTop: 2,
+  },
+  notificationBadge: {
+    position: 'absolute',
+    top: 4,
+    right: 4,
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 4,
+  },
+  notificationBadgeText: {
+    fontSize: 10,
+    fontWeight: '700' as const,
+  },
+  tagline: {
+    fontSize: 32,
+    fontWeight: '700' as const,
+    lineHeight: 38,
   },
   guestBanner: {
     marginHorizontal: 20,
@@ -2050,27 +2380,52 @@ const styles = StyleSheet.create({
   cardTitle: {
     marginBottom: 16,
   },
-  snapshotGrid: {
+  snapshotSection: {
+    marginHorizontal: 20,
+    marginBottom: 20,
+  },
+  sectionTitle: {
+    marginBottom: 16,
+    paddingLeft: 4,
+  },
+  snapshotCardsRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    gap: 12,
   },
-  snapshotItem: {
-    alignItems: 'center',
+  snapshotCard: {
     flex: 1,
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 6,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    borderWidth: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 2,
   },
   snapshotEmoji: {
-    fontSize: 32,
+    fontSize: 28,
     marginBottom: 8,
   },
   snapshotLabel: {
-    fontSize: 12,
+    fontSize: 11,
     color: '#6B7280',
     marginBottom: 4,
+    fontWeight: '500' as const,
   },
   snapshotValue: {
-    fontSize: 16,
-    fontWeight: '600' as const,
+    fontSize: 15,
+    fontWeight: '700' as const,
     color: '#1F2937',
+  },
+  snapshotProgress: {
+    fontSize: 10,
+    fontWeight: '500' as const,
+    marginTop: 2,
   },
   weeklyCalendar: {
     flexDirection: 'row',
@@ -2523,25 +2878,41 @@ const styles = StyleSheet.create({
   },
   modalContainer: {
     flex: 1,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
     overflow: 'hidden',
+    marginTop: 40,
+  },
+  modalHandleContainer: {
+    alignItems: 'center',
+    paddingTop: 12,
+    paddingBottom: 8,
+  },
+  modalHandle: {
+    width: 40,
+    height: 5,
+    borderRadius: 3,
+    opacity: 0.4,
   },
   modalHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingTop: 20,
-    paddingBottom: 16,
+    paddingHorizontal: 24,
+    paddingTop: 8,
+    paddingBottom: 20,
     borderBottomWidth: 1,
+  },
+  modalCloseButton: {
+    padding: 4,
+    marginLeft: -4,
   },
   modalCloseText: {
     fontSize: 16,
     fontWeight: '600' as const,
   },
   modalTitle: {
-    fontSize: 22,
+    fontSize: 24,
     fontWeight: '700' as const,
   },
   modalPlaceholder: {
@@ -2549,9 +2920,10 @@ const styles = StyleSheet.create({
   },
   modalContent: {
     flex: 1,
+    paddingHorizontal: 20,
   },
   modalContentContainer: {
-    padding: 20,
+    paddingVertical: 20,
   },
   modalSection: {
     fontSize: 22,
@@ -2728,16 +3100,48 @@ const styles = StyleSheet.create({
   },
   moreHabitStats: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    justifyContent: 'flex-start',
     alignItems: 'center',
     marginTop: 8,
+    gap: 16,
   },
   moreHabitStreak: {
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: '600' as const,
   },
   moreHabitProgress: {
+    fontSize: 12,
+  },
+  moreHabitCompletedBadge: {
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 10,
+    borderWidth: 1.5,
+    marginTop: 12,
+    alignItems: 'center',
+  },
+  moreHabitCompletedText: {
     fontSize: 14,
+    fontWeight: '600' as const,
+  },
+  moreHabitCompleteButton: {
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 10,
+    marginTop: 12,
+    alignItems: 'center',
+  },
+  moreHabitCompleteButtonText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '600' as const,
+  },
+  moreHabitDeleteButton: {
+    padding: 10,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: 12,
   },
   // Search and Category Filter styles
   searchContainer: {

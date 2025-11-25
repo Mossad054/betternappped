@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { SleepService } from '@/services/sleep.service';
 import { useAuth } from '@/contexts/AuthContext';
+import { AuthGuard } from '@/components/AuthGuard';
 import {
   View,
   Text,
@@ -28,14 +29,13 @@ import {
   Award,
   X,
   CheckCircle,
-  Star,
   Calendar,
   Plus,
   ChevronDown,
   ChevronUp,
   AlertTriangle,
   RotateCcw,
-  Bell,
+  Library,
 } from 'lucide-react-native';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -300,6 +300,7 @@ export default function SleepWellnessHub() {
   const [sleepStats, setSleepStats] = useState<SleepStats | null>(null);
   const [sleepLogs, setSleepLogs] = useState<any[] | null>(null);
   const [sleepTrends, setSleepTrends] = useState<any>(null);
+  const [lastNightSleep, setLastNightSleep] = useState<any | null>(null);
 
 
   // Add data fetching
@@ -338,6 +339,18 @@ export default function SleepWellnessHub() {
 
       const logs = Array.isArray(logsResult?.data) ? logsResult.data : [];
       setSleepLogs(logs);
+
+      // Get last night's sleep (most recent entry) with calculated duration
+      if (logs.length > 0) {
+        const mostRecent = logs[0];
+        // Calculate actual hours from bedtime/wake_time if available (handles midnight crossing)
+        if (mostRecent.bedtime && mostRecent.wake_time) {
+          mostRecent.calculatedHours = SleepService.calculateSleepDuration(mostRecent.bedtime, mostRecent.wake_time);
+        }
+        setLastNightSleep(mostRecent);
+      } else {
+        setLastNightSleep(null);
+      }
 
       // Calculate sleep stats
       const validLogs = logs.filter(log => log && log.hours);
@@ -624,19 +637,15 @@ export default function SleepWellnessHub() {
   };
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
-      <Stack.Screen
+    <AuthGuard requireAuth={true}>
+      <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
+        <Stack.Screen
         options={{
           headerShown: true,
           title: 'Sleep Wellness Hub',
           headerStyle: { backgroundColor: theme.colors.card },
           headerTitleStyle: { color: theme.colors.text, fontWeight: '600' },
           headerLeft: () => (
-            <TouchableOpacity onPress={() => router.back()} style={styles.headerButton}>
-              <X size={24} color={theme.colors.textSecondary} />
-            </TouchableOpacity>
-          ),
-          headerRight: () => (
             <TouchableOpacity onPress={() => router.back()} style={styles.headerButton}>
               <X size={24} color={theme.colors.textSecondary} />
             </TouchableOpacity>
@@ -680,38 +689,52 @@ export default function SleepWellnessHub() {
                 <Text style={[styles.retryText, { color: theme.colors.primary }]}>Retry</Text>
               </TouchableOpacity>
             </View>
-          ) : (
+          ) : lastNightSleep ? (
             <>
               <View style={styles.sleepMetricsGrid}>
                 <View style={[styles.metricBox, { backgroundColor: theme.colors.primary }]}>
-                  <Text style={[styles.metricLabel, { color: '#FFFFFF' }]}>7-Day Average</Text>
+                  <Text style={[styles.metricLabel, { color: '#FFFFFF' }]}>Bedtime</Text>
                   <Text style={[styles.metricValue, { color: '#FFFFFF' }]}>
-                    {sleepStats?.avgDuration7Days?.toFixed(1) || '--'}h
+                    {lastNightSleep.bedtime || '--'}
                   </Text>
                 </View>
                 <View style={[styles.metricBox, { backgroundColor: theme.colors.primary }]}>
-                  <Text style={[styles.metricLabel, { color: '#FFFFFF' }]}>30-Day Average</Text>
+                  <Text style={[styles.metricLabel, { color: '#FFFFFF' }]}>Wake Time</Text>
                   <Text style={[styles.metricValue, { color: '#FFFFFF' }]}>
-                    {sleepStats?.avgDuration30Days?.toFixed(1) || '--'}h
+                    {lastNightSleep.wake_time || '--'}
                   </Text>
                 </View>
               </View>
 
               <View style={styles.sleepMetricsGrid}>
                 <View style={[styles.metricBox, { backgroundColor: theme.colors.primary }]}>
-                  <Text style={[styles.metricLabel, { color: '#FFFFFF' }]}>Consistency Score</Text>
+                  <Text style={[styles.metricLabel, { color: '#FFFFFF' }]}>Quality</Text>
                   <Text style={[styles.metricValue, { color: '#FFFFFF' }]}>
-                    {sleepStats?.consistencyScore || '--'}%
+                    {lastNightSleep.quality ? `${lastNightSleep.quality}/5` : '--'}
                   </Text>
                 </View>
                 <View style={[styles.metricBox, { backgroundColor: theme.colors.primary }]}>
-                  <Text style={[styles.metricLabel, { color: '#FFFFFF' }]}>Sleep Quality</Text>
+                  <Text style={[styles.metricLabel, { color: '#FFFFFF' }]}>Hours Slept</Text>
                   <Text style={[styles.metricValue, { color: '#FFFFFF' }]}>
-                    {sleepStats?.avgQuality || '--'}
+                    {lastNightSleep.calculatedHours
+                      ? `${lastNightSleep.calculatedHours}h`
+                      : lastNightSleep.hours
+                        ? `${lastNightSleep.hours}h`
+                        : '--'}
                   </Text>
                 </View>
               </View>
+            </>
+          ) : (
+            <View style={styles.noSleepDataContainer}>
+              <Text style={[styles.noSleepDataText, { color: theme.colors.textSecondary }]}>
+                No sleep data recorded yet. Log your first night's sleep to see your stats here!
+              </Text>
+            </View>
+          )}
 
+          {lastNightSleep && sleepStats && (
+            <>
               <View style={styles.insightsContainer}>
                 <Text style={[styles.insightsTitle, { color: theme.colors.text }]}>AI Insights</Text>
                 {sleepStats?.insights.map((insight, index) => (
@@ -735,6 +758,67 @@ export default function SleepWellnessHub() {
               </TouchableOpacity>
             </>
           )}
+        </View>
+
+        {/* Quick Actions - Moved up for better navigation */}
+        <View style={[styles.card, { backgroundColor: theme.colors.card }]}>
+          <View style={styles.cardHeader}>
+            <Sparkles size={24} color={theme.colors.primary} />
+            <Text style={[styles.cardTitle, { color: theme.colors.text }]}>Quick Actions</Text>
+          </View>
+          <Text style={[styles.sectionDescription, { color: theme.colors.textSecondary }]}>
+            Start tracking, explore programs, or discover new sleep habits
+          </Text>
+
+          <View style={styles.quickActionsMainGrid}>
+            <TouchableOpacity
+              style={[styles.quickActionMainButton, { backgroundColor: theme.colors.primary }]}
+              onPress={() => router.push('/(tabs)/add-entry' as any)}
+            >
+              <Plus size={24} color="#FFFFFF" />
+              <Text style={styles.quickActionMainText}>Log Sleep</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.quickActionMainButton, { backgroundColor: theme.colors.primary }]}
+              onPress={() => router.push('/(tabs)/calendar')}
+            >
+              <Calendar size={24} color="#FFFFFF" />
+              <Text style={styles.quickActionMainText}>View History</Text>
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.quickActionsSecondaryGrid}>
+            <TouchableOpacity
+              style={[styles.quickActionSecondaryButton, { backgroundColor: theme.colors.secondary }]}
+              onPress={() => router.push('/sleep-wellness/programme-hub')}
+            >
+              <BookOpen size={20} color={theme.colors.primary} />
+              <Text style={[styles.quickActionSecondaryText, { color: theme.colors.text }]}>
+                Sleep Programme
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.quickActionSecondaryButton, { backgroundColor: theme.colors.secondary }]}
+              onPress={() => router.push('/experiments-hub')}
+            >
+              <FlaskConical size={20} color={theme.colors.primary} />
+              <Text style={[styles.quickActionSecondaryText, { color: theme.colors.text }]}>
+                Experiments
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.quickActionSecondaryButton, { backgroundColor: theme.colors.secondary }]}
+              onPress={() => router.push('/habit-library?category=Sleep')}
+            >
+              <Library size={20} color={theme.colors.primary} />
+              <Text style={[styles.quickActionSecondaryText, { color: theme.colors.text }]}>
+                Sleep Habits
+              </Text>
+            </TouchableOpacity>
+          </View>
         </View>
 
         {/* Sleep Tips Section */}
@@ -824,42 +908,6 @@ export default function SleepWellnessHub() {
                 </View>
               </View>
             )}
-          </View>
-
-          {/* Quick Actions */}
-          <View style={styles.quickActionsSection}>
-            <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Quick Actions</Text>
-            <View style={styles.quickActionsGrid}>
-              <TouchableOpacity
-                style={[styles.quickActionButton, { backgroundColor: theme.colors.primary + '20' }]}
-                onPress={() => router.push('/sleep-wellness/programme-hub')}
-              >
-                <BookOpen size={20} color={theme.colors.primary} />
-                <Text style={[styles.quickActionText, { color: theme.colors.text }]}>
-                  Sleep Programme
-                </Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[styles.quickActionButton, { backgroundColor: theme.colors.primary + '20' }]}
-                onPress={() => router.push('/experiments-hub')}
-              >
-                <FlaskConical size={20} color={theme.colors.primary} />
-                <Text style={[styles.quickActionText, { color: theme.colors.text }]}>
-                  Start Sleep Experiment
-                </Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[styles.quickActionButton, { backgroundColor: theme.colors.primary + '20' }]}
-                onPress={() => {/* TODO: Implement reminders */}}
-              >
-                <Bell size={20} color={theme.colors.primary} />
-                <Text style={[styles.quickActionText, { color: theme.colors.text }]}>
-                  Set Bedtime Reminder
-                </Text>
-              </TouchableOpacity>
-            </View>
           </View>
         </View>
 
@@ -1218,6 +1266,7 @@ export default function SleepWellnessHub() {
         </View>
       </Modal>
     </View>
+    </AuthGuard>
   );
 }
 
@@ -1938,6 +1987,66 @@ const styles = StyleSheet.create({
   quickActionText: {
     fontSize: 14,
     fontWeight: '600' as const,
+  },
+  noSleepDataContainer: {
+    padding: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  noSleepDataText: {
+    fontSize: 14,
+    textAlign: 'center',
+    lineHeight: 20,
+  },
+  // New Quick Actions Styles
+  sectionDescription: {
+    fontSize: 14,
+    lineHeight: 20,
+    marginBottom: 16,
+  },
+  quickActionsMainGrid: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 12,
+  },
+  quickActionMainButton: {
+    flex: 1,
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 20,
+    paddingHorizontal: 16,
+    borderRadius: 16,
+    gap: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  quickActionMainText: {
+    fontSize: 16,
+    fontWeight: '700' as const,
+    color: '#FFFFFF',
+  },
+  quickActionsSecondaryGrid: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  quickActionSecondaryButton: {
+    flex: 1,
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 8,
+    borderRadius: 12,
+    gap: 6,
+  },
+  quickActionSecondaryText: {
+    fontSize: 12,
+    fontWeight: '600' as const,
+    textAlign: 'center',
   },
 });
 

@@ -23,6 +23,7 @@ import { Typography } from '@/constants/Typography';
 import { IntimacyService } from '@/services/intimacy.service';
 import ActivityIconGrid from '@/components/ActivityIconGrid';
 import ActivityDetailModal from '@/components/ActivityDetailModal';
+import { AuthGuard } from '@/components/AuthGuard';
 import {
   X,
   Calendar,
@@ -36,8 +37,10 @@ import {
   TrendingUp,
   Activity,
   Sparkles,
+  ChevronRight,
 } from 'lucide-react-native';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
+import { showSuccess, showError, ValidationError } from '@/lib/userFeedback';
 
 interface MoodOption {
   id: number;
@@ -73,6 +76,7 @@ interface IntimacyData {
   type: 'solo' | 'couple';
   timeOfDay: 'morning' | 'midday' | 'night' | null;
   orgasm: boolean;
+  initiated: boolean | null;
   location: string;
   toyUsed: boolean;
   timeToSleep: number;
@@ -140,7 +144,7 @@ const defaultActivityCategories: ActivityCategory[] = [
   {
     id: 'weather',
     name: 'Weather',
-    emoji: '�️',
+    emoji: '🌤️',
     expanded: false,
     items: [
       { id: 'sunny', name: 'sunny', selected: false },
@@ -268,18 +272,6 @@ const defaultActivityCategories: ActivityCategory[] = [
     ],
   },
   {
-    id: 'productivity',
-    name: 'Productivity',
-    emoji: '⚡',
-    expanded: false,
-    items: [
-      { id: 'start-early', name: 'start early', selected: false },
-      { id: 'make-list', name: 'make list', selected: false },
-      { id: 'focus', name: 'focus', selected: false },
-      { id: 'take-break', name: 'take a break', selected: false },
-    ],
-  },
-  {
     id: 'betterme',
     name: 'Better Me',
     emoji: '🌿',
@@ -377,6 +369,7 @@ export default function AddEntryScreen() {
     type: 'solo',
     timeOfDay: null,
     orgasm: false,
+    initiated: null,
     location: '',
     toyUsed: false,
     timeToSleep: 0,
@@ -409,9 +402,10 @@ export default function AddEntryScreen() {
   }, [params.date]);
 
   const handleMoodSelect = (moodId: number) => {
+    // Only allow one mood to be selected at a time
     const updatedMoods = moods.map(mood => ({
       ...mood,
-      selected: mood.id === moodId ? !mood.selected : mood.selected,
+      selected: mood.id === moodId,  // Only this mood will be selected, all others will be false
     }));
     setMoods(updatedMoods);
 
@@ -619,6 +613,7 @@ export default function AddEntryScreen() {
       type: 'solo',
       timeOfDay: null,
       orgasm: false,
+      initiated: null,
       location: '',
       toyUsed: false,
       timeToSleep: 0,
@@ -652,13 +647,13 @@ export default function AddEntryScreen() {
 
   const handleSaveEntry = async () => {
     if (!user && !isGuest) {
-      Alert.alert('Error', 'You must be logged in to save entries');
+      showError('You must be logged in to save entries', 'Authentication Required', 'Please sign in or sign up to save your wellness data.');
       return;
     }
 
     const selectedMoods = moods.filter(m => m.selected);
     if (selectedMoods.length === 0) {
-      Alert.alert('Missing Information', 'Please select at least one mood.');
+      ValidationError.required('At least one mood');
       return;
     }
 
@@ -704,7 +699,10 @@ export default function AddEntryScreen() {
         notes: finalNotes || null
       }, userId);
 
-      if (moodError) throw new Error('Failed to save mood data');
+      if (moodError) {
+        console.error('Mood save error:', moodError);
+        throw new Error('Failed to save mood data');
+      }
 
       // Save activities (use upsert to prevent duplicates for the same date)
       const selectedActivities = activityCategories.flatMap(category => 
@@ -771,6 +769,7 @@ export default function AddEntryScreen() {
           date,
           type: intimacyData.type,
           orgasm: intimacyData.orgasm,
+          initiated: intimacyData.type === 'couple' ? intimacyData.initiated : null,
           location: intimacyData.location || undefined,
           toy_used: intimacyData.toyUsed,
           time_to_sleep: intimacyData.timeOfDay === 'night' ? intimacyData.timeToSleep : 0,
@@ -784,16 +783,21 @@ export default function AddEntryScreen() {
       // Reset all form fields after successful save
       resetAllFields();
 
-      Alert.alert(
-        'Entry Saved!',
-        'Your daily entry has been saved successfully.',
-        [{ text: 'OK', onPress: () => router.back() }]
+      showSuccess(
+        'Your daily wellness entry has been saved successfully!',
+        'Entry Saved!'
       );
+
+      // Navigate back after a brief delay to let user see the success message
+      setTimeout(() => router.back(), 1000);
     } catch (error) {
       console.error('Error saving entry:', error);
-      Alert.alert(
-        'Error',
-        error instanceof Error ? error.message : 'Failed to save entry. Please try again.'
+
+      const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred';
+      showError(
+        errorMessage,
+        'Save Failed',
+        'Please check your internet connection and try again. If the problem persists, try restarting the app.'
       );
     } finally {
       setSaving(false);
@@ -840,8 +844,8 @@ export default function AddEntryScreen() {
       gap: 8,
     },
     pastDateText: {
-      fontSize: Typography.fontSize.medium,
-      fontWeight: Typography.fontWeight.semibold,
+      fontSize: 14,
+      fontWeight: '600',
       flex: 1,
     },
     selectedDateDisplay: {
@@ -856,17 +860,17 @@ export default function AddEntryScreen() {
       flex: 1,
     },
     selectedDateLabel: {
-      fontSize: Typography.fontSize.small,
-      fontWeight: Typography.fontWeight.medium,
+      fontSize: 12,
+      fontWeight: '500',
       marginBottom: 4,
     },
     selectedDateValue: {
-      fontSize: Typography.fontSize.large,
-      fontWeight: Typography.fontWeight.bold,
+      fontSize: 18,
+      fontWeight: '700',
     },
     pastDateNote: {
-      fontSize: Typography.fontSize.small,
-      fontWeight: Typography.fontWeight.medium,
+      fontSize: 12,
+      fontWeight: '500',
       marginTop: 4,
     },
     quickDateButtons: {
@@ -888,16 +892,44 @@ export default function AddEntryScreen() {
       borderWidth: 0,
     },
     quickDateButtonText: {
-      fontSize: Typography.fontSize.medium,
-      fontWeight: Typography.fontWeight.semibold,
+      fontSize: 14,
+      fontWeight: '600',
       color: '#6B7280',
     },
     quickDateButtonTextActive: {
       color: '#FFFFFF',
     },
     dateHelpText: {
-      fontSize: Typography.fontSize.small,
+      fontSize: 12,
       textAlign: 'center',
+      lineHeight: 18,
+    },
+    featureCard: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      marginHorizontal: 20,
+      marginVertical: 10,
+      padding: 20,
+      borderRadius: 16,
+      ...theme.shadows.small,
+    },
+    featureContent: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      flex: 1,
+      gap: 16,
+    },
+    featureText: {
+      flex: 1,
+    },
+    featureTitle: {
+      fontSize: 18,
+      fontWeight: '600',
+      marginBottom: 4,
+    },
+    featureSubtitle: {
+      fontSize: 12,
       lineHeight: 18,
     },
     section: {
@@ -909,8 +941,8 @@ export default function AddEntryScreen() {
       ...theme.shadows.small,
     },
     sectionTitle: {
-      fontSize: Typography.fontSize.large,
-      fontWeight: Typography.fontWeight.semibold,
+      fontSize: 18,
+      fontWeight: '600',
       color: theme.colors.textPrimary,
     },
     dateSelector: {
@@ -922,7 +954,7 @@ export default function AddEntryScreen() {
       marginTop: 12,
     },
     dateText: {
-      fontSize: Typography.fontSize.body,
+      fontSize: 16,
       color: theme.colors.textSecondary,
       marginLeft: 12,
     },
@@ -946,8 +978,8 @@ export default function AddEntryScreen() {
       alignItems: 'center',
     },
     cardTitle: {
-      fontSize: Typography.fontSize.large,
-      fontWeight: Typography.fontWeight.semibold,
+      fontSize: 18,
+      fontWeight: '600',
       color: theme.colors.textPrimary,
       marginLeft: 8,
     },
@@ -975,13 +1007,13 @@ export default function AddEntryScreen() {
       borderColor: theme.colors.warning || '#F59E0B',
     },
     moodEmoji: {
-      fontSize: Typography.fontSize.title,
+      fontSize: 28,
       marginBottom: 4,
     },
     moodLabel: {
-      fontSize: Typography.fontSize.small,
+      fontSize: 12,
       color: theme.colors.textSecondary,
-      fontWeight: Typography.fontWeight.medium,
+      fontWeight: '500',
       textAlign: 'center',
     },
     selectedMoodLabel: {
@@ -999,7 +1031,7 @@ export default function AddEntryScreen() {
       justifyContent: 'center',
     },
     characterCount: {
-      fontSize: Typography.fontSize.small,
+      fontSize: 12,
       color: theme.colors.textTertiary,
       textAlign: 'right',
       marginTop: 4,
@@ -1008,7 +1040,7 @@ export default function AddEntryScreen() {
       backgroundColor: theme.colors.surfaceVariant,
       padding: 12,
       borderRadius: 8,
-      fontSize: Typography.fontSize.medium,
+      fontSize: 14,
       color: theme.colors.textPrimary,
       textAlignVertical: 'top',
       minHeight: 100,
@@ -1030,12 +1062,12 @@ export default function AddEntryScreen() {
       alignItems: 'center',
     },
     categoryEmoji: {
-      fontSize: Typography.fontSize.large,
+      fontSize: 20,
       marginRight: 8,
     },
     categoryName: {
-      fontSize: Typography.fontSize.body,
-      fontWeight: Typography.fontWeight.semibold,
+      fontSize: 18,
+      fontWeight: '700',
       color: theme.colors.textPrimary,
     },
     categoryItems: {
@@ -1057,9 +1089,9 @@ export default function AddEntryScreen() {
       backgroundColor: theme.colors.success || '#10B981',
     },
     activityItemText: {
-      fontSize: Typography.fontSize.medium,
+      fontSize: 18,
       color: theme.colors.textPrimary,
-      fontWeight: Typography.fontWeight.medium,
+      fontWeight: '700',
     },
     selectedActivityItemText: {
       color: '#FFFFFF',
@@ -1072,7 +1104,7 @@ export default function AddEntryScreen() {
       marginBottom: 12,
     },
     durationLabel: {
-      fontSize: Typography.fontSize.small,
+      fontSize: 12,
       color: theme.colors.textSecondary,
       marginBottom: 6,
       fontWeight: '500',
@@ -1081,7 +1113,7 @@ export default function AddEntryScreen() {
       backgroundColor: theme.colors.surfaceVariant,
       padding: 10,
       borderRadius: 6,
-      fontSize: Typography.fontSize.medium,
+      fontSize: 14,
       color: theme.colors.textPrimary,
     },
     followUpContainer: {
@@ -1089,7 +1121,7 @@ export default function AddEntryScreen() {
       marginLeft: 12,
     },
     followUpQuestion: {
-      fontSize: Typography.fontSize.small,
+      fontSize: 12,
       color: theme.colors.textSecondary,
       marginBottom: 6,
     },
@@ -1097,12 +1129,12 @@ export default function AddEntryScreen() {
       backgroundColor: theme.colors.surfaceVariant,
       padding: 10,
       borderRadius: 6,
-      fontSize: Typography.fontSize.medium,
+      fontSize: 14,
       color: theme.colors.textPrimary,
     },
     productivityQuestion: {
-      fontSize: Typography.fontSize.body,
-      fontWeight: Typography.fontWeight.semibold,
+      fontSize: 18,
+      fontWeight: '700',
       color: theme.colors.textPrimary,
       marginBottom: 16,
     },
@@ -1127,9 +1159,9 @@ export default function AddEntryScreen() {
       ...theme.shadows.small,
     },
     ratingText: {
-      fontSize: Typography.fontSize.body,
+      fontSize: 16,
       color: theme.colors.textSecondary,
-      fontWeight: Typography.fontWeight.semibold,
+      fontWeight: '600',
     },
     selectedRatingText: {
       color: '#FFFFFF',
@@ -1140,9 +1172,9 @@ export default function AddEntryScreen() {
       marginBottom: 0,
     },
     ratingLabel: {
-      fontSize: Typography.fontSize.tiny,
+      fontSize: 13,
       color: theme.colors.textTertiary,
-      fontWeight: Typography.fontWeight.medium,
+      fontWeight: '500',
     },
     productivityDivider: {
       height: 1,
@@ -1163,9 +1195,9 @@ export default function AddEntryScreen() {
       alignItems: 'center',
     },
     focusedHoursLabel: {
-      fontSize: Typography.fontSize.medium,
+      fontSize: 14,
       color: theme.colors.textPrimary,
-      fontWeight: Typography.fontWeight.semibold,
+      fontWeight: '600',
       flex: 1,
     },
     focusedHoursInputContainer: {
@@ -1182,9 +1214,9 @@ export default function AddEntryScreen() {
       justifyContent: 'center',
     },
     hoursButtonText: {
-      fontSize: Typography.fontSize.large,
+      fontSize: 18,
       color: '#FFFFFF',
-      fontWeight: Typography.fontWeight.semibold,
+      fontWeight: '600',
     },
     focusedHoursInputCompact: {
       width: 50,
@@ -1192,17 +1224,17 @@ export default function AddEntryScreen() {
       paddingVertical: 6,
       paddingHorizontal: 10,
       borderRadius: 8,
-      fontSize: Typography.fontSize.medium,
+      fontSize: 14,
       textAlign: 'center',
-      fontWeight: Typography.fontWeight.semibold,
+      fontWeight: '600',
       color: theme.colors.textPrimary,
       borderWidth: 1,
       borderColor: theme.colors.border,
     },
     hoursUnitText: {
-      fontSize: Typography.fontSize.small,
+      fontSize: 12,
       color: theme.colors.textSecondary,
-      fontWeight: Typography.fontWeight.medium,
+      fontWeight: '500',
     },
     // Old styles for backward compatibility
     focusedHoursContainer: {
@@ -1221,7 +1253,7 @@ export default function AddEntryScreen() {
       backgroundColor: theme.colors.surfaceVariant,
       padding: 12,
       borderRadius: 8,
-      fontSize: Typography.fontSize.medium,
+      fontSize: 14,
       color: theme.colors.textPrimary,
       textAlign: 'center',
     },
@@ -1230,8 +1262,8 @@ export default function AddEntryScreen() {
       marginTop: 0,
     },
     factorsSectionTitle: {
-      fontSize: Typography.fontSize.body,
-      fontWeight: Typography.fontWeight.semibold,
+      fontSize: 16,
+      fontWeight: '600',
       color: theme.colors.textPrimary,
       marginBottom: 16,
     },
@@ -1270,11 +1302,11 @@ export default function AddEntryScreen() {
       borderColor: theme.colors.primary || '#4DD4AC',
     },
     factorEmoji: {
-      fontSize: Typography.fontSize.body,
+      fontSize: 16,
       marginRight: 6,
     },
     factorLabel: {
-      fontSize: Typography.fontSize.small,
+      fontSize: 12,
       color: theme.colors.textPrimary,
       fontWeight: '500',
     },
@@ -1294,7 +1326,7 @@ export default function AddEntryScreen() {
       justifyContent: 'center',
     },
     factorsQuestion: {
-      fontSize: Typography.fontSize.medium,
+      fontSize: 14,
       fontWeight: '600',
       color: theme.colors.textPrimary,
       marginBottom: 12,
@@ -1303,7 +1335,7 @@ export default function AddEntryScreen() {
       backgroundColor: theme.colors.surfaceVariant,
       padding: 12,
       borderRadius: 10,
-      fontSize: Typography.fontSize.medium,
+      fontSize: 14,
       marginTop: 8,
       borderWidth: 1,
       borderColor: theme.colors.border,
@@ -1314,20 +1346,34 @@ export default function AddEntryScreen() {
       backgroundColor: theme.mode === 'dark' ? 'rgba(245, 158, 11, 0.2)' : '#FEF3C7',
       padding: 16,
       borderRadius: 12,
-      marginBottom: 20,
+      marginBottom: 16,
     },
     intimacyInfoText: {
-      fontSize: Typography.fontSize.medium,
+      fontSize: 18,
       color: theme.mode === 'dark' ? theme.colors.warning : '#92400E',
       textAlign: 'center',
-      fontWeight: '500',
+      fontWeight: '700',
+    },
+    intimacyHubButton: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 8,
+      padding: 16,
+      borderRadius: 12,
+      marginBottom: 20,
+    },
+    intimacyHubButtonText: {
+      fontSize: 16,
+      fontWeight: '700',
+      color: '#FFFFFF',
     },
     intimacySection: {
       marginBottom: 4,
     },
     intimacySectionTitle: {
-      fontSize: Typography.fontSize.small,
-      fontWeight: '600',
+      fontSize: 14,
+      fontWeight: '700',
       color: theme.colors.textPrimary,
       marginBottom: 10,
     },
@@ -1372,13 +1418,13 @@ export default function AddEntryScreen() {
       fontSize: 16,
     },
     intimacyTypeText: {
-      fontSize: Typography.fontSize.small,
+      fontSize: 14,
       color: theme.colors.textSecondary,
-      fontWeight: '500',
+      fontWeight: '600',
     },
     intimacyTypeTextActive: {
       color: theme.colors.textPrimary,
-      fontWeight: '600',
+      fontWeight: '700',
     },
     // Time of Day Selector (Compact)
     timeOfDayContainer: {
@@ -1404,7 +1450,7 @@ export default function AddEntryScreen() {
       marginBottom: 4,
     },
     timeOfDayText: {
-      fontSize: 11,
+      fontSize: 13,
       color: theme.colors.textSecondary,
       fontWeight: '500',
     },
@@ -1451,7 +1497,7 @@ export default function AddEntryScreen() {
       paddingVertical: 6,
       paddingHorizontal: 10,
       borderRadius: 8,
-      fontSize: Typography.fontSize.small,
+      fontSize: 12,
       textAlign: 'center',
       fontWeight: '600',
       color: theme.colors.textPrimary,
@@ -1471,7 +1517,7 @@ export default function AddEntryScreen() {
       marginBottom: 12,
     },
     intimacyDetailLabel: {
-      fontSize: Typography.fontSize.small,
+      fontSize: 12,
       color: theme.colors.textPrimary,
       fontWeight: '500',
     },
@@ -1490,7 +1536,7 @@ export default function AddEntryScreen() {
       borderColor: '#EC4899',
     },
     intimacyToggleText: {
-      fontSize: Typography.fontSize.small,
+      fontSize: 12,
       color: theme.colors.textSecondary,
       fontWeight: '500',
     },
@@ -1503,7 +1549,7 @@ export default function AddEntryScreen() {
       paddingHorizontal: 10,
       paddingVertical: 7,
       borderRadius: 8,
-      fontSize: Typography.fontSize.small,
+      fontSize: 12,
       minWidth: 120,
       textAlign: 'right',
       borderWidth: 1,
@@ -1551,7 +1597,7 @@ export default function AddEntryScreen() {
       borderColor: '#EC4899',
     },
     moodCardDotText: {
-      fontSize: 11,
+      fontSize: 13,
       color: theme.colors.textSecondary,
       fontWeight: '600',
     },
@@ -1568,23 +1614,6 @@ export default function AddEntryScreen() {
       color: theme.colors.textTertiary,
       fontWeight: '600',
     },
-    intimacyHubButton: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'center',
-      backgroundColor: theme.mode === 'dark' ? 'rgba(236, 72, 153, 0.2)' : '#FDF2F8',
-      padding: 14,
-      borderRadius: 12,
-      borderWidth: 2,
-      borderColor: '#EC4899',
-      marginTop: 4,
-    },
-    intimacyHubText: {
-      fontSize: Typography.fontSize.body,
-      color: '#EC4899',
-      fontWeight: '600',
-      marginLeft: 8,
-    },
     // Old intimacy styles (backward compatibility)
     intimacyRow: {
       flexDirection: 'row',
@@ -1593,7 +1622,7 @@ export default function AddEntryScreen() {
       marginBottom: 16,
     },
     intimacyLabel: {
-      fontSize: Typography.fontSize.medium,
+      fontSize: 14,
       color: theme.colors.textPrimary,
       fontWeight: '500',
       flex: 1,
@@ -1614,7 +1643,7 @@ export default function AddEntryScreen() {
       ...theme.shadows.small,
     },
     toggleText: {
-      fontSize: Typography.fontSize.medium,
+      fontSize: 14,
       color: theme.colors.textSecondary,
     },
     selectedToggleText: {
@@ -1633,7 +1662,7 @@ export default function AddEntryScreen() {
       backgroundColor: '#EC4899',
     },
     booleanToggleText: {
-      fontSize: Typography.fontSize.medium,
+      fontSize: 14,
       color: theme.colors.textSecondary,
       fontWeight: '500',
     },
@@ -1645,7 +1674,7 @@ export default function AddEntryScreen() {
       paddingHorizontal: 12,
       paddingVertical: 8,
       borderRadius: 8,
-      fontSize: Typography.fontSize.medium,
+      fontSize: 14,
       color: theme.colors.textPrimary,
       minWidth: 120,
       textAlign: 'right',
@@ -1691,7 +1720,7 @@ export default function AddEntryScreen() {
       marginHorizontal: 8,
     },
     timeLabel: {
-      fontSize: Typography.fontSize.medium,
+      fontSize: 14,
       color: theme.colors.textSecondary,
       marginBottom: 8,
       fontWeight: '500',
@@ -1711,7 +1740,7 @@ export default function AddEntryScreen() {
       marginTop: 20,
     },
     qualityLabel: {
-      fontSize: Typography.fontSize.medium,
+      fontSize: 14,
       color: theme.colors.textSecondary,
       marginBottom: 12,
       fontWeight: '500',
@@ -1732,7 +1761,7 @@ export default function AddEntryScreen() {
       backgroundColor: '#6366F1',
     },
     qualityDotText: {
-      fontSize: Typography.fontSize.medium,
+      fontSize: 14,
       color: theme.colors.textSecondary,
       fontWeight: '500',
     },
@@ -1740,7 +1769,7 @@ export default function AddEntryScreen() {
       marginTop: 20,
     },
     wakingLabel: {
-      fontSize: Typography.fontSize.medium,
+      fontSize: 14,
       color: theme.colors.textSecondary,
       marginBottom: 12,
       fontWeight: '500',
@@ -1763,7 +1792,7 @@ export default function AddEntryScreen() {
       borderColor: '#6366F1',
     },
     wakingText: {
-      fontSize: Typography.fontSize.medium,
+      fontSize: 14,
       color: theme.colors.textPrimary,
       fontWeight: '500',
     },
@@ -1838,7 +1867,7 @@ export default function AddEntryScreen() {
       padding: 20,
     },
     triggerQuestionCompact: {
-      fontSize: Typography.fontSize.medium,
+      fontSize: 14,
       color: theme.colors.textSecondary,
       marginBottom: 12,
       fontWeight: '500',
@@ -1877,12 +1906,12 @@ export default function AddEntryScreen() {
       borderColor: theme.colors.warning || '#F59E0B',
     },
     triggerChipIcon: {
-      fontSize: Typography.fontSize.medium,
+      fontSize: 14,
       fontWeight: '700',
       color: theme.colors.textTertiary,
     },
     triggerChipText: {
-      fontSize: Typography.fontSize.small,
+      fontSize: 12,
       color: theme.colors.textSecondary,
       fontWeight: '500',
     },
@@ -1899,7 +1928,7 @@ export default function AddEntryScreen() {
       paddingVertical: 12,
       paddingHorizontal: 14,
       borderRadius: 10,
-      fontSize: Typography.fontSize.medium,
+      fontSize: 14,
       color: theme.colors.textPrimary,
       borderWidth: 1,
       borderColor: theme.colors.border,
@@ -1925,7 +1954,7 @@ export default function AddEntryScreen() {
     },
     addCustomButtonText: {
       color: '#FFFFFF',
-      fontSize: 11,
+      fontSize: 13,
       fontWeight: '600',
     },
     customActivityInput: {
@@ -1933,7 +1962,7 @@ export default function AddEntryScreen() {
       paddingVertical: 12,
       paddingHorizontal: 14,
       borderRadius: 10,
-      fontSize: Typography.fontSize.medium,
+      fontSize: 14,
       color: theme.colors.textPrimary,
       borderWidth: 1,
       borderColor: theme.colors.border,
@@ -1942,6 +1971,7 @@ export default function AddEntryScreen() {
   });
 
   return (
+    <AuthGuard requireAuth={true}>
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
       <Stack.Screen
         options={{
@@ -2753,6 +2783,32 @@ export default function AddEntryScreen() {
                   </TouchableOpacity>
                 </View>
 
+                {intimacyData.type === 'couple' && (
+                  <View style={styles.intimacyDetailRow}>
+                    <Text style={styles.intimacyDetailLabel}>Did You Initiate?</Text>
+                    <TouchableOpacity
+                      style={[
+                        styles.intimacyToggle,
+                        intimacyData.initiated && styles.intimacyToggleActive,
+                      ]}
+                      onPress={() => setIntimacyData(prev => ({
+                        ...prev,
+                        initiated: !prev.initiated
+                      }))}
+                      activeOpacity={0.7}
+                    >
+                      <Text
+                        style={[
+                          styles.intimacyToggleText,
+                          intimacyData.initiated && styles.intimacyToggleTextActive,
+                        ]}
+                      >
+                        {intimacyData.initiated ? 'Yes' : 'No'}
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
+
                 <View style={styles.intimacyDetailRow}>
                   <Text style={styles.intimacyDetailLabel}>Toy Used</Text>
                   <TouchableOpacity
@@ -2849,13 +2905,15 @@ export default function AddEntryScreen() {
                 </View>
               </View>
 
-              {/* CTA Button */}
-              <TouchableOpacity
-                style={styles.intimacyHubButton}
-                onPress={() => router.push('/intimacy-hub')}
+              {/* Improve My Intimacy Button - Moved to Bottom */}
+              <TouchableOpacity 
+                style={[styles.intimacyHubButton, { backgroundColor: theme.colors.primary }]}
+                onPress={() => router.push('/intimacy-hub-main' as any)}
               >
-                <Heart size={18} color="#EC4899" />
-                <Text style={styles.intimacyHubText}>Improve My Intimacy →</Text>
+                <Heart size={20} color="#FFFFFF" />
+                <Text style={styles.intimacyHubButtonText}>
+                  Improve My Intimacy →
+                </Text>
               </TouchableOpacity>
             </View>
           )}
@@ -3021,5 +3079,6 @@ export default function AddEntryScreen() {
         />
       )}
     </View>
+    </AuthGuard>
   );
 }

@@ -8,6 +8,7 @@ import {
   Modal,
   TextInput,
   Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { Stack, router, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -23,11 +24,11 @@ import {
   ArrowLeft,
 } from 'lucide-react-native';
 import {
-  getHabitLibraryData,
   HabitLibraryItem,
   HabitCategory,
 } from '@/constants/mockData';
 import { HabitsService } from '@/services/habits.service';
+import { AuthGuard } from '@/components/AuthGuard';
 
 export default function HabitLibraryScreen() {
   const insets = useSafeAreaInsets();
@@ -39,10 +40,12 @@ export default function HabitLibraryScreen() {
   const [selectedHabit, setSelectedHabit] = useState<HabitLibraryItem | null>(null);
   const [modalVisible, setModalVisible] = useState(false);
   const [activeHabits, setActiveHabits] = useState<any[]>([]);
+  const [libraryHabits, setLibraryHabits] = useState<HabitLibraryItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [isFromPrefill, setIsFromPrefill] = useState(false);
 
   useEffect(() => {
+    loadHabitsLibrary();
     if (user) {
       loadActiveHabits();
     }
@@ -50,10 +53,13 @@ export default function HabitLibraryScreen() {
 
   // Handle prefill from Impact Analysis
   useEffect(() => {
+    // Wait for library habits to be loaded
+    if (libraryHabits.length === 0) return;
+
     // Handle direct category filter from URL (e.g., from Sleep Programme)
     if (params.category && !params.prefill) {
       const category = params.category as string;
-      if (category === 'Sleep' || category === 'Intimacy' || category === 'Health' || 
+      if (category === 'Sleep' || category === 'Intimacy' || category === 'Health' ||
           category === 'Anxiety' || category === 'Mood' || category === 'MentalClarity') {
         setSelectedCategory(category as HabitCategory);
         console.log('📂 Filtering by category:', category);
@@ -65,10 +71,9 @@ export default function HabitLibraryScreen() {
     if (params.prefill === 'true' && params.name) {
       setIsFromPrefill(true);
       console.log('📥 Prefill params received:', params);
-      
+
       // Try to find matching habit in library
-      const allHabits = getAllHabits();
-      const matchingHabit = allHabits.find(
+      const matchingHabit = libraryHabits.find(
         habit => habit.name.toLowerCase() === (params.name as string).toLowerCase()
       );
 
@@ -79,7 +84,7 @@ export default function HabitLibraryScreen() {
       } else {
         // No matching habit, search by category or show as custom
         if (params.category) {
-          const categoryHabits = allHabits.filter(
+          const categoryHabits = libraryHabits.filter(
             habit => habit.category.toLowerCase() === (params.category as string).toLowerCase()
           );
           if (categoryHabits.length > 0) {
@@ -91,15 +96,24 @@ export default function HabitLibraryScreen() {
         console.log('💡 No exact match found, showing category or all habits');
       }
     }
-  }, [params]);
+  }, [params, libraryHabits]);
 
-  const getAllHabits = (): HabitLibraryItem[] => {
-    const habitLibraryData = getHabitLibraryData();
-    let allHabits: HabitLibraryItem[] = [];
-    Object.values(habitLibraryData).forEach(categoryHabits => {
-      allHabits = [...allHabits, ...categoryHabits];
-    });
-    return allHabits;
+  const loadHabitsLibrary = async () => {
+    try {
+      setLoading(true);
+      const { data, error } = await HabitsService.getHabitsLibrary();
+      if (!error && data) {
+        setLibraryHabits(data);
+      } else {
+        console.error('Error loading habits library:', error);
+        Alert.alert('Error', 'Failed to load habits library. Please try again.');
+      }
+    } catch (error) {
+      console.error('Error loading habits library:', error);
+      Alert.alert('Error', 'Failed to load habits library. Please try again.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const loadActiveHabits = async () => {
@@ -111,25 +125,20 @@ export default function HabitLibraryScreen() {
       }
     } catch (error) {
       console.error('Error loading active habits:', error);
-    } finally {
-      setLoading(false);
     }
   };
 
-  const habitLibraryData = getHabitLibraryData();
   const categories: (HabitCategory | 'All')[] = ['All', 'Intimacy', 'Health', 'Anxiety', 'Mood', 'Sleep', 'MentalClarity'];
 
   const filteredHabits = () => {
-    let habits: HabitLibraryItem[] = [];
-    
-    if (selectedCategory === 'All') {
-      Object.values(habitLibraryData).forEach(categoryHabits => {
-        habits = [...habits, ...categoryHabits];
-      });
-    } else {
-      habits = habitLibraryData[selectedCategory] || [];
+    let habits: HabitLibraryItem[] = libraryHabits;
+
+    // Filter by category
+    if (selectedCategory !== 'All') {
+      habits = habits.filter(habit => habit.category === selectedCategory);
     }
 
+    // Filter by search query
     if (searchQuery.trim()) {
       habits = habits.filter(habit =>
         habit.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -224,8 +233,9 @@ export default function HabitLibraryScreen() {
   };
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
-      <Stack.Screen
+    <AuthGuard requireAuth={true}>
+      <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
+        <Stack.Screen
         options={{
           headerShown: true,
           title: 'Habit Library',
@@ -280,9 +290,35 @@ export default function HabitLibraryScreen() {
           ))}
         </ScrollView>
 
+        {/* Loading State */}
+        {loading && (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color={theme.colors.primary} />
+            <Text style={[styles.loadingText, { color: theme.colors.textSecondary }]}>
+              Loading habits library...
+            </Text>
+          </View>
+        )}
+
+        {/* Empty State */}
+        {!loading && filteredHabits().length === 0 && (
+          <View style={styles.emptyContainer}>
+            <Text style={styles.emptyEmoji}>📚</Text>
+            <Text style={[styles.emptyTitle, { color: theme.colors.text }]}>
+              No habits found
+            </Text>
+            <Text style={[styles.emptyText, { color: theme.colors.textSecondary }]}>
+              {searchQuery.trim()
+                ? 'Try adjusting your search or filter'
+                : 'The habits library is empty. Please seed the database with habits.'}
+            </Text>
+          </View>
+        )}
+
         {/* Habits Grid */}
-        <View style={styles.habitsGrid}>
-          {filteredHabits().map((habit) => (
+        {!loading && (
+          <View style={styles.habitsGrid}>
+            {filteredHabits().map((habit) => (
             <TouchableOpacity
               key={habit.id}
               style={[styles.habitCard, { backgroundColor: theme.colors.card }]}
@@ -327,20 +363,23 @@ export default function HabitLibraryScreen() {
                 ))}
               </View>
             </TouchableOpacity>
-          ))}
-        </View>
+            ))}
+          </View>
+        )}
 
         {/* Create Custom Habit Button */}
-        <TouchableOpacity
+        {!loading && (
+          <TouchableOpacity
           style={[styles.createCustomButton, { backgroundColor: theme.colors.primary }]}
           onPress={() => {
             // TODO: Implement custom habit creation
             console.log('Create custom habit');
           }}
         >
-          <Plus size={20} color="#FFFFFF" />
-          <Text style={styles.createCustomText}>Create Custom Habit</Text>
-        </TouchableOpacity>
+            <Plus size={20} color="#FFFFFF" />
+            <Text style={styles.createCustomText}>Create Custom Habit</Text>
+          </TouchableOpacity>
+        )}
       </ScrollView>
 
       {/* Habit Detail Modal */}
@@ -439,7 +478,8 @@ export default function HabitLibraryScreen() {
           </View>
         </View>
       </Modal>
-    </View>
+      </View>
+    </AuthGuard>
   );
 }
 
@@ -494,6 +534,39 @@ const styles = StyleSheet.create({
   categoryChipText: {
     fontSize: 14,
     fontWeight: '500',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 60,
+  },
+  loadingText: {
+    fontSize: 16,
+    marginTop: 16,
+    color: '#6B7280',
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 60,
+    paddingHorizontal: 40,
+  },
+  emptyEmoji: {
+    fontSize: 64,
+    marginBottom: 16,
+  },
+  emptyTitle: {
+    fontSize: 20,
+    fontWeight: '600',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  emptyText: {
+    fontSize: 16,
+    textAlign: 'center',
+    lineHeight: 24,
   },
   habitsGrid: {
     flexDirection: 'row',

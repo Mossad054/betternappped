@@ -37,6 +37,7 @@ export default function FocusTestScreen() {
   });
   const [targetAppearTime, setTargetAppearTime] = useState<number>(0);
   const [saving, setSaving] = useState(false);
+  const [targetShape, setTargetShape] = useState<Shape>('star');
 
   const scaleAnim = useRef(new Animated.Value(1)).current;
   const fadeAnim = useRef(new Animated.Value(1)).current;
@@ -44,7 +45,6 @@ export default function FocusTestScreen() {
   const shapeTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   const shapes: Shape[] = ['star', 'circle', 'square', 'triangle'];
-  const targetShape: Shape = 'star';
 
   useEffect(() => {
     if (started && !finished) {
@@ -91,8 +91,8 @@ export default function FocusTestScreen() {
       }),
     ]).start();
 
-    // Schedule next shape change (random interval 800-1500ms)
-    const nextChangeTime = 800 + Math.random() * 700;
+    // Schedule next shape change (random interval 600-2000ms for more variety)
+    const nextChangeTime = 600 + Math.random() * 1400;
     shapeTimerRef.current = setTimeout(() => {
       // If target was shown but not tapped, count as missed
       if (isTarget && Date.now() - appearTime > nextChangeTime - 100) {
@@ -164,11 +164,16 @@ export default function FocusTestScreen() {
       ? stats.reactionTimes.reduce((a, b) => a + b, 0) / stats.reactionTimes.length
       : 0;
 
-    // Score formula: (Accuracy × 1000 / ReactionTime) × 0.1, bounded 0-100
-    let score = 0;
-    if (avgReactionTime > 0) {
-      score = Math.min(100, Math.max(0, (accuracy * 1000 / avgReactionTime) * 0.1));
-    }
+    // Improved scoring formula:
+    // - Accuracy component (60% weight): directly from accuracy
+    // - Speed component (40% weight): faster = better, optimal ~250ms, max ~1000ms
+    // - False tap penalty: reduces score
+    const accuracyScore = accuracy * 0.6;
+    const speedScore = avgReactionTime > 0
+      ? Math.max(0, 40 * (1 - Math.min((avgReactionTime - 200) / 800, 1)))
+      : 0;
+    const falseTapPenalty = Math.min(20, stats.falseTaps * 2);
+    const score = Math.max(0, Math.min(100, accuracyScore + speedScore - falseTapPenalty));
 
     setSaving(true);
     if (user) {
@@ -202,6 +207,9 @@ export default function FocusTestScreen() {
   };
 
   const handleStart = () => {
+    // Randomize target shape to prevent pattern memorization
+    const randomTarget = shapes[Math.floor(Math.random() * shapes.length)];
+    setTargetShape(randomTarget);
     setStarted(true);
   };
 
@@ -227,9 +235,12 @@ export default function FocusTestScreen() {
   const avgReactionTime = stats.reactionTimes.length > 0
     ? stats.reactionTimes.reduce((a, b) => a + b, 0) / stats.reactionTimes.length
     : 0;
-  const finalScore = avgReactionTime > 0
-    ? Math.min(100, Math.max(0, (accuracy * 1000 / avgReactionTime) * 0.1))
+  const accuracyScore = accuracy * 0.6;
+  const speedScore = avgReactionTime > 0
+    ? Math.max(0, 40 * (1 - Math.min((avgReactionTime - 200) / 800, 1)))
     : 0;
+  const falseTapPenalty = Math.min(20, stats.falseTaps * 2);
+  const finalScore = Math.max(0, Math.min(100, accuracyScore + speedScore - falseTapPenalty));
 
   const styles = StyleSheet.create({
     container: {
@@ -476,14 +487,14 @@ export default function FocusTestScreen() {
               <Text style={styles.instructionTitle}>How to Play:</Text>
               <Text style={styles.instruction}>
                 • Watch as different shapes appear on screen{'\n'}
-                • Tap ONLY when you see a ⭐ STAR{'\n'}
+                • Tap ONLY when you see the TARGET shape shown below{'\n'}
                 • Ignore all other shapes{'\n'}
                 • Test duration: 90 seconds{'\n'}
                 • React as quickly as possible
               </Text>
 
               <View style={styles.targetExample}>
-                <Star size={32} color="#8B5CF6" fill="#8B5CF6" />
+                {getShapeIcon(targetShape, 32, '#8B5CF6')}
                 <Text style={styles.targetLabel}>Tap this shape only!</Text>
               </View>
             </View>
@@ -506,19 +517,11 @@ export default function FocusTestScreen() {
             />
           </View>
 
-          {/* Stats */}
+          {/* Timer Only - Hide stats to prevent cramming */}
           <View style={styles.statsRow}>
             <View style={styles.statItem}>
               <Text style={styles.statValue}>{Math.floor(timeLeft / 60)}:{(timeLeft % 60).toString().padStart(2, '0')}</Text>
-              <Text style={styles.statLabel}>Time Left</Text>
-            </View>
-            <View style={styles.statItem}>
-              <Text style={[styles.statValue, { color: '#10B981' }]}>{stats.correctTaps}</Text>
-              <Text style={styles.statLabel}>Correct</Text>
-            </View>
-            <View style={styles.statItem}>
-              <Text style={[styles.statValue, { color: '#EF4444' }]}>{stats.falseTaps}</Text>
-              <Text style={styles.statLabel}>Errors</Text>
+              <Text style={styles.statLabel}>Time Remaining</Text>
             </View>
           </View>
 

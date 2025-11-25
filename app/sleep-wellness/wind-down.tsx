@@ -29,10 +29,11 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SleepService } from '@/services/sleep.service';
 import { RewardsService, POINT_VALUES } from '@/services/rewards.service';
 import { HabitsService } from '@/services/habits.service';
+import { SleepContentService, SleepContent } from '@/services/sleepContent.service';
+import MediaPlayer from '@/components/MediaPlayer';
 
 const SLEEP_PROFILE_KEY = 'sleep_profile';
 const WIND_DOWN_SESSION_KEY = 'wind_down_session';
-const FAVORITE_TRACKS_KEY = 'favorite_sleep_tracks';
 
 interface AudioTrack {
   id: string;
@@ -47,78 +48,6 @@ interface AudioTrack {
   bestFor: string[];
 }
 
-const AUDIO_LIBRARY: AudioTrack[] = [
-  {
-    id: 'nature_rain',
-    title: 'Gentle Rain Sounds',
-    category: 'Nature Sounds',
-    duration: '30min',
-    youtubeUrl: 'https://youtube.com/watch?v=mPZkdNFkNps',
-    description: 'Soothing rain sounds for deep relaxation',
-    emoji: '🌧️',
-    language: 'None',
-    bestFor: ['fall-asleep', 'night-awakenings'],
-  },
-  {
-    id: 'meditation_sleep',
-    title: 'Sleep Meditation',
-    category: 'Guided Meditation',
-    duration: '20min',
-    youtubeUrl: 'https://youtube.com/watch?v=aEqlQvczMJQ',
-    description: 'Guided meditation to help you fall asleep',
-    emoji: '🧘',
-    language: 'English',
-    voiceType: 'Female',
-    bestFor: ['fall-asleep'],
-  },
-  {
-    id: 'story_bedtime',
-    title: 'Peaceful Bedtime Story',
-    category: 'Bedtime Stories',
-    duration: '25min',
-    youtubeUrl: 'https://youtube.com/watch?v=bR2o_QE8ekeE',
-    description: 'Calming narration to drift off to sleep',
-    emoji: '📖',
-    language: 'English',
-    voiceType: 'Male',
-    bestFor: ['fall-asleep'],
-  },
-  {
-    id: 'ambient_ocean',
-    title: 'Ocean Waves',
-    category: 'Ambient',
-    duration: 'Full Night',
-    youtubeUrl: 'https://youtube.com/watch?v=V1bFr2SWP1I',
-    description: 'Continuous ocean sounds',
-    emoji: '🌊',
-    language: 'None',
-    bestFor: ['fall-asleep', 'night-awakenings', 'full-night'],
-  },
-  {
-    id: 'breathing_exercise',
-    title: '4-7-8 Breathing',
-    category: 'Quick Tools',
-    duration: '5min',
-    youtubeUrl: 'https://youtube.com/watch?v=gz4G31LGyog',
-    description: 'Quick breathing exercise for instant calm',
-    emoji: '🌬️',
-    language: 'English',
-    voiceType: 'Neutral',
-    bestFor: ['fall-asleep', 'night-awakenings'],
-  },
-  {
-    id: 'kenyan_nature',
-    title: 'Savanna Sounds',
-    category: 'Nature Sounds',
-    duration: '30min',
-    youtubeUrl: 'https://youtube.com/watch?v=bT8OvJQVzr0',
-    description: 'African savanna evening ambience',
-    emoji: '🦁',
-    language: 'None',
-    bestFor: ['fall-asleep', 'full-night'],
-  },
-];
-
 interface WindDownHabit {
   id: string;
   label: string;
@@ -126,28 +55,61 @@ interface WindDownHabit {
 }
 
 // Categories for audio library
-const AUDIO_CATEGORIES = ['All', 'Guided Meditation', 'Bedtime Stories', 'Nature Sounds', 'Ambient', 'Quick Tools'];
+const AUDIO_CATEGORIES = ['All', 'Guided Meditations', 'Bedtime Stories', 'Nature Sounds', 'Ambient', 'Sleep Hypnosis', 'Quick Tools'];
+
+// Helper to convert SleepContent to AudioTrack
+const contentToTrack = (content: SleepContent): AudioTrack => ({
+  id: content.id,
+  title: content.title,
+  category: SleepContentService.dbValueToCategory(content.category),
+  duration: content.duration,
+  youtubeUrl: `https://youtube.com/watch?v=${content.youtube_id}`,
+  description: content.description || '',
+  emoji: content.emoji || '🎵',
+  language: content.language || 'English',
+  voiceType: content.voice_type,
+  bestFor: content.best_for || [],
+});
 
 export default function WindDownFlow() {
   const { theme } = useTheme();
   const { user } = useAuth();
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  
-  const [profile, setProfile] = useState<any>(null);
+
+  const [audioLibrary, setAudioLibrary] = useState<AudioTrack[]>([]);
   const [selectedTrack, setSelectedTrack] = useState<AudioTrack | null>(null);
-  const [isPlaying, setIsPlaying] = useState(false);
   const [showLibrary, setShowLibrary] = useState(false);
   const [favorites, setFavorites] = useState<string[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
   const [windDownHabits, setWindDownHabits] = useState<WindDownHabit[]>([]);
   const [activeHabitsFromDB, setActiveHabitsFromDB] = useState<WindDownHabit[]>([]);
+  const [loadingContent, setLoadingContent] = useState(true);
 
   useEffect(() => {
-    loadProfile();
+    loadContent();
     loadFavorites();
     loadActiveHabits();
   }, []);
+
+  const loadContent = async () => {
+    setLoadingContent(true);
+    try {
+      const { data, error } = await SleepContentService.getAll();
+      if (data && !error) {
+        const tracks = data.map(contentToTrack);
+        setAudioLibrary(tracks);
+        // Set default track
+        if (tracks.length > 0) {
+          const featured = data.find(c => c.is_featured);
+          setSelectedTrack(featured ? contentToTrack(featured) : tracks[0]);
+        }
+      }
+    } catch (error) {
+      console.error('Error loading content:', error);
+    }
+    setLoadingContent(false);
+  };
 
   const loadActiveHabits = async () => {
     if (!user) return;
@@ -189,43 +151,12 @@ export default function WindDownFlow() {
     }
   };
 
-  const loadProfile = async () => {
-    try {
-      const userId = user?.id || 'guest_user';
-      const key = `${SLEEP_PROFILE_KEY}_${userId}`;
-      const data = await AsyncStorage.getItem(key);
-      if (data) {
-        const profileData = JSON.parse(data);
-        setProfile(profileData);
-        // Select default track based on profile
-        selectDefaultTrack(profileData);
-      }
-    } catch (error) {
-      console.error('Error loading profile:', error);
-    }
-  };
-
-  const selectDefaultTrack = (profileData: any) => {
-    const preferredStyles = profileData.audioStyle || [];
-    if (preferredStyles.length > 0) {
-      const matching = AUDIO_LIBRARY.find(track => 
-        preferredStyles.some((style: string) => 
-          track.category.toLowerCase().includes(style.toLowerCase())
-        )
-      );
-      setSelectedTrack(matching || AUDIO_LIBRARY[0]);
-    } else {
-      setSelectedTrack(AUDIO_LIBRARY[0]);
-    }
-  };
-
   const loadFavorites = async () => {
+    if (!user) return;
     try {
-      const userId = user?.id || 'guest_user';
-      const key = `${FAVORITE_TRACKS_KEY}_${userId}`;
-      const data = await AsyncStorage.getItem(key);
-      if (data) {
-        setFavorites(JSON.parse(data));
+      const { data, error } = await SleepContentService.getFavoriteIds(user.id);
+      if (data && !error) {
+        setFavorites(data);
       }
     } catch (error) {
       console.error('Error loading favorites:', error);
@@ -233,17 +164,23 @@ export default function WindDownFlow() {
   };
 
   const toggleFavorite = async (trackId: string) => {
+    if (!user) return;
+
+    // Optimistic update
     const newFavorites = favorites.includes(trackId)
       ? favorites.filter(id => id !== trackId)
       : [...favorites, trackId];
-    
     setFavorites(newFavorites);
-    
+
     try {
-      const userId = user?.id || 'guest_user';
-      const key = `${FAVORITE_TRACKS_KEY}_${userId}`;
-      await AsyncStorage.setItem(key, JSON.stringify(newFavorites));
+      const { error } = await SleepContentService.toggleFavorite(user.id, trackId);
+      if (error) {
+        // Revert on error
+        setFavorites(favorites);
+        console.error('Error toggling favorite:', error);
+      }
     } catch (error) {
+      setFavorites(favorites);
       console.error('Error saving favorites:', error);
     }
   };
@@ -286,9 +223,9 @@ export default function WindDownFlow() {
 
   const getFilteredTracks = () => {
     if (selectedCategory === 'All') {
-      return AUDIO_LIBRARY;
+      return audioLibrary;
     }
-    return AUDIO_LIBRARY.filter(track => track.category === selectedCategory);
+    return audioLibrary.filter(track => track.category === selectedCategory);
   };
 
   const handleReadyForBed = async () => {
@@ -351,23 +288,8 @@ export default function WindDownFlow() {
   };
 
   const openTrack = (track: AudioTrack) => {
-    // Open YouTube link
-    Alert.alert(
-      'Play Audio',
-      `Open ${track.title}?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Play',
-          onPress: () => {
-            // In production, use Linking.openURL(track.youtubeUrl)
-            setSelectedTrack(track);
-            setShowLibrary(false);
-            setIsPlaying(true);
-          },
-        },
-      ]
-    );
+    setSelectedTrack(track);
+    setShowLibrary(false);
   };
 
   return (
@@ -393,7 +315,7 @@ export default function WindDownFlow() {
         contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 100 }]}
         showsVerticalScrollIndicator={false}
       >
-        {/* Current Track */}
+        {/* Current Track with Media Player */}
         {selectedTrack && (
           <View style={[styles.trackCard, { backgroundColor: theme.colors.card }]}>
             <View style={styles.trackHeader}>
@@ -419,18 +341,13 @@ export default function WindDownFlow() {
               {selectedTrack.description}
             </Text>
 
-            <View style={styles.playerControls}>
-              <TouchableOpacity
-                style={[styles.playButton, { backgroundColor: theme.colors.primary }]}
-                onPress={() => setIsPlaying(!isPlaying)}
-              >
-                {isPlaying ? (
-                  <Pause size={32} color="#FFFFFF" />
-                ) : (
-                  <Play size={32} color="#FFFFFF" />
-                )}
-              </TouchableOpacity>
-            </View>
+            {/* Integrated Media Player */}
+            <MediaPlayer
+              source={selectedTrack.youtubeUrl}
+              type="youtube"
+              showVideo={true}
+              autoPlay={false}
+            />
           </View>
         )}
 

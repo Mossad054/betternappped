@@ -2,9 +2,6 @@
 
 ## Executive Summary
 This document outlines a comprehensive approach to enhance the BetterNapped wellness app's data analysis, correlation algorithms, scoring systems, and AI-powered insights. The goal is to provide users with clearer, more actionable, and personalized recommendations based on their comprehensive wellness data.
-
----
-
 ## 1. CURRENT DATA COLLECTION AUDIT
 
 ### 1.1 Data Points Collected
@@ -190,8 +187,6 @@ This document outlines a comprehensive approach to enhance the BetterNapped well
 ❌ **Limited context**: Minimal environmental/situational factors (weather, location, social context)
 ❌ **No baseline measurements**: Lack of initial assessment for personalization
 ❌ **Incomplete relationships**: Activities not linked to outcomes consistently
-❌ **Missing physiological data**: No heart rate, steps, calories, or biometric data
-❌ **No event logging**: Life events, stressors, medical changes not tracked
 
 ### 3.2 Algorithm Limitations
 
@@ -245,7 +240,6 @@ This document outlines a comprehensive approach to enhance the BetterNapped well
 #### **Phase 2: New Data Points (Schema additions)**
 1. **Contextual factors**:
    - Time of day for activities
-   - Weather conditions (API integration)
    - Social context (alone, with partner, with friends)
    - Location type (home, outdoor, gym)
 

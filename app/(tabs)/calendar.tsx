@@ -8,6 +8,7 @@ import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Plus, X } from 'lu
 import { AnalyticsService } from '@/services/analytics.service';
 import { useRealtimeMoods, useRealtimeActivities, useRealtimeSleep, useRealtimeHabits, useRealtimeExperiments } from '@/hooks/useRealtimeData';
 import DayDetailModal from '@/components/DayDetailModal';
+import PastDateHabitModal from '@/components/PastDateHabitModal';
 import type { DailyDetailData, MonthlySummary, WellBeingLegend, MonthOverview } from '@/services/analytics.service';
 
 export default function CalendarScreen() {
@@ -19,6 +20,7 @@ export default function CalendarScreen() {
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [modalVisible, setModalVisible] = useState<boolean>(false);
   const [confirmLogModalVisible, setConfirmLogModalVisible] = useState<boolean>(false);
+  const [habitModalVisible, setHabitModalVisible] = useState<boolean>(false);
   const [calendarData, setCalendarData] = useState<any>({});
   const [selectedDayDetailData, setSelectedDayDetailData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -459,9 +461,31 @@ export default function CalendarScreen() {
   const handleConfirmLogData = () => {
     if (selectedDate) {
       setConfirmLogModalVisible(false);
-      console.log(`Navigating to journal for date: ${selectedDate}`);
-      // Navigate to journal page with date parameter
-      router.push(`/(tabs)/journal?date=${selectedDate}`);
+      
+      // Show options: Full journal entry or just habits
+      Alert.alert(
+        'What would you like to log?',
+        'Choose what you want to track for this date',
+        [
+          {
+            text: 'Just Habits',
+            onPress: () => {
+              setHabitModalVisible(true);
+            }
+          },
+          {
+            text: 'Full Entry',
+            onPress: () => {
+              console.log(`Navigating to journal for date: ${selectedDate}`);
+              router.push(`/(tabs)/journal?date=${selectedDate}`);
+            }
+          },
+          {
+            text: 'Cancel',
+            style: 'cancel'
+          }
+        ]
+      );
     }
   };
 
@@ -1043,6 +1067,10 @@ export default function CalendarScreen() {
         onClose={() => {
           setModalVisible(false);
           setSelectedDayDetailData(null);
+          // Refresh calendar data after closing to reflect any changes
+          if (user) {
+            loadCalendarData(true);
+          }
         }}
         data={selectedDayData}
       />
@@ -1097,6 +1125,25 @@ export default function CalendarScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* Past Date Habit Modal */}
+      <PastDateHabitModal
+        visible={habitModalVisible}
+        onClose={() => {
+          setHabitModalVisible(false);
+          setSelectedDate(null);
+        }}
+        date={selectedDate || ''}
+        onSuccess={() => {
+          // Refresh calendar data after habit completion
+          if (user) {
+            loadCalendarData(true);
+            loadMonthlySummary();
+            loadWellBeingLegend();
+            loadMonthOverview();
+          }
+        }}
+      />
     </View>
   );
 }

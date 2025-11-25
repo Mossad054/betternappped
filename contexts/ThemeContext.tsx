@@ -5,6 +5,7 @@ import * as designSystem from '@/themes/design';
 import { getPaletteColors, type ColorPalette } from '@/themes/colorPalettes';
 import { getIconPalette, type IconPalette, type IconStyle } from '@/themes/iconPalettes';
 import { getEmojiPalette, getEmojiSet, getEmojiOpacity, type EmojiPalette, type EmojiSet } from '@/themes/emojiPalettes';
+import { FONT_SIZES, FONT_WEIGHTS, LINE_HEIGHTS, Typography as TypographyStyles } from '@/constants/Typography';
 
 export type ThemeMode = 'light' | 'dark';
 
@@ -153,36 +154,29 @@ const gradients = {
 // Use design system typography with backward compatible aliases
 const typography = {
   ...designSystem.typography,
+  // Pre-composed styles from Typography constants
+  styles: TypographyStyles,
   fontFamily: {
     regular: 'System' as const,
     medium: 'System' as const,
     semibold: 'System' as const,
     bold: 'System' as const,
   },
+  // Updated font sizes following HIG guidelines (min 16px body)
   fontSize: {
-    xs: 12,
-    sm: 14,
-    base: 16,
-    md: 18,
-    lg: 20,
-    xl: 24,
-    xxl: 28,
-    xxxl: 32,
+    xs: FONT_SIZES.xs,      // 11 - captions, badges
+    sm: FONT_SIZES.sm,      // 12 - meta text
+    base: FONT_SIZES.lg,    // 16 - standard body (HIG minimum)
+    md: FONT_SIZES.xl,      // 18 - section headers
+    lg: FONT_SIZES['2xl'],  // 20 - modal titles
+    xl: FONT_SIZES['3xl'],  // 24 - page titles
+    xxl: 28,                // large headers
+    xxxl: FONT_SIZES['4xl'], // 32 - display headers
     huge: 36,
-    massive: 44,
+    massive: FONT_SIZES.display, // 48 - display numbers
   },
-  lineHeight: {
-    tight: 1.2,
-    normal: 1.5,
-    relaxed: 1.75,
-  },
-  fontWeight: {
-    regular: '400' as const,
-    medium: '500' as const,
-    semibold: '600' as const,
-    bold: '700' as const,
-    extrabold: '800' as const,
-  },
+  lineHeight: LINE_HEIGHTS,
+  fontWeight: FONT_WEIGHTS,
 };
 
 // Use design system spacing with backward compatible aliases

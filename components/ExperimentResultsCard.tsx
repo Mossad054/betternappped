@@ -240,7 +240,7 @@ const ExperimentResultsCard: React.FC<ExperimentResultsCardProps> = ({
               </Text>
               <View style={styles.experimentMeta}>
                 <Text style={[styles.experimentStatus, { color: theme.colors.textSecondary }]}>
-                  {experiment.status.charAt(0).toUpperCase() + experiment.status.slice(1)} • Day {experiment.currentDay}/{experiment.duration}
+                  {experiment.status.charAt(0).toUpperCase() + experiment.status.slice(1)} • Day {Math.max(experiment.currentDay, 1)}/{experiment.duration}
                 </Text>
               </View>
             </View>
@@ -364,7 +364,7 @@ const ExperimentResultsCard: React.FC<ExperimentResultsCardProps> = ({
                   Ends: {new Date(selectedExperiment.endDate).toLocaleDateString()}
                 </Text>
                 <Text style={[styles.modalSectionText, { color: theme.colors.textSecondary }]}>
-                  Progress: Day {selectedExperiment.currentDay} of {selectedExperiment.duration} ({selectedExperiment.progress}%)
+                  Progress: Day {Math.max(selectedExperiment.currentDay, 1)} of {selectedExperiment.duration} ({selectedExperiment.progress}%)
                 </Text>
               </View>
 
@@ -447,20 +447,12 @@ const ExperimentResultsCard: React.FC<ExperimentResultsCardProps> = ({
                   style={[styles.actionButton, { backgroundColor: theme.colors.card }]}
                   onPress={() => {
                     setModalVisible(false);
-                    router.push(`/create-experiment?id=${selectedExperiment.id}`);
+                    router.push('/experiments-hub');
                   }}
                   activeOpacity={0.7}
                 >
                   <Text style={[styles.actionButtonText, { color: theme.colors.text }]}>
                     ✏️ Modify Experiment
-                  </Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.actionButton, { backgroundColor: theme.colors.card }]}
-                  activeOpacity={0.7}
-                >
-                  <Text style={[styles.actionButtonText, { color: theme.colors.text }]}>
-                    📦 Archive
                   </Text>
                 </TouchableOpacity>
               </View>

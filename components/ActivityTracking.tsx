@@ -253,6 +253,7 @@ export default function ActivityTracking({ data, timeRange }: ActivityTrackingPr
 
 const styles = StyleSheet.create({
   container: {
+    backgroundColor: '#FFFFFF',
     borderRadius: 16,
     padding: 20,
     marginHorizontal: 20,
@@ -265,12 +266,11 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 8,
     elevation: 4,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
   },
   title: {
     fontSize: 18,
     fontWeight: '600',
+    color: '#1F2937',
     marginBottom: 16,
   },
   chartContainer: {
@@ -287,9 +287,11 @@ const styles = StyleSheet.create({
   categoryLabel: {
     fontSize: 14,
     fontWeight: '500',
+    color: '#374151',
   },
   engagementText: {
     fontSize: 11,
+    color: '#6B7280',
     marginTop: 2,
   },
   barContainer: {
@@ -305,16 +307,18 @@ const styles = StyleSheet.create({
   countLabel: {
     fontSize: 12,
     fontWeight: '600',
+    color: '#6B7280',
     minWidth: 30,
   },
   impactSection: {
     borderTopWidth: 1,
-    borderTopColor: 'rgba(255, 255, 255, 0.1)',
+    borderTopColor: '#E5E7EB',
     paddingTop: 20,
   },
   impactTitle: {
     fontSize: 16,
     fontWeight: '600',
+    color: '#1F2937',
     marginBottom: 16,
   },
   impactLists: {
@@ -328,6 +332,7 @@ const styles = StyleSheet.create({
   impactColumnTitle: {
     fontSize: 14,
     fontWeight: '600',
+    color: '#374151',
     marginBottom: 12,
   },
   impactItem: {
@@ -336,7 +341,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     padding: 8,
     borderRadius: 8,
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    backgroundColor: '#F9FAFB',
   },
   impactTextContainer: {
     marginLeft: 8,
@@ -345,12 +350,15 @@ const styles = StyleSheet.create({
   impactActivity: {
     fontSize: 13,
     fontWeight: '500',
+    color: '#374151',
   },
   impactValue: {
     fontSize: 12,
+    color: '#10B981',
     fontWeight: '600',
   },
   negativeImpact: {
+    color: '#EF4444',
   },
   modalOverlay: {
     flex: 1,
@@ -358,6 +366,7 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   modalContent: {
+    backgroundColor: '#FFFFFF',
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     maxHeight: '80%',
@@ -370,7 +379,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingBottom: 20,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.1)',
+    borderBottomColor: '#E5E7EB',
   },
   modalTitleContainer: {
     flexDirection: 'row',
@@ -385,6 +394,7 @@ const styles = StyleSheet.create({
   modalTitle: {
     fontSize: 18,
     fontWeight: '600',
+    color: '#1F2937',
   },
   closeButton: {
     padding: 4,
@@ -397,7 +407,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-around',
     marginBottom: 24,
     paddingVertical: 16,
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    backgroundColor: '#F9FAFB',
     borderRadius: 12,
   },
   statItem: {
@@ -405,12 +415,14 @@ const styles = StyleSheet.create({
   },
   statLabel: {
     fontSize: 12,
+    color: '#6B7280',
     marginTop: 4,
     marginBottom: 2,
   },
   statValue: {
     fontSize: 16,
     fontWeight: '600',
+    color: '#1F2937',
   },
   insightSection: {
     marginBottom: 24,
@@ -418,10 +430,12 @@ const styles = StyleSheet.create({
   insightTitle: {
     fontSize: 16,
     fontWeight: '600',
+    color: '#1F2937',
     marginBottom: 8,
   },
   insightDescription: {
     fontSize: 14,
+    color: '#6B7280',
     lineHeight: 20,
   },
   recommendationsSection: {
@@ -430,6 +444,7 @@ const styles = StyleSheet.create({
   recommendationsTitle: {
     fontSize: 16,
     fontWeight: '600',
+    color: '#1F2937',
     marginBottom: 12,
   },
   recommendationItem: {
@@ -441,12 +456,14 @@ const styles = StyleSheet.create({
     width: 6,
     height: 6,
     borderRadius: 3,
+    backgroundColor: '#3B82F6',
     marginTop: 6,
     marginRight: 12,
   },
   recommendationText: {
     flex: 1,
     fontSize: 14,
+    color: '#374151',
     lineHeight: 18,
   },
   emptyStateContainer: {
@@ -461,6 +478,7 @@ const styles = StyleSheet.create({
   emptyStateText: {
     fontSize: 14,
     textAlign: 'center',
+    color: '#6B7280',
     lineHeight: 20,
   },
 });

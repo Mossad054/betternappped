@@ -1,0 +1,39 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(rm:*)",
+      "Bash(\"c:\\Users\\ROLSS_IWCF TC 6\\projects\\Betternapped\\ACTIVITY_IMPACT_IMPLEMENTATION_COMPLETE.md\")",
+      "Bash(\"c:\\Users\\ROLSS_IWCF TC 6\\projects\\Betternapped\\ACTIVITY_PAGE_IMPROVEMENTS.md\")",
+      "Bash(nul)",
+      "Bash(dir:*)",
+      "Bash(move \"c:\\Users\\ROLSS_IWCF TC 6\\projects\\Betternapped\\app\\intimacy-hub\\programs-old\" \"c:\\Users\\ROLSS_IWCF TC 6\\projects\\Betternapped\\app\\intimacy-hub\\programs\")",
+      "Bash(ren:*)",
+      "Bash(powershell -Command \"(Get-Content ''c:\\Users\\ROLSS_IWCF TC 6\\projects\\Betternapped\\services\\analytics.service.ts'' | Measure-Object -Line).Lines\")",
+      "Bash(npm install:*)",
+      "Bash(powershell -Command \"(Get-Content ''c:\\Users\\ROLSS_IWCF TC 6\\projects\\Betternapped\\habits_library.json'' | Measure-Object -Line).Lines\")",
+      "Bash(findstr:*)",
+      "Bash(cat:*)",
+      "Bash(node seed-intimacy-habits.js:*)",
+      "Bash(node -e:*)",
+      "Bash(node create-table.js:*)",
+      "Bash(mental_clarity_new.json)",
+      "Bash(node extract_mental_clarity.js:*)",
+      "Bash(node generate_mental_clarity_sql.js:*)",
+      "Bash(powershell -Command \"(Get-Content ''database\\migrations\\seed_mental_clarity_habits.sql'' | Measure-Object -Line).Lines\")",
+      "Bash(node verify_habits.js:*)",
+      "Bash(node add_missing_habits.js:*)",
+      "Bash(\"database\\migrations\\seed_mental_clarity_habits.sql\")",
+      "Bash(node generate_health_habits.js:*)",
+      "Bash(powershell -Command \"(Get-Content ''database\\migrations\\seed_health_habits.sql'' | Measure-Object -Line).Lines\")",
+      "Bash(node generate_all_remaining_habits.js:*)",
+      "Bash(powershell -Command:*)",
+      "Bash(powershell -Command \"(Get-Content ''c:\\Users\\ROLSS_IWCF TC 6\\projects\\Betternapped\\app\\create-experiment.tsx'' | Measure-Object -Line).Lines\")",
+      "Bash(npx expo start:*)",
+      "Bash(timeout:*)",
+      "Bash(powershell -Command \"(Get-Content ''c:\\Users\\ROLSS_IWCF TC 6\\projects\\Betternapped\\services\\experiments.service.ts'' | Measure-Object -Line).Lines\")",
+      "Bash(find:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import { useTheme } from '@/contexts/ThemeContext';
 import { AnalyticsService, ActivityImpactData, ActivityImpactResult } from '@/services/analytics.service';
-import { X } from 'lucide-react-native';
+import { X, HelpCircle } from 'lucide-react-native';
 
 interface ImpactAnalysisCardProps {
   userId: string;
@@ -26,6 +26,7 @@ export default function ImpactAnalysisCard({ userId, loading: externalLoading, e
   const [selectedActivity, setSelectedActivity] = useState<ActivityImpactData | null>(null);
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [showAllActivities, setShowAllActivities] = useState(false);
+  const [showHelpOverlay, setShowHelpOverlay] = useState(false);
 
   useEffect(() => {
     loadImpactData();
@@ -241,9 +242,18 @@ export default function ImpactAnalysisCard({ userId, loading: externalLoading, e
 
               {/* Correlation Strength */}
               <View style={styles.section}>
-                <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
-                  Correlation Strength
-                </Text>
+                <View style={styles.sectionTitleRow}>
+                  <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
+                    Correlation Strength
+                  </Text>
+                  <TouchableOpacity
+                    onPress={() => setShowHelpOverlay(true)}
+                    style={styles.helpButton}
+                    activeOpacity={0.7}
+                  >
+                    <HelpCircle size={20} color={theme.colors.primary} />
+                  </TouchableOpacity>
+                </View>
                 <Text style={[styles.sectionDescription, { color: theme.colors.textSecondary }]}>
                   How strongly this activity relates to each parameter
                 </Text>
@@ -419,6 +429,124 @@ export default function ImpactAnalysisCard({ userId, loading: externalLoading, e
       )}
 
       {renderActivityModal()}
+
+      {/* Help Overlay Modal */}
+      <Modal
+        animationType="fade"
+        transparent={true}
+        visible={showHelpOverlay}
+        onRequestClose={() => setShowHelpOverlay(false)}
+      >
+        <View style={styles.helpOverlay}>
+          <View style={[styles.helpContainer, { backgroundColor: theme.colors.card }]}>
+            <View style={styles.helpHeader}>
+              <Text style={[styles.helpTitle, { color: theme.colors.text }]}>
+                Understanding Your Scores
+              </Text>
+              <TouchableOpacity onPress={() => setShowHelpOverlay(false)}>
+                <X size={24} color={theme.colors.textSecondary} />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView showsVerticalScrollIndicator={false} style={styles.helpContent}>
+              {/* Impact Score Explanation */}
+              <View style={styles.helpSection}>
+                <Text style={[styles.helpSectionTitle, { color: theme.colors.text }]}>
+                  📊 Impact Score (0-100)
+                </Text>
+                <Text style={[styles.helpText, { color: theme.colors.textSecondary }]}>
+                  A combined measure of how this activity affects your overall wellbeing. Higher scores mean more positive impact.
+                </Text>
+                <View style={styles.helpExample}>
+                  <Text style={[styles.helpExampleText, { color: theme.colors.success }]}>
+                    • 60-100: Positive Impact
+                  </Text>
+                  <Text style={[styles.helpExampleText, { color: theme.colors.warning }]}>
+                    • 45-59: Neutral Impact
+                  </Text>
+                  <Text style={[styles.helpExampleText, { color: theme.colors.error }]}>
+                    • 0-44: Negative Impact
+                  </Text>
+                </View>
+              </View>
+
+              {/* Average Change Explanation */}
+              <View style={styles.helpSection}>
+                <Text style={[styles.helpSectionTitle, { color: theme.colors.text }]}>
+                  📈 Average Change (Impact on Parameters)
+                </Text>
+                <Text style={[styles.helpText, { color: theme.colors.textSecondary }]}>
+                  Shows the <Text style={styles.boldText}>average increase or decrease</Text> in each wellbeing parameter after doing this activity.
+                </Text>
+                <View style={styles.helpExample}>
+                  <Text style={[styles.helpExampleText, { color: theme.colors.text }]}>
+                    <Text style={[styles.boldText, { color: theme.colors.success }]}>+1.5</Text> = Your mood increased by 1.5 points on average
+                  </Text>
+                  <Text style={[styles.helpExampleText, { color: theme.colors.text }]}>
+                    <Text style={[styles.boldText, { color: theme.colors.error }]}>-0.8</Text> = Your mood decreased by 0.8 points on average
+                  </Text>
+                  <Text style={[styles.helpExampleText, { color: theme.colors.text }]}>
+                    <Text style={[styles.boldText, { color: theme.colors.textSecondary }]}>0.0</Text> = No average change detected
+                  </Text>
+                </View>
+              </View>
+
+              {/* Correlation Explanation */}
+              <View style={styles.helpSection}>
+                <Text style={[styles.helpSectionTitle, { color: theme.colors.text }]}>
+                  🔗 Correlation Strength (-100% to +100%)
+                </Text>
+                <Text style={[styles.helpText, { color: theme.colors.textSecondary }]}>
+                  Measures <Text style={styles.boldText}>how consistently</Text> this activity relates to each parameter. This is different from average change!
+                </Text>
+                <View style={styles.helpExample}>
+                  <Text style={[styles.helpExampleText, { color: theme.colors.success }]}>
+                    <Text style={styles.boldText}>+70%</Text> = Strong positive pattern (doing this activity consistently associates with higher scores)
+                  </Text>
+                  <Text style={[styles.helpExampleText, { color: theme.colors.error }]}>
+                    <Text style={styles.boldText}>-67%</Text> = Strong negative pattern (doing this activity consistently associates with lower scores)
+                  </Text>
+                  <Text style={[styles.helpExampleText, { color: theme.colors.textSecondary }]}>
+                    <Text style={styles.boldText}>0%</Text> = No consistent pattern detected
+                  </Text>
+                </View>
+              </View>
+
+              {/* Example Scenario */}
+              <View style={[styles.exampleBox, {
+                backgroundColor: theme.colors.primary + '15',
+                borderColor: theme.colors.primary
+              }]}>
+                <Text style={[styles.exampleTitle, { color: theme.colors.primary }]}>
+                  💡 Example: Why is Mood Change 0.0 but Correlation -67%?
+                </Text>
+                <Text style={[styles.helpText, { color: theme.colors.text }]}>
+                  Let's say you exercise 10 times:
+                </Text>
+                <Text style={[styles.helpText, { color: theme.colors.text }]}>
+                  • 5 times: mood went from 6→6 (no change)
+                  {'\n'}• 5 times: mood went from 5→5 (no change)
+                  {'\n'}
+                  {'\n'}<Text style={styles.boldText}>Average Change = 0.0</Text> (mood didn't increase/decrease)
+                  {'\n'}
+                  {'\n'}However, you notice: On days you DON'T exercise, your mood is usually 7-8. On days you DO exercise, it's 5-6.
+                  {'\n'}
+                  {'\n'}<Text style={styles.boldText}>Correlation = -67%</Text> (strong pattern: exercise days = lower mood)
+                  {'\n'}
+                  {'\n'}This suggests exercise might be draining you, even though it's not making your mood worse during the activity itself.
+                </Text>
+              </View>
+
+              {/* Bottom Note */}
+              <View style={[styles.helpNote, { backgroundColor: theme.colors.warning + '20' }]}>
+                <Text style={[styles.helpNoteText, { color: theme.colors.warning }]}>
+                  💭 Keep in mind: You need at least 5-10 instances of an activity for reliable correlation scores. More data = more accurate insights!
+                </Text>
+              </View>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -709,5 +837,88 @@ const styles = StyleSheet.create({
     fontSize: 12,
     textAlign: 'center',
     lineHeight: 18,
+  },
+  // Help Overlay Styles
+  sectionTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  helpButton: {
+    padding: 4,
+    marginLeft: 8,
+  },
+  helpOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  helpContainer: {
+    width: '100%',
+    maxHeight: '90%',
+    borderRadius: 20,
+    padding: 20,
+  },
+  helpHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  helpTitle: {
+    fontSize: 22,
+    fontWeight: '700',
+  },
+  helpContent: {
+    maxHeight: '100%',
+  },
+  helpSection: {
+    marginBottom: 24,
+  },
+  helpSectionTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    marginBottom: 8,
+  },
+  helpText: {
+    fontSize: 14,
+    lineHeight: 22,
+    marginBottom: 8,
+  },
+  boldText: {
+    fontWeight: '700',
+  },
+  helpExample: {
+    marginTop: 8,
+    gap: 6,
+  },
+  helpExampleText: {
+    fontSize: 13,
+    lineHeight: 20,
+    paddingLeft: 8,
+  },
+  exampleBox: {
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    marginBottom: 16,
+  },
+  exampleTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    marginBottom: 12,
+  },
+  helpNote: {
+    padding: 12,
+    borderRadius: 10,
+    marginBottom: 10,
+  },
+  helpNoteText: {
+    fontSize: 12,
+    lineHeight: 18,
+    textAlign: 'center',
   },
 });

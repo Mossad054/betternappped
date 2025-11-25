@@ -140,9 +140,15 @@ export default function MemoryTestScreen() {
     const totalMatches = correctMatches + missedMatches;
     const accuracy = totalMatches > 0 ? (correctMatches / totalMatches) : 0;
     const falsePositiveRate = (correctMatches + incorrectTaps) > 0 ? (incorrectTaps / (correctMatches + incorrectTaps)) : 0;
-    
-    // Score = (Accuracy − FalsePositives) × 100
-    const score = Math.max(0, (accuracy - falsePositiveRate) * 100);
+
+    // Improved scoring:
+    // - Base accuracy score (70% weight)
+    // - N-level bonus (up to 30 points for reaching higher levels)
+    // - False positive penalty
+    const accuracyScore = accuracy * 70;
+    const nLevelBonus = Math.min(30, (nLevel - 1) * 10); // 2-back=10, 3-back=20, 4-back=30
+    const falsePositivePenalty = Math.min(20, falsePositiveRate * 40);
+    const score = Math.max(0, Math.min(100, accuracyScore + nLevelBonus - falsePositivePenalty));
 
     setSaving(true);
     if (user) {
@@ -403,7 +409,10 @@ export default function MemoryTestScreen() {
   const totalMatches = correctMatches + missedMatches;
   const accuracy = totalMatches > 0 ? (correctMatches / totalMatches) : 0;
   const falsePositiveRate = (correctMatches + incorrectTaps) > 0 ? (incorrectTaps / (correctMatches + incorrectTaps)) : 0;
-  const finalScore = Math.max(0, (accuracy - falsePositiveRate) * 100);
+  const accuracyScore = accuracy * 70;
+  const nLevelBonus = Math.min(30, (nLevel - 1) * 10);
+  const falsePositivePenalty = Math.min(20, falsePositiveRate * 40);
+  const finalScore = Math.max(0, Math.min(100, accuracyScore + nLevelBonus - falsePositivePenalty));
 
   return (
     <View style={styles.container}>
@@ -471,22 +480,11 @@ export default function MemoryTestScreen() {
             <Text style={styles.nLevelText}>{nLevel}-Back Challenge</Text>
           </View>
 
+          {/* Timer Only - Hide stats to prevent cramming */}
           <View style={styles.statsRow}>
             <View style={styles.statItem}>
               <Text style={styles.statValue}>{timeLeft}s</Text>
-              <Text style={styles.statLabel}>Time</Text>
-            </View>
-            <View style={styles.statItem}>
-              <Text style={[styles.statValue, { color: '#10B981' }]}>{correctMatches}</Text>
-              <Text style={styles.statLabel}>Correct</Text>
-            </View>
-            <View style={styles.statItem}>
-              <Text style={[styles.statValue, { color: '#F59E0B' }]}>{missedMatches}</Text>
-              <Text style={styles.statLabel}>Missed</Text>
-            </View>
-            <View style={styles.statItem}>
-              <Text style={[styles.statValue, { color: '#EF4444' }]}>{incorrectTaps}</Text>
-              <Text style={styles.statLabel}>False+</Text>
+              <Text style={styles.statLabel}>Time Remaining</Text>
             </View>
           </View>
 

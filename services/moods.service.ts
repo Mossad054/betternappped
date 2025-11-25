@@ -23,7 +23,7 @@ export class MoodsService {
     if (await isGuestMode()) {
       return guestDataStore.getAll('moods');
     }
-    const result = await SupabaseSafe.select('mood_logs', { order: { logged_at: 'desc' } }, userId);
+    const result = await SupabaseSafe.select('mood_logs', { order: { date: 'desc' } }, userId);
     return { data: result.data, error: result.error };
   }
 
@@ -46,33 +46,16 @@ export class MoodsService {
     const result = await SupabaseSafe.select('mood_logs', { 
       gte: { date: startDate },
       lte: { date: endDate },
-      order: { date: 'asc', logged_at: 'asc' }
+      order: { date: 'asc' }
     }, userId);
     return { data: result.data, error: result.error };
   }
 
-  /**
-   * Get all mood logs for a specific date (can return multiple entries)
-   * Returns array of moods sorted by logged_at DESC (latest first)
-   */
-  static async getByDate(userId: string, date: string): Promise<{ data: MoodLog[] | null; error: any }> {
+  static async getByDate(userId: string, date: string): Promise<{ data: MoodLog | null; error: any }> {
     if (await isGuestMode()) {
-      const result = await guestDataStore.getByDate('moods', date);
-      // Convert single result to array for consistency
-      return { data: result.data ? [result.data] : [], error: result.error };
+      return guestDataStore.getByDate('moods', date);
     }
-    const result = await SupabaseSafe.select('mood_logs', { 
-      eq: { date },
-      order: { logged_at: 'desc' } // Latest mood first
-    }, userId);
-    return { data: result.data || [], error: result.error };
-  }
-
-  /**
-   * Get the latest mood log for a specific date
-   */
-  static async getLatestByDate(userId: string, date: string): Promise<{ data: MoodLog | null; error: any }> {
-    const result = await this.getByDate(userId, date);
+    const result = await SupabaseSafe.select('mood_logs', { eq: { date } }, userId);
     return { data: result.data?.[0] || null, error: result.error };
   }
 
@@ -96,13 +79,14 @@ export class MoodsService {
     return { error: result.error };
   }
 
-  /**
-   * DEPRECATED: Use create() instead for multiple moods per day
-   * This method is kept for backward compatibility but will always create new entries
-   */
   static async upsert(data: Omit<MoodLogInsert, 'user_id'>, userId: string): Promise<{ data: MoodLog | null; error: any }> {
-    // Since we now support multiple moods per day, always create new entry
-    console.warn('⚠️ MoodsService.upsert() is deprecated. Use create() instead for multiple moods per day.');
-    return await this.create(data, userId);
+    // For upsert, we'll try to get existing record first, then update or insert
+    const existing = await this.getByDate(userId, data.date);
+    
+    if (existing.data) {
+      return await this.update(existing.data.id, data, userId);
+    } else {
+      return await this.create(data, userId);
+    }
   }
 }

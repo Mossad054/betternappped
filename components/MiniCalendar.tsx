@@ -52,26 +52,37 @@ export default function MiniCalendar({ data, onDateSelect }: Props) {
   const getDayColor = (day: DayData) => {
     // Check if there's any data logged for this day
     const hasAnyData = day.hasData || day.hasMood || day.hasSleep;
-    
-    if (!hasAnyData) return theme.colors.border; // Gray if no data logged
-    
+
+    if (!hasAnyData) return theme.colors.border + '40'; // Very light gray if no data
+
     // If we have habit data, use habit completion for color
-    if (day.totalHabits > 0 && day.completedHabits > 0) {
+    if (day.totalHabits > 0) {
       const completionRate = day.completedHabits / day.totalHabits;
       const hasBadFeedback = day.feedback.bad > 0;
-      
-      if (hasBadFeedback) return theme.colors.error; // Red for bad feedback
-      if (completionRate >= 0.7) return theme.colors.success; // Green for good completion
-      if (completionRate > 0) return theme.colors.warning; // Yellow for partial completion
-      return theme.colors.error; // Red for no completion
+
+      // Match the legend colors exactly: Completed (green), Partial (yellow), Missed (red)
+      if (hasBadFeedback) return theme.colors.error; // Red for bad feedback (matches "Missed")
+      if (completionRate >= 0.7) return theme.colors.success; // Green for good completion (matches "Completed")
+      if (completionRate > 0) return theme.colors.warning; // Yellow for partial completion (matches "Partial")
+      return theme.colors.error; // Red for no completion (matches "Missed")
     }
-    
-    // If only mood/sleep data exists, show as partial (orange)
+
+    // If only mood/sleep data exists, show as light background
     if (day.hasMood || day.hasSleep) {
-      return theme.colors.warning;
+      return theme.colors.primary + '40';
     }
-    
-    return theme.colors.border;
+
+    return theme.colors.border + '40';
+  };
+
+  const getMoodEmoji = (moodData: any) => {
+    if (!moodData) return null;
+    const score = moodData.score || moodData.mood_score;
+    if (score >= 8) return '😊';
+    if (score >= 6) return '🙂';
+    if (score >= 4) return '😐';
+    if (score >= 2) return '😕';
+    return '😞';
   };
 
   const formatDate = (dateString: string) => {
@@ -84,7 +95,7 @@ export default function MiniCalendar({ data, onDateSelect }: Props) {
 
   return (
     <View style={styles.container}>
-      {data.map((day, index) => {
+      {data.map((day) => {
         const { weekday, day: dayNumber } = formatDate(day.date);
         const isToday = new Date(day.date).toDateString() === new Date().toDateString();
         const hasData = day.hasData || day.hasMood || day.hasSleep;
@@ -123,9 +134,10 @@ export default function MiniCalendar({ data, onDateSelect }: Props) {
                   borderColor: isToday ? theme.colors.primary : 'transparent'
                 }
               ]}>
-                {day.completedHabits > 0 && day.totalHabits > 0 ? (
-                  <Text style={styles.completionCount}>
-                    {day.completedHabits}/{day.totalHabits}
+                {/* Prioritize mood emoji display */}
+                {day.moodData ? (
+                  <Text style={styles.moodEmoji}>
+                    {getMoodEmoji(day.moodData)}
                   </Text>
                 ) : !hasData ? (
                   <Text style={styles.noDataIndicator}>•</Text>
@@ -155,8 +167,9 @@ export default function MiniCalendar({ data, onDateSelect }: Props) {
 const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingVertical: 12,
+    justifyContent: 'space-around',
+    paddingVertical: 16,
+    paddingHorizontal: 4,
   },
   dayColumn: {
     flex: 1,
@@ -179,13 +192,18 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   activityIndicator: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 2,
+    borderWidth: 1.5,
     marginBottom: 6,
+  },
+  moodEmoji: {
+    fontSize: 16,
+    lineHeight: 18,
+    textAlign: 'center',
   },
   completionCount: {
     fontSize: 10,
@@ -193,21 +211,21 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   noDataIndicator: {
-    fontSize: 16,
-    color: '#FFFFFF',
-    fontWeight: '600',
-    opacity: 0.5,
+    fontSize: 18,
+    color: '#999999',
+    fontWeight: '400',
+    opacity: 0.4,
   },
   dataIndicators: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    gap: 3,
-    minHeight: 8,
+    gap: 4,
+    minHeight: 10,
   },
   dataTypeDot: {
-    width: 4,
-    height: 4,
-    borderRadius: 2,
+    width: 5,
+    height: 5,
+    borderRadius: 2.5,
   },
 });

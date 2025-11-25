@@ -13,15 +13,14 @@ import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { Search, Heart, X, Filter, Play, Pause, SkipBack, SkipForward } from 'lucide-react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-
-const FAVORITE_TRACKS_KEY = 'favorite_sleep_tracks';
+import { Search, Heart, X } from 'lucide-react-native';
+import MediaPlayer from '@/components/MediaPlayer';
+import { SleepContentService, SleepContent } from '@/services/sleepContent.service';
 
 interface AudioTrack {
   id: string;
   title: string;
-  category: 'Guided Meditations' | 'Bedtime Stories' | 'Ambient/Nature Soundscapes' | 'Sleep Hypnosis' | 'Quick Tools';
+  category: string;
   duration: string;
   youtubeUrl: string;
   description: string;
@@ -32,226 +31,27 @@ interface AudioTrack {
   tags: string[];
 }
 
-const AUDIO_LIBRARY: AudioTrack[] = [
-  // Guided Meditations
-  {
-    id: 'meditation_sleep_1',
-    title: 'Deep Sleep Meditation',
-    category: 'Guided Meditations',
-    duration: '20min',
-    youtubeUrl: 'https://youtube.com/watch?v=aEqlQvczMJQ',
-    description: 'Guided meditation to help you fall into deep, restful sleep',
-    emoji: '🧘',
-    language: 'English',
-    voiceType: 'Female',
-    bestFor: ['fall-asleep'],
-    tags: ['meditation', 'guided', 'calming', 'body-scan'],
-  },
-  {
-    id: 'meditation_body_scan',
-    title: 'Body Scan Meditation',
-    category: 'Guided Meditations',
-    duration: '15min',
-    youtubeUrl: 'https://youtube.com/watch?v=15q-N-_kkrU',
-    description: 'Progressive relaxation through body awareness',
-    emoji: '🧘‍♀️',
-    language: 'English',
-    voiceType: 'Male',
-    bestFor: ['fall-asleep', 'night-awakenings'],
-    tags: ['meditation', 'body-scan', 'relaxation'],
-  },
-  {
-    id: 'meditation_return_sleep',
-    title: 'Return to Sleep',
-    category: 'Guided Meditations',
-    duration: '10min',
-    youtubeUrl: 'https://youtube.com/watch?v=MIr3RsUWrdo',
-    description: 'Quick meditation for middle-of-night awakenings',
-    emoji: '🌙',
-    language: 'English',
-    voiceType: 'Neutral',
-    bestFor: ['night-awakenings'],
-    tags: ['meditation', 'quick', 'awakenings'],
-  },
-  
-  // Bedtime Stories
-  {
-    id: 'story_peaceful',
-    title: 'Peaceful Garden Journey',
-    category: 'Bedtime Stories',
-    duration: '25min',
-    youtubeUrl: 'https://youtube.com/watch?v=bR2o_QE8ekeE',
-    description: 'Calming narrative through a serene garden',
-    emoji: '📖',
-    language: 'English',
-    voiceType: 'Male',
-    bestFor: ['fall-asleep'],
-    tags: ['story', 'nature', 'peaceful', 'narrative'],
-  },
-  {
-    id: 'story_forest',
-    title: 'The Enchanted Forest',
-    category: 'Bedtime Stories',
-    duration: '30min',
-    youtubeUrl: 'https://youtube.com/watch?v=JU9c2MpWPxQ',
-    description: 'A gentle tale of magical woodland creatures',
-    emoji: '🌲',
-    language: 'English',
-    voiceType: 'Female',
-    bestFor: ['fall-asleep'],
-    tags: ['story', 'fantasy', 'calming'],
-  },
-  {
-    id: 'story_swahili',
-    title: 'Hadithi ya Usiku (Night Story)',
-    category: 'Bedtime Stories',
-    duration: '20min',
-    youtubeUrl: 'https://youtube.com/watch?v=example',
-    description: 'Traditional Kenyan bedtime story in Swahili',
-    emoji: '🌍',
-    language: 'Swahili',
-    voiceType: 'Male',
-    bestFor: ['fall-asleep'],
-    tags: ['story', 'swahili', 'culture', 'kenyan'],
-  },
-  
-  // Ambient/Nature Soundscapes
-  {
-    id: 'nature_rain',
-    title: 'Gentle Rain Sounds',
-    category: 'Ambient/Nature Soundscapes',
-    duration: 'Full Night',
-    youtubeUrl: 'https://youtube.com/watch?v=mPZkdNFkNps',
-    description: 'Soothing rain sounds for deep relaxation',
-    emoji: '🌧️',
-    language: 'None',
-    bestFor: ['fall-asleep', 'night-awakenings', 'full-night'],
-    tags: ['rain', 'nature', 'ambient', 'continuous'],
-  },
-  {
-    id: 'nature_ocean',
-    title: 'Ocean Waves',
-    category: 'Ambient/Nature Soundscapes',
-    duration: 'Full Night',
-    youtubeUrl: 'https://youtube.com/watch?v=V1bFr2SWP1I',
-    description: 'Continuous gentle ocean waves',
-    emoji: '🌊',
-    language: 'None',
-    bestFor: ['fall-asleep', 'night-awakenings', 'full-night'],
-    tags: ['ocean', 'waves', 'nature', 'continuous'],
-  },
-  {
-    id: 'nature_savanna',
-    title: 'African Savanna Evening',
-    category: 'Ambient/Nature Soundscapes',
-    duration: '30min',
-    youtubeUrl: 'https://youtube.com/watch?v=bT8OvJQVzr0',
-    description: 'Authentic savanna ambience with distant wildlife',
-    emoji: '🦁',
-    language: 'None',
-    bestFor: ['fall-asleep', 'full-night'],
-    tags: ['africa', 'savanna', 'wildlife', 'kenyan'],
-  },
-  {
-    id: 'nature_forest',
-    title: 'Forest Night Sounds',
-    category: 'Ambient/Nature Soundscapes',
-    duration: 'Full Night',
-    youtubeUrl: 'https://youtube.com/watch?v=xNN7iTA57jM',
-    description: 'Peaceful nighttime forest ambience',
-    emoji: '🌲',
-    language: 'None',
-    bestFor: ['fall-asleep', 'full-night'],
-    tags: ['forest', 'nature', 'peaceful', 'continuous'],
-  },
-  {
-    id: 'nature_campfire',
-    title: 'Crackling Campfire',
-    category: 'Ambient/Nature Soundscapes',
-    duration: 'Full Night',
-    youtubeUrl: 'https://youtube.com/watch?v=UgHKb_7884o',
-    description: 'Warm, cozy campfire sounds',
-    emoji: '🔥',
-    language: 'None',
-    bestFor: ['fall-asleep', 'full-night'],
-    tags: ['fire', 'cozy', 'warm', 'continuous'],
-  },
-  
-  // Sleep Hypnosis
-  {
-    id: 'hypnosis_deep',
-    title: 'Deep Sleep Hypnosis',
-    category: 'Sleep Hypnosis',
-    duration: '45min',
-    youtubeUrl: 'https://youtube.com/watch?v=BnR9GykS6kE',
-    description: 'Professional sleep hypnosis for deep relaxation',
-    emoji: '💤',
-    language: 'English',
-    voiceType: 'Male',
-    bestFor: ['fall-asleep'],
-    tags: ['hypnosis', 'deep-sleep', 'professional'],
-  },
-  {
-    id: 'hypnosis_anxiety',
-    title: 'Anxiety Relief Hypnosis',
-    category: 'Sleep Hypnosis',
-    duration: '30min',
-    youtubeUrl: 'https://youtube.com/watch?v=C4MvKzzUSbA',
-    description: 'Hypnosis to calm anxious thoughts before sleep',
-    emoji: '😌',
-    language: 'English',
-    voiceType: 'Female',
-    bestFor: ['fall-asleep'],
-    tags: ['hypnosis', 'anxiety', 'calm', 'mental-health'],
-  },
-  
-  // Quick Tools
-  {
-    id: 'breathing_478',
-    title: '4-7-8 Breathing Exercise',
-    category: 'Quick Tools',
-    duration: '5min',
-    youtubeUrl: 'https://youtube.com/watch?v=gz4G31LGyog',
-    description: 'Quick breathing technique for instant calm',
-    emoji: '🌬️',
-    language: 'English',
-    voiceType: 'Neutral',
-    bestFor: ['fall-asleep', 'night-awakenings'],
-    tags: ['breathing', 'quick', 'technique'],
-  },
-  {
-    id: 'relaxation_progressive',
-    title: 'Progressive Muscle Relaxation',
-    category: 'Quick Tools',
-    duration: '7min',
-    youtubeUrl: 'https://youtube.com/watch?v=1nZEdqcGVzo',
-    description: 'Systematic muscle tension and release',
-    emoji: '💪',
-    language: 'English',
-    voiceType: 'Female',
-    bestFor: ['fall-asleep'],
-    tags: ['relaxation', 'muscle', 'technique'],
-  },
-  {
-    id: 'visualization_quick',
-    title: 'Quick Sleep Visualization',
-    category: 'Quick Tools',
-    duration: '3min',
-    youtubeUrl: 'https://youtube.com/watch?v=EiIyoXTzFLw',
-    description: 'Brief guided imagery for rapid sleep',
-    emoji: '✨',
-    language: 'English',
-    voiceType: 'Neutral',
-    bestFor: ['fall-asleep', 'night-awakenings'],
-    tags: ['visualization', 'quick', 'imagery'],
-  },
-];
+// Helper to convert SleepContent to AudioTrack
+const contentToTrack = (content: SleepContent): AudioTrack => ({
+  id: content.id,
+  title: content.title,
+  category: SleepContentService.dbValueToCategory(content.category),
+  duration: content.duration,
+  youtubeUrl: `https://youtube.com/watch?v=${content.youtube_id}`,
+  description: content.description || '',
+  emoji: content.emoji || '🎵',
+  language: content.language || 'English',
+  voiceType: content.voice_type,
+  bestFor: content.best_for || [],
+  tags: content.tags || [],
+});
 
 const CATEGORIES = [
   'All',
   'Guided Meditations',
   'Bedtime Stories',
-  'Ambient/Nature Soundscapes',
+  'Nature Sounds',
+  'Ambient',
   'Sleep Hypnosis',
   'Quick Tools',
 ];
@@ -262,30 +62,60 @@ export default function ContentLibrary() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
 
+  const [audioLibrary, setAudioLibrary] = useState<AudioTrack[]>([]);
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [searchQuery, setSearchQuery] = useState('');
   const [favorites, setFavorites] = useState<string[]>([]);
-  const [filteredTracks, setFilteredTracks] = useState<AudioTrack[]>(AUDIO_LIBRARY);
+  const [filteredTracks, setFilteredTracks] = useState<AudioTrack[]>([]);
   const [currentTrack, setCurrentTrack] = useState<AudioTrack | null>(null);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [currentTime, setCurrentTime] = useState(0);
-  const [duration, setDuration] = useState(0);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    loadContent();
     loadFavorites();
   }, []);
 
   useEffect(() => {
     filterTracks();
-  }, [selectedCategory, searchQuery]);
+  }, [selectedCategory, searchQuery, audioLibrary]);
+
+  const loadContent = async () => {
+    setLoading(true);
+    console.log('=== ContentLibrary: Starting loadContent ===');
+    try {
+      const { data, error } = await SleepContentService.getAll();
+      console.log('ContentLibrary: Service returned', {
+        dataLength: data?.length || 0,
+        hasError: !!error,
+        error: error
+      });
+
+      if (error) {
+        console.error('ContentLibrary: Error from service:', error);
+      }
+
+      if (data && !error) {
+        console.log('ContentLibrary: Converting', data.length, 'items to tracks');
+        const tracks = data.map(contentToTrack);
+        console.log('ContentLibrary: Setting audioLibrary with', tracks.length, 'tracks');
+        setAudioLibrary(tracks);
+        setFilteredTracks(tracks);
+      } else {
+        console.log('ContentLibrary: No data or error occurred');
+      }
+    } catch (error) {
+      console.error('ContentLibrary: Exception in loadContent:', error);
+    }
+    setLoading(false);
+    console.log('=== ContentLibrary: loadContent complete ===');
+  };
 
   const loadFavorites = async () => {
+    if (!user) return;
     try {
-      const userId = user?.id || 'guest_user';
-      const key = `${FAVORITE_TRACKS_KEY}_${userId}`;
-      const data = await AsyncStorage.getItem(key);
-      if (data) {
-        setFavorites(JSON.parse(data));
+      const { data, error } = await SleepContentService.getFavoriteIds(user.id);
+      if (data && !error) {
+        setFavorites(data);
       }
     } catch (error) {
       console.error('Error loading favorites:', error);
@@ -293,23 +123,28 @@ export default function ContentLibrary() {
   };
 
   const toggleFavorite = async (trackId: string) => {
+    if (!user) return;
+
+    // Optimistic update
     const newFavorites = favorites.includes(trackId)
       ? favorites.filter(id => id !== trackId)
       : [...favorites, trackId];
-    
     setFavorites(newFavorites);
-    
+
     try {
-      const userId = user?.id || 'guest_user';
-      const key = `${FAVORITE_TRACKS_KEY}_${userId}`;
-      await AsyncStorage.setItem(key, JSON.stringify(newFavorites));
+      const { error } = await SleepContentService.toggleFavorite(user.id, trackId);
+      if (error) {
+        setFavorites(favorites);
+        console.error('Error toggling favorite:', error);
+      }
     } catch (error) {
+      setFavorites(favorites);
       console.error('Error saving favorites:', error);
     }
   };
 
   const filterTracks = () => {
-    let filtered = AUDIO_LIBRARY;
+    let filtered = audioLibrary;
 
     // Filter by category
     if (selectedCategory !== 'All') {
@@ -331,44 +166,10 @@ export default function ContentLibrary() {
 
   const playTrack = (track: AudioTrack) => {
     setCurrentTrack(track);
-    setIsPlaying(true);
-    // Simulate duration (convert duration string to seconds)
-    const durationMatch = track.duration.match(/(\d+)min/);
-    if (durationMatch) {
-      setDuration(parseInt(durationMatch[1]) * 60);
-    }
-    setCurrentTime(0);
-    
-    // TODO: In production, integrate with YouTube player or expo-av
-    // Linking.openURL(track.youtubeUrl) or use WebView with YouTube player
-  };
-
-  const togglePlayPause = () => {
-    setIsPlaying(!isPlaying);
-    // TODO: Actual play/pause implementation
   };
 
   const closePlayer = () => {
     setCurrentTrack(null);
-    setIsPlaying(false);
-    setCurrentTime(0);
-    setDuration(0);
-  };
-
-  const skipForward = () => {
-    setCurrentTime(prev => Math.min(prev + 15, duration));
-    // TODO: Actual skip implementation
-  };
-
-  const skipBackward = () => {
-    setCurrentTime(prev => Math.max(prev - 15, 0));
-    // TODO: Actual skip implementation
-  };
-
-  const formatTime = (seconds: number) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = Math.floor(seconds % 60);
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
   return (
@@ -460,50 +261,17 @@ export default function ContentLibrary() {
             </TouchableOpacity>
           </View>
 
-          {/* Progress Bar */}
-          <View style={styles.progressContainer}>
-            <View style={[styles.progressBar, { backgroundColor: theme.colors.border }]}>
-              <View
-                style={[
-                  styles.progressFill,
-                  {
-                    backgroundColor: theme.colors.primary,
-                    width: duration > 0 ? `${(currentTime / duration) * 100}%` : '0%',
-                  },
-                ]}
-              />
-            </View>
-            <View style={styles.timeContainer}>
-              <Text style={[styles.timeText, { color: theme.colors.textSecondary }]}>
-                {formatTime(currentTime)}
-              </Text>
-              <Text style={[styles.timeText, { color: theme.colors.textSecondary }]}>
-                {formatTime(duration)}
-              </Text>
-            </View>
-          </View>
-
-          {/* Player Controls */}
-          <View style={styles.playerControls}>
-            <TouchableOpacity onPress={skipBackward} style={styles.controlButton}>
-              <SkipBack size={24} color={theme.colors.text} />
-            </TouchableOpacity>
-            
-            <TouchableOpacity
-              onPress={togglePlayPause}
-              style={[styles.playPauseButton, { backgroundColor: theme.colors.primary }]}
-            >
-              {isPlaying ? (
-                <Pause size={28} color="#FFFFFF" fill="#FFFFFF" />
-              ) : (
-                <Play size={28} color="#FFFFFF" fill="#FFFFFF" />
-              )}
-            </TouchableOpacity>
-
-            <TouchableOpacity onPress={skipForward} style={styles.controlButton}>
-              <SkipForward size={24} color={theme.colors.text} />
-            </TouchableOpacity>
-          </View>
+          {/* Integrated Media Player */}
+          <MediaPlayer
+            source={currentTrack.youtubeUrl}
+            type="youtube"
+            showVideo={true}
+            autoPlay={true}
+            onPlaybackEnd={() => {
+              // Optionally auto-play next track or close player
+              closePlayer();
+            }}
+          />
         </View>
       )}
 
@@ -512,6 +280,8 @@ export default function ContentLibrary() {
         style={styles.content}
         contentContainerStyle={[styles.contentContainer, { paddingBottom: insets.bottom + 20 }]}
         showsVerticalScrollIndicator={false}
+        nestedScrollEnabled={true}
+        scrollEnabled={true}
       >
         {filteredTracks.length === 0 ? (
           <View style={styles.emptyState}>
@@ -630,6 +400,7 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
+    zIndex: 0,
   },
   contentContainer: {
     padding: 20,
@@ -706,6 +477,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.15,
     shadowRadius: 12,
     elevation: 5,
+    zIndex: 1,
   },
   playerHeader: {
     flexDirection: 'row',

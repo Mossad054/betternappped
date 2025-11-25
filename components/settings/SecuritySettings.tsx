@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -8,18 +8,27 @@ import {
   Switch,
   TextInput,
   Alert,
+  ActivityIndicator,
+  Modal,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { 
-  ArrowLeft, 
-  Lock, 
-  Shield, 
+import {
+  ArrowLeft,
+  Lock,
+  Shield,
   Fingerprint,
   Eye,
   EyeOff,
   Key,
-  Smartphone
+  Smartphone,
+  Clock,
+  ChevronRight,
+  Check,
+  X,
 } from 'lucide-react-native';
+import { useAuth } from '@/contexts/AuthContext';
+import { useTheme } from '@/contexts/ThemeContext';
+import { SecurityService, AutoLockTime } from '@/services/security.service';
 
 interface SecuritySettingsProps {
   onBack: () => void;
@@ -27,110 +36,189 @@ interface SecuritySettingsProps {
 
 export function SecuritySettings({ onBack }: SecuritySettingsProps) {
   const insets = useSafeAreaInsets();
+  const { user, isGuest } = useAuth();
+  const { theme } = useTheme();
+  const userId = user?.id || 'guest_user';
+
+  // Loading state
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+
+  // Security settings state
   const [isPinEnabled, setIsPinEnabled] = useState<boolean>(false);
   const [isBiometricEnabled, setIsBiometricEnabled] = useState<boolean>(false);
   const [isAutoLockEnabled, setIsAutoLockEnabled] = useState<boolean>(true);
+  const [autoLockTime, setAutoLockTime] = useState<AutoLockTime>('1_minute');
+
+  // PIN setup state
   const [showPinSetup, setShowPinSetup] = useState<boolean>(false);
+  const [pinMode, setPinMode] = useState<'setup' | 'change' | 'disable'>('setup');
+  const [currentPin, setCurrentPin] = useState<string>('');
   const [pin, setPin] = useState<string>('');
   const [confirmPin, setConfirmPin] = useState<string>('');
   const [showPin, setShowPin] = useState<boolean>(false);
   const [showConfirmPin, setShowConfirmPin] = useState<boolean>(false);
-  const [autoLockTime, setAutoLockTime] = useState<string>('5');
+  const [showCurrentPin, setShowCurrentPin] = useState<boolean>(false);
 
-  const autoLockOptions = [
-    { value: '1', label: '1 minute' },
-    { value: '5', label: '5 minutes' },
-    { value: '15', label: '15 minutes' },
-    { value: '30', label: '30 minutes' },
-    { value: '60', label: '1 hour' },
-  ];
+  // Modal state
+  const [showAutoLockModal, setShowAutoLockModal] = useState(false);
 
-  const handlePinToggle = (enabled: boolean) => {
-    if (enabled) {
-      setShowPinSetup(true);
-    } else {
-      Alert.alert(
-        'Disable PIN Lock',
-        'Are you sure you want to disable PIN protection?',
-        [
-          { text: 'Cancel', style: 'cancel' },
-          {
-            text: 'Disable',
-            style: 'destructive',
-            onPress: () => {
-              setIsPinEnabled(false);
-              setPin('');
-              setConfirmPin('');
-              console.log('PIN lock disabled');
-            }
-          }
-        ]
-      );
+  // Load settings on mount
+  useEffect(() => {
+    loadSecuritySettings();
+  }, []);
+
+  const loadSecuritySettings = async () => {
+    setLoading(true);
+    try {
+      const settings = await SecurityService.getSecuritySettings(userId);
+      setIsPinEnabled(settings.pinEnabled);
+      setIsBiometricEnabled(settings.biometricEnabled);
+      setIsAutoLockEnabled(settings.autoLockEnabled);
+      setAutoLockTime(settings.autoLockTime);
+    } catch (error) {
+      console.error('Error loading security settings:', error);
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handleSetupPin = () => {
-    if (pin.length !== 4) {
-      Alert.alert('Invalid PIN', 'PIN must be exactly 4 digits.');
-      return;
-    }
+  const autoLockOptions = SecurityService.getAutoLockOptions();
 
-    if (pin !== confirmPin) {
-      Alert.alert('PIN Mismatch', 'PINs do not match. Please try again.');
-      return;
+  const handlePinToggle = (enabled: boolean) => {
+    if (enabled) {
+      setPinMode('setup');
+      setPin('');
+      setConfirmPin('');
+      setCurrentPin('');
+      setShowPinSetup(true);
+    } else {
+      setPinMode('disable');
+      setCurrentPin('');
+      setShowPinSetup(true);
     }
+  };
 
-    setIsPinEnabled(true);
-    setShowPinSetup(false);
-    console.log('PIN set successfully:', pin);
-    Alert.alert('PIN Set', 'Your PIN has been set successfully. The app will now require PIN authentication on startup.');
+  const handleSetupPin = async () => {
+    setSaving(true);
+    try {
+      if (pinMode === 'setup') {
+        const result = await SecurityService.setupPIN(userId, pin, confirmPin);
+        if (result.success) {
+          setIsPinEnabled(true);
+          setShowPinSetup(false);
+          setPin('');
+          setConfirmPin('');
+          Alert.alert('PIN Set', 'Your PIN has been securely encrypted and saved. The app will now require PIN authentication.');
+        } else {
+          Alert.alert('Error', result.error || 'Failed to setup PIN');
+        }
+      } else if (pinMode === 'change') {
+        const result = await SecurityService.changePIN(userId, currentPin, pin, confirmPin);
+        if (result.success) {
+          setShowPinSetup(false);
+          setPin('');
+          setConfirmPin('');
+          setCurrentPin('');
+          Alert.alert('PIN Changed', 'Your PIN has been updated successfully.');
+        } else {
+          Alert.alert('Error', result.error || 'Failed to change PIN');
+        }
+      } else if (pinMode === 'disable') {
+        const result = await SecurityService.disablePIN(userId, currentPin);
+        if (result.success) {
+          setIsPinEnabled(false);
+          setShowPinSetup(false);
+          setCurrentPin('');
+          Alert.alert('PIN Disabled', 'PIN protection has been removed.');
+        } else {
+          Alert.alert('Error', result.error || 'Failed to disable PIN');
+        }
+      }
+    } catch (error) {
+      Alert.alert('Error', 'An unexpected error occurred');
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleCancelPinSetup = () => {
     setShowPinSetup(false);
     setPin('');
     setConfirmPin('');
-    setIsPinEnabled(false);
+    setCurrentPin('');
   };
 
-  const handleBiometricToggle = (enabled: boolean) => {
-    if (enabled) {
-      // Simulate biometric authentication check
-      Alert.alert(
-        'Enable Biometric Authentication',
-        'This would check for available biometric authentication (Face ID, Touch ID, or Fingerprint) and enable it.',
-        [
-          { text: 'Cancel', style: 'cancel' },
-          {
-            text: 'Enable',
-            onPress: () => {
-              setIsBiometricEnabled(true);
-              console.log('Biometric authentication enabled');
-            }
-          }
-        ]
-      );
-    } else {
-      setIsBiometricEnabled(enabled);
-      console.log('Biometric authentication disabled');
+  const handleBiometricToggle = async (enabled: boolean) => {
+    if (!isPinEnabled) {
+      Alert.alert('PIN Required', 'Please enable PIN lock first to use biometric authentication.');
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const result = await SecurityService.setBiometricEnabled(userId, enabled);
+      if (result.success) {
+        setIsBiometricEnabled(enabled);
+        Alert.alert(
+          enabled ? 'Biometric Enabled' : 'Biometric Disabled',
+          enabled
+            ? 'You can now use Face ID, Touch ID, or Fingerprint to unlock.'
+            : 'Biometric authentication has been disabled.'
+        );
+      } else {
+        Alert.alert('Error', result.error || 'Failed to update biometric setting');
+      }
+    } catch (error) {
+      Alert.alert('Error', 'An unexpected error occurred');
+    } finally {
+      setSaving(false);
     }
   };
 
-  const handleAutoLockTimeSelect = () => {
-    Alert.alert(
-      'Auto-Lock Time',
-      'Select when the app should automatically lock:',
-      [
-        ...autoLockOptions.map(option => ({
-          text: option.label,
-          onPress: () => {
-            setAutoLockTime(option.value);
-            console.log('Auto-lock time set to:', option.label);
-          }
-        })),
-        { text: 'Cancel', style: 'cancel' }
-      ]
-    );
+  const handleAutoLockToggle = async (enabled: boolean) => {
+    if (!isPinEnabled) {
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const result = await SecurityService.setAutoLockEnabled(userId, enabled);
+      if (result.success) {
+        setIsAutoLockEnabled(enabled);
+      } else {
+        Alert.alert('Error', result.error || 'Failed to update auto-lock setting');
+      }
+    } catch (error) {
+      Alert.alert('Error', 'An unexpected error occurred');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleAutoLockTimeSelect = async (time: AutoLockTime) => {
+    setSaving(true);
+    try {
+      const result = await SecurityService.setAutoLockTime(userId, time);
+      if (result.success) {
+        setAutoLockTime(time);
+        setShowAutoLockModal(false);
+      } else {
+        Alert.alert('Error', result.error || 'Failed to update auto-lock time');
+      }
+    } catch (error) {
+      Alert.alert('Error', 'An unexpected error occurred');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleChangePIN = () => {
+    setPinMode('change');
+    setPin('');
+    setConfirmPin('');
+    setCurrentPin('');
+    setShowPinSetup(true);
   };
 
   const renderToggleItem = (
@@ -336,24 +424,56 @@ export function SecuritySettings({ onBack }: SecuritySettingsProps) {
           'Auto-Lock',
           'Automatically lock app when inactive',
           isAutoLockEnabled,
-          setIsAutoLockEnabled,
+          handleAutoLockToggle,
           Smartphone,
-          '#F59E0B',
+          theme.colors.warning,
           !isPinEnabled
         )}
 
         {isPinEnabled && isAutoLockEnabled && (
           <>
-            <Text style={styles.sectionTitle}>Auto-Lock Settings</Text>
-            
-            {renderActionItem(
-              'Auto-Lock Time',
-              'Time before app automatically locks',
-              handleAutoLockTimeSelect,
-              Key,
-              '#8B5CF6'
-            )}
+            <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Auto-Lock Settings</Text>
+
+            <TouchableOpacity
+              style={[styles.actionItem, { backgroundColor: theme.colors.card }]}
+              onPress={() => setShowAutoLockModal(true)}
+              activeOpacity={0.7}
+              disabled={saving}
+            >
+              <View style={[styles.iconContainer, { backgroundColor: `${theme.colors.info}15` }]}>
+                <Clock size={20} color={theme.colors.info} />
+              </View>
+              <View style={styles.actionContent}>
+                <Text style={[styles.actionTitle, { color: theme.colors.text }]}>Auto-Lock Time</Text>
+                <Text style={[styles.actionSubtitle, { color: theme.colors.textSecondary }]}>
+                  Time before app automatically locks
+                </Text>
+              </View>
+              <Text style={[styles.actionValue, { color: theme.colors.primary }]}>
+                {SecurityService.getAutoLockLabel(autoLockTime)}
+              </Text>
+            </TouchableOpacity>
           </>
+        )}
+
+        {isPinEnabled && (
+          <TouchableOpacity
+            style={[styles.actionItem, { backgroundColor: theme.colors.card, marginTop: 16 }]}
+            onPress={handleChangePIN}
+            activeOpacity={0.7}
+            disabled={saving}
+          >
+            <View style={[styles.iconContainer, { backgroundColor: `${theme.colors.primary}15` }]}>
+              <Key size={20} color={theme.colors.primary} />
+            </View>
+            <View style={styles.actionContent}>
+              <Text style={[styles.actionTitle, { color: theme.colors.text }]}>Change PIN</Text>
+              <Text style={[styles.actionSubtitle, { color: theme.colors.textSecondary }]}>
+                Update your current PIN
+              </Text>
+            </View>
+            <ChevronRight size={20} color={theme.colors.textSecondary} />
+          </TouchableOpacity>
         )}
 
         <Text style={styles.sectionTitle}>Security Status</Text>
@@ -390,17 +510,59 @@ export function SecuritySettings({ onBack }: SecuritySettingsProps) {
           </View>
         </View>
 
-        <View style={styles.infoCard}>
-          <Text style={styles.infoTitle}>🛡️ Security Information</Text>
-          <Text style={styles.infoText}>
-            • PIN and biometric data are stored securely on your device{'\n'}
+        <View style={[styles.infoCard, { backgroundColor: `${theme.colors.warning}20`, borderLeftColor: theme.colors.warning }]}>
+          <Text style={[styles.infoTitle, { color: theme.colors.warning }]}>🛡️ Security Information</Text>
+          <Text style={[styles.infoText, { color: theme.colors.text }]}>
+            • PIN is encrypted using AES-256 and stored securely{'\n'}
             • We never have access to your authentication credentials{'\n'}
             • Security features protect your personal wellness data{'\n'}
-            • You can change or disable security settings anytime{'\n'}
+            • Auto-lock triggers when app goes to background{'\n'}
             • Biometric authentication requires PIN as backup
           </Text>
         </View>
       </ScrollView>
+
+      {/* Auto-Lock Time Modal */}
+      <Modal
+        visible={showAutoLockModal}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setShowAutoLockModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { backgroundColor: theme.colors.card }]}>
+            <View style={styles.modalHeader}>
+              <Text style={[styles.modalTitle, { color: theme.colors.text }]}>Auto-Lock Time</Text>
+              <TouchableOpacity onPress={() => setShowAutoLockModal(false)}>
+                <X size={24} color={theme.colors.text} />
+              </TouchableOpacity>
+            </View>
+
+            <Text style={[styles.modalDescription, { color: theme.colors.textSecondary }]}>
+              Select when the app should lock after going to background:
+            </Text>
+
+            {autoLockOptions.map((option) => (
+              <TouchableOpacity
+                key={option.value}
+                style={[
+                  styles.modalOption,
+                  { borderBottomColor: theme.colors.border },
+                ]}
+                onPress={() => handleAutoLockTimeSelect(option.value)}
+                disabled={saving}
+              >
+                <Text style={[styles.modalOptionText, { color: theme.colors.text }]}>
+                  {option.label}
+                </Text>
+                {autoLockTime === option.value && (
+                  <Check size={20} color={theme.colors.primary} />
+                )}
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -686,5 +848,46 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#92400E',
     lineHeight: 20,
+  },
+  // Modal styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: 24,
+    maxHeight: '80%',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 16,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+  },
+  modalDescription: {
+    fontSize: 14,
+    marginBottom: 16,
+  },
+  modalOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+  },
+  modalOptionText: {
+    fontSize: 16,
+  },
+  loadingContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });

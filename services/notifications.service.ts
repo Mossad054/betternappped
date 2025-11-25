@@ -424,7 +424,39 @@ export class NotificationService {
   }
 
   /**
+   * Check if current time is within quiet hours
+   */
+  static async isInQuietHours(userId: string): Promise<boolean> {
+    const prefs = await this.getAllPreferences(userId);
+    if (prefs.error || !prefs.data || prefs.data.length === 0) {
+      return false;
+    }
+
+    const firstPref = prefs.data[0];
+    if (!firstPref.quiet_hours_start || !firstPref.quiet_hours_end) {
+      return false;
+    }
+
+    const now = new Date();
+    const currentMinutes = now.getHours() * 60 + now.getMinutes();
+
+    // Parse quiet hours
+    const [startHour, startMin] = firstPref.quiet_hours_start.split(':').map(Number);
+    const [endHour, endMin] = firstPref.quiet_hours_end.split(':').map(Number);
+    const startMinutes = startHour * 60 + startMin;
+    const endMinutes = endHour * 60 + endMin;
+
+    // Handle overnight quiet hours (e.g., 22:00 - 07:00)
+    if (startMinutes > endMinutes) {
+      return currentMinutes >= startMinutes || currentMinutes < endMinutes;
+    }
+
+    return currentMinutes >= startMinutes && currentMinutes < endMinutes;
+  }
+
+  /**
    * Create new notification (queue for delivery)
+   * Respects quiet hours - suppresses non-critical notifications
    */
   static async createNotification(
     userId: string,
@@ -437,6 +469,22 @@ export class NotificationService {
       return { data: null, error: null };
     }
 
+    // Check if we're in quiet hours and this isn't a high-priority notification
+    const isQuiet = await this.isInQuietHours(userId);
+    if (isQuiet && input.priority !== NotificationPriority.HIGH && input.priority !== NotificationPriority.CRITICAL) {
+      // Schedule for after quiet hours end
+      const prefs = await this.getAllPreferences(userId);
+      if (prefs.data && prefs.data[0]?.quiet_hours_end) {
+        const [endHour, endMin] = prefs.data[0].quiet_hours_end.split(':').map(Number);
+        const tomorrow = new Date();
+        tomorrow.setHours(endHour, endMin, 0, 0);
+        if (tomorrow <= new Date()) {
+          tomorrow.setDate(tomorrow.getDate() + 1);
+        }
+        input.send_after = tomorrow.toISOString();
+      }
+    }
+
     const result = await SupabaseSafe.insert(
       'notifications',
       {
@@ -447,9 +495,9 @@ export class NotificationService {
       userId
     );
 
-    return { 
-      data: result.success ? (result.data as Notification | null) : null, 
-      error: result.success ? null : result.error 
+    return {
+      data: result.success ? (result.data as Notification | null) : null,
+      error: result.success ? null : result.error
     };
   }
 
@@ -745,5 +793,52 @@ export class NotificationService {
     console.log('Test notification queued:', result.data);
 
     return { success: true };
+  }
+
+  // ============================================================
+  // Helper methods for Notification Widget
+  // ============================================================
+
+  /**
+   * Get all notifications with limit (alias for widget)
+   */
+  static async getAllNotifications(
+    userId: string,
+    limit: number = 50
+  ): Promise<{
+    data: Notification[] | null;
+    error: any;
+  }> {
+    return this.getNotifications(userId, { limit });
+  }
+
+  /**
+   * Update notification status (alias for widget)
+   */
+  static async updateNotificationStatus(
+    userId: string,
+    notificationId: string,
+    status: NotificationStatus
+  ): Promise<{ error: any }> {
+    if (await isGuestMode()) {
+      return { error: null };
+    }
+
+    const updateData: any = {
+      status,
+    };
+
+    if (status === NotificationStatus.READ) {
+      updateData.read_at = new Date().toISOString();
+    }
+
+    const result = await SupabaseSafe.update(
+      'notifications',
+      notificationId,
+      updateData,
+      userId
+    );
+
+    return { error: result.success ? null : result.error };
   }
 }

@@ -276,6 +276,7 @@ export default function SleepTracking({ data, timeRange }: SleepTrackingProps) {
 
 const styles = StyleSheet.create({
   container: {
+    backgroundColor: '#FFFFFF',
     borderRadius: 20,
     padding: 24,
     marginHorizontal: 20,
@@ -288,8 +289,6 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 12,
     elevation: 3,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
   },
   header: {
     flexDirection: 'row',
@@ -300,6 +299,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 18,
     fontWeight: '600',
+    color: '#1F2937',
   },
   averageContainer: {
     alignItems: 'center',
@@ -307,9 +307,11 @@ const styles = StyleSheet.create({
   averageHours: {
     fontSize: 20,
     fontWeight: 'bold',
+    color: '#3B82F6',
   },
   averageLabel: {
     fontSize: 12,
+    color: '#6B7280',
   },
   chartContainer: {
     alignItems: 'center',
@@ -326,10 +328,12 @@ const styles = StyleSheet.create({
   singleDayHours: {
     fontSize: 24,
     fontWeight: 'bold',
+    color: '#3B82F6',
     marginBottom: 4,
   },
   singleDayText: {
     fontSize: 14,
+    color: '#6B7280',
   },
   emojiTrend: {
     marginBottom: 20,
@@ -337,6 +341,7 @@ const styles = StyleSheet.create({
   emojiTrendTitle: {
     fontSize: 14,
     fontWeight: '600',
+    color: '#1F2937',
     marginBottom: 8,
   },
   emojiScrollView: {
@@ -353,16 +358,18 @@ const styles = StyleSheet.create({
   },
   emojiHours: {
     fontSize: 12,
+    color: '#6B7280',
     fontWeight: '500',
   },
   consistencySection: {
     borderTopWidth: 1,
-    borderTopColor: 'rgba(255, 255, 255, 0.1)',
+    borderTopColor: '#E5E7EB',
     paddingTop: 16,
   },
   consistencyTitle: {
     fontSize: 14,
     fontWeight: '600',
+    color: '#1F2937',
     marginBottom: 12,
   },
   consistencyBadge: {
@@ -371,17 +378,19 @@ const styles = StyleSheet.create({
   progressRing: {
     width: '100%',
     height: 8,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    backgroundColor: '#F5F5F5',
     borderRadius: 12,
     marginBottom: 8,
     overflow: 'hidden',
   },
   progressFill: {
     height: '100%',
+    backgroundColor: '#D9F7A3',
     borderRadius: 12,
   },
   consistencyText: {
     fontSize: 12,
+    color: '#6B7280',
     textAlign: 'center',
   },
   // Mini Calendar styles
@@ -392,6 +401,7 @@ const styles = StyleSheet.create({
   calendarTitle: {
     fontSize: 16,
     fontWeight: '600',
+    color: '#1F2937',
     marginBottom: 16,
   },
   calendarGrid: {
@@ -447,6 +457,7 @@ const styles = StyleSheet.create({
   },
   legendText: {
     fontSize: 10,
+    color: '#6B7280',
   },
   emptyStateContainer: {
     padding: 40,
@@ -460,6 +471,7 @@ const styles = StyleSheet.create({
   emptyStateText: {
     fontSize: 14,
     textAlign: 'center',
+    color: '#6B7280',
     lineHeight: 20,
   },
   // Modal styles
@@ -469,6 +481,7 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   modalContent: {
+    backgroundColor: '#FFFFFF',
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     maxHeight: '60%',
@@ -486,17 +499,19 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingBottom: 20,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.1)',
+    borderBottomColor: '#E5E7EB',
   },
   modalTitle: {
     fontSize: 18,
     fontWeight: '600',
+    color: '#1F2937',
   },
   closeButton: {
     padding: 4,
   },
   closeButtonText: {
     fontSize: 18,
+    color: '#6B7280',
   },
   modalBody: {
     padding: 20,
@@ -516,14 +531,17 @@ const styles = StyleSheet.create({
   sleepDuration: {
     fontSize: 24,
     fontWeight: 'bold',
+    color: '#1F2937',
     marginBottom: 4,
   },
   sleepQuality: {
     fontSize: 16,
+    color: '#6B7280',
     marginBottom: 4,
   },
   sleepDate: {
     fontSize: 14,
+    color: '#6B7280',
   },
   sleepDetails: {
     gap: 12,
@@ -534,13 +552,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 8,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.05)',
+    borderBottomColor: '#F3F4F6',
   },
   detailLabel: {
     fontSize: 14,
     fontWeight: '500',
+    color: '#1F2937',
   },
   detailValue: {
     fontSize: 14,
+    color: '#6B7280',
   },
 });

@@ -7,45 +7,24 @@ import {
   SafeAreaView,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { useTheme } from '@/contexts/ThemeContext';
-import { useAuth } from '@/contexts/AuthContext';
-import { UserPlus, Eye, ArrowRight } from 'lucide-react-native';
+import { UserPlus, ArrowRight } from 'lucide-react-native';
 import GradientBackground from '@/components/GradientBackground';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { OnboardingTheme } from '@/constants/onboardingTheme';
 
 export default function GetStartedScreen() {
   const router = useRouter();
-  const { theme } = useTheme();
-  const { continueAsGuest } = useAuth();
+  const theme = OnboardingTheme;
 
   const handleSignUp = async () => {
-    // Set onboarding_completed before navigating (per userflow.md)
-    await AsyncStorage.setItem('onboarding_completed', 'true');
-    router.push('/auth/auth');
+    // Navigate to goal selection first
+    router.push('/onboarding/goals');
   };
 
   const handleSignIn = async () => {
     // Set onboarding_completed before navigating (per userflow.md)
     await AsyncStorage.setItem('onboarding_completed', 'true');
     router.push('/auth/auth');
-  };
-
-  const handleContinueAsGuest = async () => {
-    try {
-      // Mark onboarding as completed
-      await AsyncStorage.setItem('onboarding_completed', 'true');
-      
-      // Set guest mode
-      await AsyncStorage.setItem('guest_mode', 'true');
-      
-      // Call continueAsGuest function
-      await continueAsGuest();
-      
-      // Navigate to home
-      router.replace('/(tabs)/home' as any);
-    } catch (error) {
-      console.error('Error continuing as guest:', error);
-    }
   };
 
   return (
@@ -83,16 +62,6 @@ export default function GetStartedScreen() {
             >
               <Text style={[styles.secondaryButtonText, { color: theme.colors.text }]}>
                 Sign In
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[styles.guestButton, { backgroundColor: 'rgba(255, 255, 255, 0.1)' }]}
-              onPress={handleContinueAsGuest}
-            >
-              <Eye size={20} color={theme.colors.textSecondary} />
-              <Text style={[styles.guestButtonText, { color: theme.colors.textSecondary }]}>
-                Continue as Guest
               </Text>
             </TouchableOpacity>
           </View>

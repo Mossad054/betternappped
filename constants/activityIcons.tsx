@@ -1,3 +1,5 @@
+import * as Lucide from 'lucide-react-native';
+import { Feather } from '@expo/vector-icons';
 import { 
   Scissors, 
   Sparkles, 
@@ -6,11 +8,8 @@ import {
   Droplet,
   Bath,
   Sun,
-  Cloud,
-  CloudRain,
   Snowflake,
   Thermometer,
-  CloudLightning,
   Wind,
   ShoppingCart,
   Trash2,
@@ -70,12 +69,16 @@ import {
   Stethoscope,
   AlertCircle,
   XCircle,
-  Feather,
   Hammer,
   Waves,
   Layers,
   Scissors as CuttingIcon,
 } from 'lucide-react-native';
+
+// Fallback icon components when specific Lucide icons are not available at runtime
+const CloudIcon = (Lucide as any).Cloud ?? ((props: any) => <Feather name="cloud" {...props} />);
+const CloudRainIcon = (Lucide as any).CloudRain ?? ((props: any) => <Feather name="cloud-rain" {...props} />);
+const CloudLightningIcon = (Lucide as any).CloudLightning ?? ((props: any) => <Feather name="cloud-lightning" {...props} />);
 
 export type ActivityIconName = keyof typeof activityIconMap;
 
@@ -91,11 +94,11 @@ export const activityIconMap = {
   
   // Weather
   sunny: Sun,
-  clouds: Cloud,
-  rain: CloudRain,
+  clouds: CloudIcon,
+  rain: CloudRainIcon,
   snow: Snowflake,
   heat: Thermometer,
-  storm: CloudLightning,
+  storm: CloudLightningIcon,
   wind: Wind,
   
   // Chores

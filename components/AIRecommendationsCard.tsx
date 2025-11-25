@@ -102,7 +102,7 @@ export default function AIRecommendationsCard({ userId }: AIRecommendationsCardP
       <View style={styles.header}>
         <View style={styles.titleRow}>
           <Sparkles size={18} color={theme.colors.warning} />
-          <Text style={[styles.cardTitle, { color: theme.colors.text }]}>AI Recommendations</Text>
+          <Text style={[styles.cardTitle, { color: theme.colors.text }]}>Recommendations</Text>
         </View>
         
         {/* Period Selector */}
@@ -173,7 +173,7 @@ export default function AIRecommendationsCard({ userId }: AIRecommendationsCardP
             Start Logging to Get Insights
           </Text>
           <Text style={[styles.emptyText, { color: theme.colors.textSecondary }]}>
-            Log your mood, sleep, activities, and habits to receive personalized AI-powered recommendations.
+            Log your mood, sleep, activities, and habits to receive personalized recommendations.
           </Text>
         </View>
       ) : (

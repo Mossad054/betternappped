@@ -24,6 +24,7 @@ interface ActiveHabit {
   progressPercentage?: number;
   reminderEnabled?: boolean;
   reminder_enabled?: boolean;
+  reminder_time?: string;
   instruction?: string;
 }
 
@@ -32,6 +33,7 @@ interface HabitCardProps {
   onToggleComplete?: (id: string) => void;
   onFeedback?: (id: string, feedback: 'good' | 'neutral' | 'bad') => void;
   onToggleReminder?: (id: string) => void;
+  onReminderTimeChange?: (id: string, time: Date) => void;
   onDelete?: (id: string) => void;
 }
 
@@ -75,12 +77,26 @@ const getCategoryColor = (category: HabitCategory, theme: any): string => {
   }
 };
 
-export default function HabitCard({ habit, onToggleComplete, onFeedback, onToggleReminder, onDelete }: HabitCardProps) {
+export default function HabitCard({ habit, onToggleComplete, onFeedback, onToggleReminder, onReminderTimeChange, onDelete }: HabitCardProps) {
   const { theme } = useTheme();
   const styles = createStyles(theme);
   const categoryColor = getCategoryColor(habit.category, theme);
   const [showTimePicker, setShowTimePicker] = useState(false);
-  const [reminderTime, setReminderTime] = useState(new Date());
+
+  // Initialize reminder time from habit data or default to 9 AM
+  const getInitialTime = () => {
+    if (habit.reminder_time) {
+      const [hours, minutes] = habit.reminder_time.split(':').map(Number);
+      const date = new Date();
+      date.setHours(hours, minutes, 0, 0);
+      return date;
+    }
+    const date = new Date();
+    date.setHours(9, 0, 0, 0);
+    return date;
+  };
+
+  const [reminderTime, setReminderTime] = useState(getInitialTime());
   
   // Animation value for border
   const borderAnimation = useRef(new Animated.Value(1)).current;
@@ -140,6 +156,10 @@ export default function HabitCard({ habit, onToggleComplete, onFeedback, onToggl
     setShowTimePicker(false);
     if (selectedTime) {
       setReminderTime(selectedTime);
+      // Notify parent component about time change
+      if (onReminderTimeChange) {
+        onReminderTimeChange(habit.id, selectedTime);
+      }
     }
   };
   
@@ -352,7 +372,7 @@ const createStyles = (theme: any) => StyleSheet.create({
     ...theme.typography.body,
     marginBottom: theme.spacing.sm,
     fontSize: 15,
-    fontWeight: '600' as const,
+    fontWeight: '700' as const,
   },
   instructionText: {
     ...theme.typography.caption,
@@ -360,7 +380,7 @@ const createStyles = (theme: any) => StyleSheet.create({
     marginBottom: theme.spacing.sm + 2, // Reduced
     fontSize: 14,
     lineHeight: 18,
-    fontWeight: '600' as const,
+    fontWeight: '700' as const,
   },
   quoteContainer: {
     backgroundColor: theme.colors.moodCalm,
@@ -373,7 +393,7 @@ const createStyles = (theme: any) => StyleSheet.create({
     color: theme.colors.textPrimary,
     fontStyle: 'italic' as const,
     fontSize: 13,
-    fontWeight: '600' as const,
+    fontWeight: '700' as const,
   },
   progressSection: {
     marginBottom: theme.spacing.sm + 2, // Reduced

@@ -112,9 +112,11 @@ export interface IntimacyAssessment {
 }
 
 export class IntimacyService {
+  // Intimacy data is only for authenticated users - guests cannot access
+
   static async create(data: Omit<IntimacyLogInsert, 'user_id'>, userId: string): Promise<{ data: IntimacyLog | null; error: any }> {
     if (await isGuestMode()) {
-      return guestDataStore.create('intimacy', data);
+      return { data: null, error: 'Intimacy tracking requires authentication' };
     }
     const result = await SupabaseSafe.insert('intimacy_logs', data, userId);
     return { data: result.data, error: result.error };
@@ -122,7 +124,7 @@ export class IntimacyService {
 
   static async getAll(userId: string): Promise<{ data: IntimacyLog[] | null; error: any }> {
     if (await isGuestMode()) {
-      return guestDataStore.getAll('intimacy');
+      return { data: [], error: null };
     }
     const result = await SupabaseSafe.select('intimacy_logs', { order: { date: 'desc' } }, userId);
     return { data: result.data, error: result.error };
@@ -130,18 +132,22 @@ export class IntimacyService {
 
   static async getById(id: string, userId: string): Promise<{ data: IntimacyLog | null; error: any }> {
     if (await isGuestMode()) {
-      return guestDataStore.getById('intimacy', id);
+      return { data: null, error: null };
     }
     const result = await SupabaseSafe.select('intimacy_logs', { eq: { id } }, userId);
     return { data: result.data?.[0] || null, error: result.error };
   }
 
   static async getByDateRange(
-    userId: string, 
-    startDate: string, 
+    userId: string,
+    startDate: string,
     endDate: string
   ): Promise<{ data: IntimacyLog[] | null; error: any }> {
-    const result = await SupabaseSafe.select('intimacy_logs', { 
+    // Intimacy data is only for authenticated users - guests cannot access
+    if (await isGuestMode()) {
+      return { data: [], error: null };
+    }
+    const result = await SupabaseSafe.select('intimacy_logs', {
       gte: { date: startDate },
       lte: { date: endDate },
       order: { date: 'asc' }
@@ -150,17 +156,20 @@ export class IntimacyService {
   }
 
   static async getByDate(userId: string, date: string): Promise<{ data: IntimacyLog | null; error: any }> {
+    if (await isGuestMode()) {
+      return { data: null, error: null };
+    }
     const result = await SupabaseSafe.select('intimacy_logs', { eq: { date } }, userId);
     return { data: result.data?.[0] || null, error: result.error };
   }
 
   static async update(
-    id: string, 
-    data: Omit<IntimacyLogUpdate, 'user_id'>, 
+    id: string,
+    data: Omit<IntimacyLogUpdate, 'user_id'>,
     userId: string
   ): Promise<{ data: IntimacyLog | null; error: any }> {
     if (await isGuestMode()) {
-      return guestDataStore.update('intimacy', id, data);
+      return { data: null, error: 'Intimacy tracking requires authentication' };
     }
     const result = await SupabaseSafe.update('intimacy_logs', id, data, userId);
     return { data: result.data, error: result.error };
@@ -168,7 +177,7 @@ export class IntimacyService {
 
   static async delete(id: string, userId: string): Promise<{ error: any }> {
     if (await isGuestMode()) {
-      return guestDataStore.delete('intimacy', id);
+      return { error: 'Intimacy tracking requires authentication' };
     }
     const result = await SupabaseSafe.delete('intimacy_logs', id, userId);
     return { error: result.error };

@@ -8,11 +8,14 @@ import {
   Modal,
   ActivityIndicator,
   Dimensions,
+  Alert,
 } from 'react-native';
+import { router } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import Svg, { Circle, Path, Defs, LinearGradient as SvgGradient, Stop } from 'react-native-svg';
 import { useTheme } from '../contexts/ThemeContext';
 import { AnalyticsService } from '../services/analytics.service';
+import { HabitsService } from '../services/habits.service';
 
 const { width } = Dimensions.get('window');
 
@@ -48,6 +51,57 @@ const HabitTrackingCard: React.FC<HabitTrackingCardProps> = ({
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleModifyHabit = () => {
+    // Close modal and navigate to home tab where active habits are displayed
+    setModalVisible(false);
+    router.push('/(tabs)/home');
+  };
+
+  const handlePauseHabit = async () => {
+    if (!selectedHabit || !selectedHabit.id) {
+      Alert.alert('Error', 'Unable to pause habit. Please try again.');
+      return;
+    }
+
+    Alert.alert(
+      'Pause Habit',
+      `Pausing "${selectedHabit.name}" will remove it from your active habits. You can add it back later from the habit library.`,
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'Remove',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              // Delete the habit (effectively pausing it)
+              const result = await HabitsService.delete(selectedHabit.id, userId);
+
+              if (result.error) {
+                Alert.alert('Error', 'Failed to pause habit. Please try again.');
+              } else {
+                Alert.alert('Success', `${selectedHabit.name} has been removed from your active habits.`);
+                setModalVisible(false);
+                loadHabitData(); // Refresh the data
+              }
+            } catch (error) {
+              console.error('Error pausing habit:', error);
+              Alert.alert('Error', 'An unexpected error occurred.');
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const handleEditHabit = () => {
+    // Close modal and navigate to habit library
+    setModalVisible(false);
+    router.push('/habit-library');
   };
 
   const renderMiniDonutChart = () => {
@@ -363,25 +417,28 @@ const HabitTrackingCard: React.FC<HabitTrackingCardProps> = ({
                 <TouchableOpacity
                   style={[styles.actionButton, { backgroundColor: theme.colors.card }]}
                   activeOpacity={0.7}
+                  onPress={handleModifyHabit}
                 >
                   <Text style={[styles.actionButtonText, { color: theme.colors.text }]}>
-                    ⭐ Make Core Habit
+                    ✏️ Modify Habit
                   </Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={[styles.actionButton, { backgroundColor: theme.colors.card }]}
                   activeOpacity={0.7}
-                >
-                  <Text style={[styles.actionButtonText, { color: theme.colors.text }]}>
-                    ✏️ Edit Habit
-                  </Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.actionButton, { backgroundColor: theme.colors.card }]}
-                  activeOpacity={0.7}
+                  onPress={handlePauseHabit}
                 >
                   <Text style={[styles.actionButtonText, { color: theme.colors.text }]}>
                     ⏸️ Pause Habit
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.actionButton, { backgroundColor: theme.colors.card }]}
+                  activeOpacity={0.7}
+                  onPress={handleEditHabit}
+                >
+                  <Text style={[styles.actionButtonText, { color: theme.colors.text }]}>
+                    📚 Edit Habit
                   </Text>
                 </TouchableOpacity>
               </View>

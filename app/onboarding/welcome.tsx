@@ -7,13 +7,13 @@ import {
   SafeAreaView,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { useTheme } from '@/contexts/ThemeContext';
 import { Heart, Sparkles, ArrowRight } from 'lucide-react-native';
 import GradientBackground from '@/components/GradientBackground';
+import { OnboardingTheme } from '@/constants/onboardingTheme';
 
 export default function WelcomeScreen() {
   const router = useRouter();
-  const { theme } = useTheme();
+  const theme = OnboardingTheme;
 
   const handleNext = () => {
     router.push('/onboarding/track-wellness');
@@ -33,8 +33,8 @@ export default function WelcomeScreen() {
               styles.skipText,
               {
                 color: theme.colors.textSecondary,
-                fontSize: theme.typography.md,
-                fontWeight: theme.typography.fontWeight.medium
+                fontSize: theme.typography.body.fontSize,
+                fontWeight: theme.typography.body.fontWeight
               }
             ]}>
               Skip
@@ -46,30 +46,30 @@ export default function WelcomeScreen() {
             <View style={[
               styles.iconContainer,
               {
-                backgroundColor: theme.colors.accent + '20',
-                borderRadius: theme.borderRadius.full
+                backgroundColor: theme.colors.primaryLight + '40',
+                borderRadius: theme.radii.circle
               }
             ]}>
-              <Heart size={80} color={theme.colors.accent} />
+              <Heart size={80} color={theme.colors.primary} />
             </View>
-            
+
             <Text style={[
               styles.title,
               {
                 color: theme.colors.text,
-                fontSize: theme.typography.huge,
-                fontWeight: theme.typography.fontWeight.bold
+                fontSize: theme.typography.h1.fontSize,
+                fontWeight: theme.typography.h1.fontWeight
               }
             ]}>
               Welcome to Betternapped
             </Text>
-            
+
             <Text style={[
               styles.subtitle,
               {
                 color: theme.colors.textSecondary,
-                fontSize: theme.typography.lg,
-                fontWeight: theme.typography.fontWeight.regular
+                fontSize: theme.typography.bodyLarge.fontSize,
+                fontWeight: theme.typography.bodyLarge.fontWeight
               }
             ]}>
               Your personal wellness companion for tracking, experimenting, and optimizing your life
@@ -78,11 +78,11 @@ export default function WelcomeScreen() {
 
           {/* Progress Indicator */}
           <View style={styles.progressContainer}>
-            <View style={[styles.progressDot, { backgroundColor: theme.colors.accent }]} />
-            <View style={[styles.progressDot, { backgroundColor: theme.colors.textSecondary + '30' }]} />
-            <View style={[styles.progressDot, { backgroundColor: theme.colors.textSecondary + '30' }]} />
-            <View style={[styles.progressDot, { backgroundColor: theme.colors.textSecondary + '30' }]} />
-            <View style={[styles.progressDot, { backgroundColor: theme.colors.textSecondary + '30' }]} />
+            <View style={[styles.progressDot, { backgroundColor: theme.colors.primary }]} />
+            <View style={[styles.progressDot, { backgroundColor: theme.colors.border }]} />
+            <View style={[styles.progressDot, { backgroundColor: theme.colors.border }]} />
+            <View style={[styles.progressDot, { backgroundColor: theme.colors.border }]} />
+            <View style={[styles.progressDot, { backgroundColor: theme.colors.border }]} />
           </View>
 
           {/* Next Button */}
@@ -90,9 +90,9 @@ export default function WelcomeScreen() {
             style={[
               styles.nextButton,
               {
-                backgroundColor: theme.colors.accent,
-                borderRadius: theme.borderRadius.full,
-                ...theme.shadows.button
+                backgroundColor: theme.colors.primary,
+                borderRadius: theme.radii.full,
+                ...theme.shadows.md
               }
             ]}
             onPress={handleNext}
@@ -100,12 +100,12 @@ export default function WelcomeScreen() {
             <Text style={[
               styles.nextButtonText,
               {
-                color: theme.colors.textInverted,
-                fontSize: theme.typography.md,
-                fontWeight: theme.typography.fontWeight.semibold
+                color: '#FFFFFF',
+                fontSize: theme.typography.button.fontSize,
+                fontWeight: theme.typography.button.fontWeight
               }
             ]}>Get Started</Text>
-            <ArrowRight size={20} color={theme.colors.textInverted} />
+            <ArrowRight size={20} color="#FFFFFF" />
           </TouchableOpacity>
         </View>
       </SafeAreaView>

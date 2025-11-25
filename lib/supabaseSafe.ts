@@ -256,20 +256,15 @@ export const safeAuthSignUp = async (
       
       if (error) throw error;
       
-      // Create user profile in users table if signup successful
-      if (data.user && !data.user.email_confirmed_at) {
-        const { error: profileError } = await supabase
-          .from('users')
-          .insert({
-            id: data.user.id,
-            email: data.user.email!,
-            metadata: { __dev__createdAt: new Date().toISOString() }
-          });
-        
-        if (profileError) {
-          console.warn('Failed to create user profile:', profileError);
-        }
-      }
+      // The database trigger on auth.users (handle_new_user) will create rows in
+      // `public.users`, `public.profiles`, and default preferences. Avoid attempting
+      // to insert from the client here because signUp may not return an authenticated
+      // session (email confirmation required). Client-side insert attempts without a
+      // valid JWT are blocked by RLS and cause "Database error saving new user".
+      //
+      // If you need server-side inserts here, perform them from a secure server using
+      // the service_role key. For client flows, rely on the DB trigger or wait for an
+      // authenticated session before writing protected tables.
       
       return data;
     }, 'AUTH_SIGNUP');

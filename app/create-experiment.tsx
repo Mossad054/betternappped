@@ -16,7 +16,6 @@ import { useAuth } from '@/contexts/AuthContext';
 import { ExperimentsService } from '@/services/experiments.service';
 import {
   ArrowLeft,
-  Check,
   ChevronRight,
   Clock,
   Calendar,
@@ -99,9 +98,9 @@ const activityOptions: ActivityOption[] = [
 const outcomeOptions: OutcomeOption[] = [
   { id: 'mood', name: 'Mood', emoji: '😊', description: 'Overall emotional wellbeing' },
   { id: 'sleep', name: 'Sleep Quality', emoji: '😴', description: 'Rest and recovery' },
-  { id: 'anxiety', name: 'Anxiety Levels', emoji: '😌', description: 'Stress and worry reduction' },
-  { id: 'clarity', name: 'Mental Clarity', emoji: '🧠', description: 'Focus and cognitive function' },
-  { id: 'energy', name: 'Energy Levels', emoji: '⚡', description: 'Physical and mental vitality' },
+  { id: 'energy', name: 'Energy', emoji: '⚡', description: 'Physical and mental vitality' },
+  { id: 'clarity', name: 'Focus', emoji: '🧠', description: 'Focus and cognitive function' },
+  { id: 'anxiety', name: 'Anxiety', emoji: '😌', description: 'Stress and worry reduction' },
   { id: 'productivity', name: 'Productivity', emoji: '📈', description: 'Getting things done' }
 ];
 
@@ -182,6 +181,59 @@ export default function CreateExperimentScreen() {
       // Format dates as YYYY-MM-DD
       const formatDate = (date: Date) => date.toISOString().split('T')[0];
 
+      // Check for duplicate experiments with overlapping date ranges
+      const { data: activeExperiments, error: fetchError } = await ExperimentsService.getActive(user.id);
+      
+      if (fetchError) {
+        console.error('Error fetching active experiments:', fetchError);
+      } else if (activeExperiments && activeExperiments.length > 0) {
+        const formattedStartDate = formatDate(startDate);
+        const formattedEndDate = formatDate(endDate);
+        
+        // Check if any active experiment is in the same category
+        // Users cannot have multiple experiments in the same category running simultaneously
+        const duplicateExperiment = activeExperiments.find(exp => {
+          // Get the category of the existing experiment by matching activity name
+          const existingActivity = activityOptions.find(
+            a => a.name.toLowerCase() === exp.activity_name.toLowerCase()
+          );
+
+          // If we can't find the activity, fall back to checking by activity name
+          if (!existingActivity) {
+            return exp.activity_name.toLowerCase() === activity.name.toLowerCase();
+          }
+
+          // Check if both experiments are in the same category
+          const isSameCategory = existingActivity.category.toLowerCase() === activity.category.toLowerCase();
+
+          if (!isSameCategory) return false;
+
+          // Check for date overlap
+          const expStart = new Date(exp.start_date);
+          const expEnd = new Date(exp.end_date);
+          const newStart = new Date(formattedStartDate);
+          const newEnd = new Date(formattedEndDate);
+
+          // Two date ranges overlap if: start1 <= end2 AND start2 <= end1
+          const hasOverlap = newStart <= expEnd && expStart <= newEnd;
+
+          return hasOverlap;
+        });
+
+        if (duplicateExperiment) {
+          const existingEndDate = new Date(duplicateExperiment.end_date);
+          const daysRemaining = Math.ceil((existingEndDate.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
+
+          Alert.alert(
+            'Category Conflict',
+            `You already have an active "${duplicateExperiment.activity_name}" experiment in the "${activity.category}" category running until ${existingEndDate.toLocaleDateString()}${daysRemaining > 0 ? ` (${daysRemaining} days remaining)` : ''}.\n\nYou cannot start another experiment in the same category until the current one is completed. This ensures accurate tracking and prevents conflicting data.\n\nPlease complete or cancel your current "${duplicateExperiment.activity_name}" experiment first.`,
+            [{ text: 'OK' }]
+          );
+          setIsCreating(false);
+          return;
+        }
+      }
+
       // Map outcome IDs to names
       const outcomeNames = selectedOutcomes.map(id => 
         outcomeOptions.find(o => o.id === id)?.name || id
@@ -196,7 +248,7 @@ export default function CreateExperimentScreen() {
         end_date: formatDate(endDate),
         duration: durationDays,
         status: 'active',
-        current_day: 1,
+        current_day: 0, // Start at 0, will become 1 when user logs first day
         baseline_data: null,
         results_data: null,
         insights: null,
@@ -278,19 +330,20 @@ export default function CreateExperimentScreen() {
                   key={outcome.id}
                   style={[
                     styles.outcomeCard,
-                    { backgroundColor: theme.colors.card },
-                    selectedOutcomes.includes(outcome.id) && { borderColor: theme.colors.primary, borderWidth: 2 }
+                    {
+                      backgroundColor: selectedOutcomes.includes(outcome.id) ? theme.colors.primary : theme.colors.card,
+                      borderColor: selectedOutcomes.includes(outcome.id) ? theme.colors.primary : theme.colors.border
+                    }
                   ]}
                   onPress={() => toggleOutcome(outcome.id)}
                 >
                   <Text style={styles.outcomeEmoji}>{outcome.emoji}</Text>
-                  <View style={styles.outcomeInfo}>
-                    <Text style={[styles.outcomeName, { color: theme.colors.text }]}>{outcome.name}</Text>
-                    <Text style={[styles.outcomeDescription, { color: theme.colors.textSecondary }]}>{outcome.description}</Text>
-                  </View>
-                  {selectedOutcomes.includes(outcome.id) && (
-                    <Check size={16} color={theme.colors.primary} />
-                  )}
+                  <Text style={[
+                    styles.outcomeName,
+                    { color: selectedOutcomes.includes(outcome.id) ? '#FFFFFF' : theme.colors.text }
+                  ]}>
+                    {outcome.name}
+                  </Text>
                 </TouchableOpacity>
               ))}
             </View>
@@ -385,7 +438,7 @@ export default function CreateExperimentScreen() {
         return (
           <View style={styles.stepContent}>
             <Text style={[styles.stepTitle, { color: theme.colors.text }]}>Review your experiment</Text>
-            
+
             <View style={styles.reviewSection}>
               <Text style={[styles.reviewLabel, { color: theme.colors.textSecondary }]}>Activity</Text>
               <Text style={[styles.reviewValue, { color: theme.colors.text }]}>
@@ -644,30 +697,37 @@ const createStyles = (theme: any) => StyleSheet.create({
     fontWeight: '500' as const,
   },
   outcomesList: {
-    gap: theme.spacing.elementGap,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: theme.spacing.sm,
+    justifyContent: 'flex-start',
   },
   outcomeCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: theme.spacing.sm,
+    justifyContent: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 12,
     borderRadius: theme.borderRadius.full,
     borderWidth: 2,
     borderColor: 'transparent',
+    width: '31%', // 3 buttons per row
+    minHeight: 44,
   },
   outcomeEmoji: {
-    fontSize: 18,
-    marginRight: theme.spacing.sm,
+    fontSize: 16,
+    marginRight: 6,
   },
   outcomeInfo: {
-    flex: 1,
+    display: 'none', // Hide description for compact pills
   },
   outcomeName: {
-    ...theme.typography.body,
+    ...theme.typography.caption,
     fontWeight: '600' as const,
-    marginBottom: 2,
+    fontSize: 13,
   },
   outcomeDescription: {
-    ...theme.typography.caption,
+    display: 'none', // Hide description
   },
   durationList: {
     gap: theme.spacing.elementGap,

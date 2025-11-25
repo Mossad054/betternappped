@@ -10,7 +10,7 @@ import {
   Animated 
 } from 'react-native';
 import { useTheme } from '@/contexts/ThemeContext';
-import { AnalyticsService, ActivityImpactData } from '@/services/analytics.service';
+import { ActivityImpactService, EnhancedActivityImpact } from '@/services/analytics/activityImpact.service';
 import Svg, { Circle } from 'react-native-svg';
 
 interface ActivityImpactCardProps {
@@ -21,12 +21,13 @@ interface ActivityImpactCardProps {
 export default function ActivityImpactCard({ userId, period }: ActivityImpactCardProps) {
   const { theme } = useTheme();
   const [loading, setLoading] = useState(true);
-  const [activities, setActivities] = useState<ActivityImpactData[]>([]);
+  const [activities, setActivities] = useState<EnhancedActivityImpact[]>([]);
   const [insights, setInsights] = useState<string[]>([]);
   const [totalActivities, setTotalActivities] = useState(0);
-  const [selectedActivity, setSelectedActivity] = useState<ActivityImpactData | null>(null);
+  const [selectedActivity, setSelectedActivity] = useState<EnhancedActivityImpact | null>(null);
   const [modalVisible, setModalVisible] = useState(false);
   const [fadeAnim] = useState(new Animated.Value(0));
+  const [activeTooltip, setActiveTooltip] = useState<string | null>(null);
 
   useEffect(() => {
     loadActivityImpact();
@@ -35,13 +36,25 @@ export default function ActivityImpactCard({ userId, period }: ActivityImpactCar
   const loadActivityImpact = async () => {
     setLoading(true);
     try {
-      console.log('🎯 Loading activity impact analysis...');
-      const result = await AnalyticsService.getActivityImpact(userId, period);
+      console.log('🎯 Loading enhanced activity impact analysis...');
       
-      if (result.data) {
-        setActivities(result.data.activities);
-        setInsights(result.data.insights);
-        setTotalActivities(result.data.totalActivities);
+      // Map period to ActivityImpactService format
+      const periodMap: Record<typeof period, 'week' | 'month' | 'quarter'> = {
+        'today': 'week',
+        'week': 'week',
+        'month': 'month',
+        'year': 'quarter'
+      };
+      
+      const result = await ActivityImpactService.analyzeActivities(
+        userId, 
+        periodMap[period]
+      );
+      
+      if (result) {
+        setActivities(result.activities);
+        setInsights(result.insights);
+        setTotalActivities(result.totalActivities);
         
         // Fade in animation
         Animated.timing(fadeAnim, {
@@ -49,8 +62,6 @@ export default function ActivityImpactCard({ userId, period }: ActivityImpactCar
           duration: 600,
           useNativeDriver: true,
         }).start();
-      } else {
-        console.error('❌ Failed to load activity impact:', result.error);
       }
     } catch (error) {
       console.error('❌ Error loading activity impact:', error);
@@ -60,21 +71,71 @@ export default function ActivityImpactCard({ userId, period }: ActivityImpactCar
   };
 
   const getImpactColor = (score: number) => {
-    if (score >= 60) return theme.colors.success || '#10B981';
-    if (score >= 45) return theme.colors.warning || '#F59E0B';
+    if (score >= 70) return theme.colors.success || '#10B981';
+    if (score >= 50) return theme.colors.warning || '#F59E0B';
     return theme.colors.error || '#EF4444';
   };
 
   const getImpactLabel = (score: number) => {
-    if (score >= 60) return 'Positive';
-    if (score >= 45) return 'Neutral';
+    if (score >= 70) return 'Positive';
+    if (score >= 50) return 'Neutral';
     return 'Negative';
+  };
+
+  const getConfidenceBadgeColor = (confidence: 'high' | 'medium' | 'low') => {
+    if (confidence === 'high') return theme.colors.success || '#10B981';
+    if (confidence === 'medium') return theme.colors.warning || '#F59E0B';
+    return theme.colors.textSecondary || '#9CA3AF';
   };
 
   const getTrendIcon = (trend: 'up' | 'down' | 'flat') => {
     if (trend === 'up') return '↑';
     if (trend === 'down') return '↓';
     return '→';
+  };
+
+  // Tooltip explanations for each parameter
+  const tooltipTexts: Record<string, string> = {
+    'overall-benefit': 'A composite score (0-100) combining mood, sleep, clarity, and productivity impacts. Higher scores mean greater overall benefit to your wellbeing.',
+    'frequency': 'How many times you\'ve logged this activity and what percentage it represents of all your activities.',
+    'confidence': 'Based on data points: LOW (1-4 logs), MEDIUM (5-7), HIGH (8+). More data = more reliable insights.',
+    'multi-dimensional': 'Shows how this activity affects different aspects of your wellbeing: immediate (same day), next day, and sustained (7-day average).',
+    'immediate': 'The change in this metric on the same day you do the activity, measured in points.',
+    'next-day': 'The change in this metric the day after doing the activity, measured in points.',
+    'cumulative': 'The sustained average change over 7 days after doing the activity, measured in points.',
+    'correlation': 'Statistical measure (r) of how consistently this activity relates to each metric. Range: -1 (strong negative) to +1 (strong positive). Values near 0 mean no consistent relationship.',
+  };
+
+  // Minimalist Help Icon with Tooltip
+  const HelpIcon = ({ tooltipId }: { tooltipId: string }) => (
+    <TouchableOpacity
+      onPress={() => setActiveTooltip(activeTooltip === tooltipId ? null : tooltipId)}
+      style={styles.helpIconButton}
+      hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+    >
+      <View style={[styles.helpIconCircle, { borderColor: theme.colors.textSecondary }]}>
+        <Text style={[styles.helpIconText, { color: theme.colors.textSecondary }]}>?</Text>
+      </View>
+    </TouchableOpacity>
+  );
+
+  // Tooltip Overlay Component
+  const Tooltip = ({ tooltipId }: { tooltipId: string }) => {
+    if (activeTooltip !== tooltipId) return null;
+
+    return (
+      <TouchableOpacity
+        activeOpacity={1}
+        onPress={() => setActiveTooltip(null)}
+        style={styles.tooltipOverlay}
+      >
+        <View style={[styles.tooltipBox, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}>
+          <Text style={[styles.tooltipText, { color: theme.colors.text }]}>
+            {tooltipTexts[tooltipId]}
+          </Text>
+        </View>
+      </TouchableOpacity>
+    );
   };
 
   const renderDonutChart = () => {
@@ -86,7 +147,7 @@ export default function ActivityImpactCard({ userId, period }: ActivityImpactCar
     const circumference = 2 * Math.PI * radius;
 
     const topActivities = activities.slice(0, 5);
-    const total = topActivities.reduce((sum, a) => sum + a.totalOccurrences, 0);
+    const total = topActivities.reduce((sum, a) => sum + a.occurrences, 0);
 
     let currentAngle = -90;
 
@@ -102,10 +163,10 @@ export default function ActivityImpactCard({ userId, period }: ActivityImpactCar
             strokeWidth={strokeWidth}
           />
           {topActivities.map((activity, index) => {
-            const percentage = activity.totalOccurrences / total;
+            const percentage = activity.occurrences / total;
             const strokeDasharray = `${circumference * percentage} ${circumference}`;
             // Color-code based on impact score
-            const color = getImpactColor(activity.impactScore);
+            const color = getImpactColor(activity.overallBenefit);
             
             const rotation = currentAngle;
             currentAngle += percentage * 360;
@@ -139,7 +200,7 @@ export default function ActivityImpactCard({ userId, period }: ActivityImpactCar
     );
   };
 
-  const handleActivityPress = (activity: ActivityImpactData) => {
+  const handleActivityPress = (activity: EnhancedActivityImpact) => {
     setSelectedActivity(activity);
     setModalVisible(true);
   };
@@ -206,7 +267,7 @@ export default function ActivityImpactCard({ userId, period }: ActivityImpactCar
         <View style={styles.summaryStats}>
           <View style={styles.statItem}>
             <Text style={[styles.statValue, { color: theme.colors.text }]}>
-              {activities.filter(a => a.impactScore >= 60).length}
+              {activities.filter(a => a.overallBenefit >= 70).length}
             </Text>
             <Text style={[styles.statLabel, { color: theme.colors.success }]}>
               Positive
@@ -214,7 +275,7 @@ export default function ActivityImpactCard({ userId, period }: ActivityImpactCar
           </View>
           <View style={styles.statItem}>
             <Text style={[styles.statValue, { color: theme.colors.text }]}>
-              {activities.filter(a => a.impactScore >= 45 && a.impactScore < 60).length}
+              {activities.filter(a => a.overallBenefit >= 50 && a.overallBenefit < 70).length}
             </Text>
             <Text style={[styles.statLabel, { color: theme.colors.warning }]}>
               Neutral
@@ -222,7 +283,7 @@ export default function ActivityImpactCard({ userId, period }: ActivityImpactCar
           </View>
           <View style={styles.statItem}>
             <Text style={[styles.statValue, { color: theme.colors.text }]}>
-              {activities.filter(a => a.impactScore < 45).length}
+              {activities.filter(a => a.overallBenefit < 50).length}
             </Text>
             <Text style={[styles.statLabel, { color: theme.colors.error }]}>
               Negative
@@ -253,8 +314,9 @@ export default function ActivityImpactCard({ userId, period }: ActivityImpactCar
           Your Activities
         </Text>
         {activities.slice(0, 6).map((activity, index) => {
-          const impactColor = getImpactColor(activity.impactScore);
-          const impactLabel = getImpactLabel(activity.impactScore);
+          const impactColor = getImpactColor(activity.overallBenefit);
+          const impactLabel = getImpactLabel(activity.overallBenefit);
+          const confidenceColor = getConfidenceBadgeColor(activity.confidence);
           
           return (
             <TouchableOpacity
@@ -266,42 +328,47 @@ export default function ActivityImpactCard({ userId, period }: ActivityImpactCar
               <View style={styles.activityInfo}>
                 <Text style={styles.activityEmoji}>{activity.emoji}</Text>
                 <View style={styles.activityDetails}>
-                  <Text style={[styles.activityName, { color: theme.colors.text }]}>
-                    {activity.activityName}
-                  </Text>
+                  <View style={styles.activityHeader}>
+                    <Text style={[styles.activityName, { color: theme.colors.text }]}>
+                      {activity.activityName}
+                    </Text>
+                    <View style={[styles.confidenceBadge, { backgroundColor: confidenceColor + '20' }]}>
+                      <Text style={[styles.confidenceText, { color: confidenceColor }]}>
+                        {activity.confidence}
+                      </Text>
+                    </View>
+                  </View>
                   <View style={styles.activityMeta}>
                     <Text style={[styles.activityFrequency, { color: theme.colors.textSecondary }]}>
-                      {activity.totalOccurrences}x • {activity.frequencyPercent}%
+                      {activity.occurrences}x • {activity.frequencyPercent}%
                     </Text>
-                    <View style={styles.impactIndicators}>
-                      {activity.avgMoodChange !== 0 && (
-                        <View style={[styles.impactDot, { 
-                          backgroundColor: activity.avgMoodChange > 0 ? theme.colors.success : theme.colors.error 
-                        }]} />
-                      )}
-                      {activity.avgSleepChange !== 0 && (
-                        <View style={[styles.impactDot, { 
-                          backgroundColor: activity.avgSleepChange > 0 ? theme.colors.success : theme.colors.error 
-                        }]} />
-                      )}
-                      {activity.avgClarityChange !== 0 && (
-                        <View style={[styles.impactDot, { 
-                          backgroundColor: activity.avgClarityChange > 0 ? theme.colors.success : theme.colors.error 
-                        }]} />
-                      )}
-                    </View>
+                    {activity.trend !== 'stable' && (
+                      <View style={[styles.trendBadge, { 
+                        backgroundColor: activity.trend === 'improving' 
+                          ? theme.colors.success + '20' 
+                          : theme.colors.error + '20'
+                      }]}>
+                        <Text style={[styles.trendText, { 
+                          color: activity.trend === 'improving' 
+                            ? theme.colors.success 
+                            : theme.colors.error
+                        }]}>
+                          {activity.trend === 'improving' ? '↑' : '↓'} {activity.trend}
+                        </Text>
+                      </View>
+                    )}
                   </View>
                 </View>
               </View>
               <View style={styles.activityImpact}>
                 <View style={[styles.impactBadge, { backgroundColor: impactColor + '20' }]}>
-                  <Text style={[styles.trendIcon, { color: impactColor }]}>
-                    {getTrendIcon(activity.trend)}
-                  </Text>
-                  <Text style={[styles.impactLabel, { color: impactColor }]}>
-                    {impactLabel}
+                  <Text style={[styles.impactScore, { color: impactColor }]}>
+                    {activity.overallBenefit}
                   </Text>
                 </View>
+                <Text style={[styles.impactLabel, { color: theme.colors.textSecondary }]}>
+                  /100
+                </Text>
               </View>
             </TouchableOpacity>
           );
@@ -316,7 +383,7 @@ export default function ActivityImpactCard({ userId, period }: ActivityImpactCar
         onRequestClose={() => setModalVisible(false)}
       >
         <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, { backgroundColor: theme.colors.card }]}>
+          <View style={[styles.modalContent, { backgroundColor: theme.colors.background }]}>
             <View style={styles.modalHeader}>
               <View style={styles.modalTitleContainer}>
                 <Text style={styles.modalEmoji}>{selectedActivity?.emoji}</Text>
@@ -337,199 +404,279 @@ export default function ActivityImpactCard({ userId, period }: ActivityImpactCar
                 <>
                   {/* Impact Score */}
                   <View style={styles.scoreSection}>
-                    <Text style={[styles.scoreLabel, { color: theme.colors.textSecondary }]}>
-                      Overall Impact Score
-                    </Text>
-                    <Text style={[styles.scoreValue, { color: getImpactColor(selectedActivity.impactScore) }]}>
-                      {selectedActivity.impactScore}/100
+                    <View style={styles.sectionHeaderWithHelp}>
+                      <Text style={[styles.scoreLabel, { color: theme.colors.textSecondary }]}>
+                        Overall Benefit Score
+                      </Text>
+                      <HelpIcon tooltipId="overall-benefit" />
+                    </View>
+                    <Tooltip tooltipId="overall-benefit" />
+                    <Text style={[styles.scoreValue, { color: getImpactColor(selectedActivity.overallBenefit) }]}>
+                      {selectedActivity.overallBenefit}/100
                     </Text>
                     <Text style={[styles.scoreDescription, { color: theme.colors.textSecondary }]}>
-                      {getImpactLabel(selectedActivity.impactScore)} effect on your well-being
+                      {selectedActivity.recommendation}
                     </Text>
                   </View>
 
                   {/* Stats Grid */}
                   <View style={styles.statsGrid}>
                     <View style={styles.statBox}>
-                      <Text style={[styles.statBoxLabel, { color: theme.colors.textSecondary }]}>
-                        Frequency
-                      </Text>
+                      <View style={styles.statBoxHeader}>
+                        <Text style={[styles.statBoxLabel, { color: theme.colors.textSecondary }]}>
+                          Frequency
+                        </Text>
+                        <HelpIcon tooltipId="frequency" />
+                      </View>
+                      <Tooltip tooltipId="frequency" />
                       <Text style={[styles.statBoxValue, { color: theme.colors.text }]}>
-                        {selectedActivity.totalOccurrences}
+                        {selectedActivity.occurrences}
                       </Text>
                       <Text style={[styles.statBoxSubtext, { color: theme.colors.textSecondary }]}>
                         {selectedActivity.frequencyPercent}% of total
                       </Text>
                     </View>
                     <View style={styles.statBox}>
-                      <Text style={[styles.statBoxLabel, { color: theme.colors.textSecondary }]}>
-                        Confidence
-                      </Text>
-                      <Text style={[styles.statBoxValue, { color: theme.colors.text }]}>
+                      <View style={styles.statBoxHeader}>
+                        <Text style={[styles.statBoxLabel, { color: theme.colors.textSecondary }]}>
+                          Confidence
+                        </Text>
+                        <HelpIcon tooltipId="confidence" />
+                      </View>
+                      <Tooltip tooltipId="confidence" />
+                      <Text style={[styles.statBoxValue, { color: getConfidenceBadgeColor(selectedActivity.confidence) }]}>
                         {selectedActivity.confidence}
                       </Text>
                       <Text style={[styles.statBoxSubtext, { color: theme.colors.textSecondary }]}>
-                        Data reliability
+                        {selectedActivity.trend}
                       </Text>
                     </View>
                   </View>
 
-                  {/* Impact Breakdown */}
+                  {/* Multi-Dimensional Impact Breakdown */}
                   <View style={styles.impactBreakdown}>
-                    <Text style={[styles.breakdownTitle, { color: theme.colors.text }]}>
-                      Impact Breakdown
-                    </Text>
+                    <View style={styles.sectionHeaderWithHelp}>
+                      <Text style={[styles.breakdownTitle, { color: theme.colors.text }]}>
+                        Multi-Dimensional Impact
+                      </Text>
+                      <HelpIcon tooltipId="multi-dimensional" />
+                    </View>
+                    <Tooltip tooltipId="multi-dimensional" />
                     
-                    <View style={styles.breakdownItem}>
-                      <Text style={[styles.breakdownLabel, { color: theme.colors.textSecondary }]}>
-                        😊 Mood
+                    {/* Mood Impact */}
+                    <View style={styles.dimensionSection}>
+                      <Text style={[styles.dimensionTitle, { color: theme.colors.text }]}>
+                        😊 Mood Impact
                       </Text>
-                      <View style={styles.breakdownBar}>
-                        <View 
-                          style={[
-                            styles.breakdownFill, 
-                            { 
-                              width: `${Math.abs(selectedActivity.avgMoodChange) * 20}%`,
-                              backgroundColor: selectedActivity.avgMoodChange >= 0 
-                                ? theme.colors.success 
-                                : theme.colors.error
-                            }
-                          ]} 
-                        />
-                      </View>
-                      <Text style={[
-                        styles.breakdownValue,
-                        { color: selectedActivity.avgMoodChange >= 0 ? theme.colors.success : theme.colors.error }
-                      ]}>
-                        {selectedActivity.avgMoodChange > 0 ? '+' : ''}{selectedActivity.avgMoodChange.toFixed(2)}
-                      </Text>
-                    </View>
-
-                    <View style={styles.breakdownItem}>
-                      <Text style={[styles.breakdownLabel, { color: theme.colors.textSecondary }]}>
-                        😴 Sleep
-                      </Text>
-                      <View style={styles.breakdownBar}>
-                        <View 
-                          style={[
-                            styles.breakdownFill, 
-                            { 
-                              width: `${Math.abs(selectedActivity.avgSleepChange) * 20}%`,
-                              backgroundColor: selectedActivity.avgSleepChange >= 0 
-                                ? theme.colors.success 
-                                : theme.colors.error
-                            }
-                          ]} 
-                        />
-                      </View>
-                      <Text style={[
-                        styles.breakdownValue,
-                        { color: selectedActivity.avgSleepChange >= 0 ? theme.colors.success : theme.colors.error }
-                      ]}>
-                        {selectedActivity.avgSleepChange > 0 ? '+' : ''}{selectedActivity.avgSleepChange.toFixed(2)}
-                      </Text>
-                    </View>
-
-                    <View style={styles.breakdownItem}>
-                      <Text style={[styles.breakdownLabel, { color: theme.colors.textSecondary }]}>
-                        🧠 Clarity
-                      </Text>
-                      <View style={styles.breakdownBar}>
-                        <View 
-                          style={[
-                            styles.breakdownFill, 
-                            { 
-                              width: `${Math.abs(selectedActivity.avgClarityChange) * 20}%`,
-                              backgroundColor: selectedActivity.avgClarityChange >= 0 
-                                ? theme.colors.success 
-                                : theme.colors.error
-                            }
-                          ]} 
-                        />
-                      </View>
-                      <Text style={[
-                        styles.breakdownValue,
-                        { color: selectedActivity.avgClarityChange >= 0 ? theme.colors.success : theme.colors.error }
-                      ]}>
-                        {selectedActivity.avgClarityChange > 0 ? '+' : ''}{selectedActivity.avgClarityChange.toFixed(2)}
-                      </Text>
-                    </View>
-
-                    <View style={styles.breakdownItem}>
-                      <Text style={[styles.breakdownLabel, { color: theme.colors.textSecondary }]}>
-                        ⚡ Productivity
-                      </Text>
-                      <View style={styles.breakdownBar}>
-                        <View 
-                          style={[
-                            styles.breakdownFill, 
-                            { 
-                              width: `${Math.abs(selectedActivity.avgProductivityChange) * 20}%`,
-                              backgroundColor: selectedActivity.avgProductivityChange >= 0 
-                                ? theme.colors.success 
-                                : theme.colors.error
-                            }
-                          ]} 
-                        />
-                      </View>
-                      <Text style={[
-                        styles.breakdownValue,
-                        { color: selectedActivity.avgProductivityChange >= 0 ? theme.colors.success : theme.colors.error }
-                      ]}>
-                        {selectedActivity.avgProductivityChange > 0 ? '+' : ''}{selectedActivity.avgProductivityChange.toFixed(2)}
-                      </Text>
-                    </View>
-                  </View>
-
-                  {/* Recommendations */}
-                  <View style={styles.recommendationsSection}>
-                    <Text style={[styles.recommendationsTitle, { color: theme.colors.text }]}>
-                      Recommendations
-                    </Text>
-                    {selectedActivity.impactScore >= 60 ? (
-                      <>
-                        <View style={styles.recommendationItem}>
-                          <View style={[styles.recommendationBullet, { backgroundColor: theme.colors.success }]} />
-                          <Text style={[styles.recommendationText, { color: theme.colors.textSecondary }]}>
-                            This activity shows positive impact - consider maintaining or increasing frequency
-                          </Text>
+                      
+                      <View style={styles.breakdownItem}>
+                        <Text style={[styles.breakdownLabel, { color: theme.colors.textSecondary }]}>
+                          Immediate
+                        </Text>
+                        <View style={styles.breakdownBar}>
+                          <View 
+                            style={[
+                              styles.breakdownFill, 
+                              { 
+                                width: `${Math.abs(selectedActivity.impacts.mood.immediate) * 100}%`,
+                                backgroundColor: selectedActivity.impacts.mood.immediate >= 0 
+                                  ? theme.colors.success 
+                                  : theme.colors.error
+                              }
+                            ]} 
+                          />
                         </View>
-                        <View style={styles.recommendationItem}>
-                          <View style={[styles.recommendationBullet, { backgroundColor: theme.colors.success }]} />
-                          <Text style={[styles.recommendationText, { color: theme.colors.textSecondary }]}>
-                            Convert this to a daily habit for consistent well-being benefits
-                          </Text>
-                        </View>
-                      </>
-                    ) : selectedActivity.impactScore < 45 ? (
-                      <>
-                        <View style={styles.recommendationItem}>
-                          <View style={[styles.recommendationBullet, { backgroundColor: theme.colors.error }]} />
-                          <Text style={[styles.recommendationText, { color: theme.colors.textSecondary }]}>
-                            This activity shows negative correlation - consider reducing frequency
-                          </Text>
-                        </View>
-                        <View style={styles.recommendationItem}>
-                          <View style={[styles.recommendationBullet, { backgroundColor: theme.colors.error }]} />
-                          <Text style={[styles.recommendationText, { color: theme.colors.textSecondary }]}>
-                            Try identifying specific triggers or timing that make this activity less beneficial
-                          </Text>
-                        </View>
-                        <View style={styles.recommendationItem}>
-                          <View style={[styles.recommendationBullet, { backgroundColor: theme.colors.error }]} />
-                          <Text style={[styles.recommendationText, { color: theme.colors.textSecondary }]}>
-                            Replace with mood-boosting alternatives when possible
-                          </Text>
-                        </View>
-                      </>
-                    ) : (
-                      <View style={styles.recommendationItem}>
-                        <View style={[styles.recommendationBullet, { backgroundColor: theme.colors.warning }]} />
-                        <Text style={[styles.recommendationText, { color: theme.colors.textSecondary }]}>
-                          This activity has neutral impact - continue monitoring patterns
+                        <Text style={[
+                          styles.breakdownValue,
+                          { color: selectedActivity.impacts.mood.immediate >= 0 ? theme.colors.success : theme.colors.error }
+                        ]}>
+                          {selectedActivity.impacts.mood.immediate > 0 ? '+' : ''}{(selectedActivity.impacts.mood.immediate * 100).toFixed(0)}%
                         </Text>
                       </View>
-                    )}
+
+                      <View style={styles.breakdownItem}>
+                        <Text style={[styles.breakdownLabel, { color: theme.colors.textSecondary }]}>
+                          Next Day
+                        </Text>
+                        <View style={styles.breakdownBar}>
+                          <View 
+                            style={[
+                              styles.breakdownFill, 
+                              { 
+                                width: `${Math.abs(selectedActivity.impacts.mood.nextDay) * 100}%`,
+                                backgroundColor: selectedActivity.impacts.mood.nextDay >= 0 
+                                  ? theme.colors.success 
+                                  : theme.colors.error
+                              }
+                            ]} 
+                          />
+                        </View>
+                        <Text style={[
+                          styles.breakdownValue,
+                          { color: selectedActivity.impacts.mood.nextDay >= 0 ? theme.colors.success : theme.colors.error }
+                        ]}>
+                          {selectedActivity.impacts.mood.nextDay > 0 ? '+' : ''}{(selectedActivity.impacts.mood.nextDay * 100).toFixed(0)}%
+                        </Text>
+                      </View>
+
+                      <View style={styles.breakdownItem}>
+                        <Text style={[styles.breakdownLabel, { color: theme.colors.textSecondary }]}>
+                          Cumulative
+                        </Text>
+                        <View style={styles.breakdownBar}>
+                          <View 
+                            style={[
+                              styles.breakdownFill, 
+                              { 
+                                width: `${Math.abs(selectedActivity.impacts.mood.cumulative) * 100}%`,
+                                backgroundColor: selectedActivity.impacts.mood.cumulative >= 0 
+                                  ? theme.colors.success 
+                                  : theme.colors.error
+                              }
+                            ]} 
+                          />
+                        </View>
+                        <Text style={[
+                          styles.breakdownValue,
+                          { color: selectedActivity.impacts.mood.cumulative >= 0 ? theme.colors.success : theme.colors.error }
+                        ]}>
+                          {selectedActivity.impacts.mood.cumulative > 0 ? '+' : ''}{(selectedActivity.impacts.mood.cumulative * 100).toFixed(0)}%
+                        </Text>
+                      </View>
+                    </View>
+
+                    {/* Sleep Impact */}
+                    <View style={styles.dimensionSection}>
+                      <Text style={[styles.dimensionTitle, { color: theme.colors.text }]}>
+                        😴 Sleep Impact
+                      </Text>
+                      
+                      <View style={styles.breakdownItem}>
+                        <Text style={[styles.breakdownLabel, { color: theme.colors.textSecondary }]}>
+                          Immediate
+                        </Text>
+                        <View style={styles.breakdownBar}>
+                          <View 
+                            style={[
+                              styles.breakdownFill, 
+                              { 
+                                width: `${Math.abs(selectedActivity.impacts.sleep.immediate) * 100}%`,
+                                backgroundColor: selectedActivity.impacts.sleep.immediate >= 0 
+                                  ? theme.colors.success 
+                                  : theme.colors.error
+                              }
+                            ]} 
+                          />
+                        </View>
+                        <Text style={[
+                          styles.breakdownValue,
+                          { color: selectedActivity.impacts.sleep.immediate >= 0 ? theme.colors.success : theme.colors.error }
+                        ]}>
+                          {selectedActivity.impacts.sleep.immediate > 0 ? '+' : ''}{(selectedActivity.impacts.sleep.immediate * 100).toFixed(0)}%
+                        </Text>
+                      </View>
+
+                      <View style={styles.breakdownItem}>
+                        <Text style={[styles.breakdownLabel, { color: theme.colors.textSecondary }]}>
+                          Next Day
+                        </Text>
+                        <View style={styles.breakdownBar}>
+                          <View 
+                            style={[
+                              styles.breakdownFill, 
+                              { 
+                                width: `${Math.abs(selectedActivity.impacts.sleep.nextDay) * 100}%`,
+                                backgroundColor: selectedActivity.impacts.sleep.nextDay >= 0 
+                                  ? theme.colors.success 
+                                  : theme.colors.error
+                              }
+                            ]} 
+                          />
+                        </View>
+                        <Text style={[
+                          styles.breakdownValue,
+                          { color: selectedActivity.impacts.sleep.nextDay >= 0 ? theme.colors.success : theme.colors.error }
+                        ]}>
+                          {selectedActivity.impacts.sleep.nextDay > 0 ? '+' : ''}{(selectedActivity.impacts.sleep.nextDay * 100).toFixed(0)}%
+                        </Text>
+                      </View>
+                    </View>
+
+                    {/* Clarity & Productivity Quick View */}
+                    <View style={styles.quickMetricsRow}>
+                      <View style={styles.quickMetric}>
+                        <Text style={[styles.quickMetricLabel, { color: theme.colors.textSecondary }]}>
+                          🧠 Clarity
+                        </Text>
+                        <Text style={[styles.quickMetricValue, { 
+                          color: selectedActivity.impacts.clarity.immediate >= 0 
+                            ? theme.colors.success 
+                            : theme.colors.error 
+                        }]}>
+                          {selectedActivity.impacts.clarity.immediate > 0 ? '+' : ''}{(selectedActivity.impacts.clarity.immediate * 100).toFixed(0)}%
+                        </Text>
+                      </View>
+                      <View style={styles.quickMetric}>
+                        <Text style={[styles.quickMetricLabel, { color: theme.colors.textSecondary }]}>
+                          ⚡ Productivity
+                        </Text>
+                        <Text style={[styles.quickMetricValue, { 
+                          color: selectedActivity.impacts.productivity.immediate >= 0 
+                            ? theme.colors.success 
+                            : theme.colors.error 
+                        }]}>
+                          {selectedActivity.impacts.productivity.immediate > 0 ? '+' : ''}{(selectedActivity.impacts.productivity.immediate * 100).toFixed(0)}%
+                        </Text>
+                      </View>
+                    </View>
+                  </View>
+
+                  {/* Correlation Data */}
+                  <View style={styles.correlationSection}>
+                    <View style={styles.sectionHeaderWithHelp}>
+                      <Text style={[styles.breakdownTitle, { color: theme.colors.text }]}>
+                        Statistical Correlations
+                      </Text>
+                      <HelpIcon tooltipId="correlation" />
+                    </View>
+                    <Tooltip tooltipId="correlation" />
+                    <View style={styles.correlationGrid}>
+                      <View style={styles.correlationItem}>
+                        <Text style={[styles.correlationLabel, { color: theme.colors.textSecondary }]}>
+                          Mood
+                        </Text>
+                        <Text style={[styles.correlationValue, { color: theme.colors.text }]}>
+                          r = {selectedActivity.correlations.mood.toFixed(2)}
+                        </Text>
+                      </View>
+                      <View style={styles.correlationItem}>
+                        <Text style={[styles.correlationLabel, { color: theme.colors.textSecondary }]}>
+                          Sleep
+                        </Text>
+                        <Text style={[styles.correlationValue, { color: theme.colors.text }]}>
+                          r = {selectedActivity.correlations.sleep.toFixed(2)}
+                        </Text>
+                      </View>
+                      <View style={styles.correlationItem}>
+                        <Text style={[styles.correlationLabel, { color: theme.colors.textSecondary }]}>
+                          Clarity
+                        </Text>
+                        <Text style={[styles.correlationValue, { color: theme.colors.text }]}>
+                          r = {selectedActivity.correlations.clarity.toFixed(2)}
+                        </Text>
+                      </View>
+                      <View style={styles.correlationItem}>
+                        <Text style={[styles.correlationLabel, { color: theme.colors.textSecondary }]}>
+                          Productivity
+                        </Text>
+                        <Text style={[styles.correlationValue, { color: theme.colors.text }]}>
+                          r = {selectedActivity.correlations.productivity.toFixed(2)}
+                        </Text>
+                      </View>
+                    </View>
+                    <Text style={[styles.correlationNote, { color: theme.colors.textSecondary }]}>
+                      Correlation coefficient (r) ranges from -1 (negative) to +1 (positive)
+                    </Text>
                   </View>
                 </>
               )}
@@ -682,10 +829,27 @@ const styles = StyleSheet.create({
   activityDetails: {
     flex: 1,
   },
+  activityHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 4,
+  },
   activityName: {
     fontSize: 15,
     fontWeight: '600',
-    marginBottom: 4,
+    flex: 1,
+  },
+  confidenceBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+    marginLeft: 8,
+  },
+  confidenceText: {
+    fontSize: 10,
+    fontWeight: '700',
+    textTransform: 'uppercase',
   },
   activityMeta: {
     flexDirection: 'row',
@@ -695,6 +859,16 @@ const styles = StyleSheet.create({
   activityFrequency: {
     fontSize: 12,
     fontWeight: '500',
+  },
+  trendBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+    marginLeft: 8,
+  },
+  trendText: {
+    fontSize: 10,
+    fontWeight: '600',
   },
   impactIndicators: {
     flexDirection: 'row',
@@ -707,22 +881,89 @@ const styles = StyleSheet.create({
   },
   activityImpact: {
     marginLeft: 12,
+    alignItems: 'center',
+    gap: 4,
   },
   impactBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
     borderRadius: 12,
-    gap: 4,
+    minWidth: 50,
+    alignItems: 'center',
+  },
+  impactScore: {
+    fontSize: 20,
+    fontWeight: '700',
+  },
+  impactLabel: {
+    fontSize: 10,
+    fontWeight: '600',
   },
   trendIcon: {
     fontSize: 14,
     fontWeight: '700',
   },
-  impactLabel: {
-    fontSize: 12,
+  dimensionSection: {
+    marginBottom: 20,
+    paddingBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(128, 128, 128, 0.1)',
+  },
+  dimensionTitle: {
+    fontSize: 15,
     fontWeight: '600',
+    marginBottom: 12,
+  },
+  quickMetricsRow: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 12,
+  },
+  quickMetric: {
+    flex: 1,
+    padding: 12,
+    borderRadius: 12,
+    backgroundColor: 'rgba(128, 128, 128, 0.05)',
+    alignItems: 'center',
+  },
+  quickMetricLabel: {
+    fontSize: 12,
+    fontWeight: '500',
+    marginBottom: 4,
+  },
+  quickMetricValue: {
+    fontSize: 18,
+    fontWeight: '700',
+  },
+  correlationSection: {
+    marginBottom: 20,
+  },
+  correlationGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+    marginBottom: 8,
+  },
+  correlationItem: {
+    flex: 1,
+    minWidth: '45%',
+    padding: 12,
+    borderRadius: 12,
+    backgroundColor: 'rgba(128, 128, 128, 0.05)',
+  },
+  correlationLabel: {
+    fontSize: 11,
+    fontWeight: '500',
+    marginBottom: 4,
+  },
+  correlationValue: {
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  correlationNote: {
+    fontSize: 11,
+    fontStyle: 'italic',
+    marginTop: 8,
   },
   modalOverlay: {
     flex: 1,
@@ -733,6 +974,7 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     maxHeight: '85%',
+    backgroundColor: 'transparent', // Will be set dynamically in render
   },
   modalHeader: {
     flexDirection: 'row',
@@ -866,6 +1108,57 @@ const styles = StyleSheet.create({
   },
   recommendationText: {
     flex: 1,
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  // Help Icon & Tooltip Styles
+  sectionHeaderWithHelp: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  statBoxHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+    marginBottom: 4,
+  },
+  helpIconButton: {
+    padding: 2,
+  },
+  helpIconCircle: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    borderWidth: 1.5,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  helpIconText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  tooltipOverlay: {
+    position: 'absolute',
+    top: 25,
+    left: 0,
+    right: 0,
+    zIndex: 1000,
+  },
+  tooltipBox: {
+    padding: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    marginHorizontal: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  tooltipText: {
     fontSize: 13,
     lineHeight: 18,
   },

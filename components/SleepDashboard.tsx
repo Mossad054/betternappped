@@ -11,13 +11,14 @@ import {
 } from 'react-native';
 import { useTheme } from '@/contexts/ThemeContext';
 import { AnalyticsService } from '@/services/analytics.service';
+import { CorrelationService, CorrelationResult } from '@/services/analytics/correlation.service';
 import Svg, { Circle, Path, Defs, LinearGradient, Stop } from 'react-native-svg';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 interface SleepDashboardProps {
   userId: string;
-  period: 'week' | 'month' | 'year';
+  period: 'today' | 'week' | 'month' | 'year';
   sleepTarget?: number;
 }
 
@@ -29,7 +30,19 @@ export default function SleepDashboard({
   const { theme } = useTheme();
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<any>(null);
+  const [correlations, setCorrelations] = useState<{
+    sleepMood: CorrelationResult | null;
+    sleepClarity: CorrelationResult | null;
+    sleepProductivity: CorrelationResult | null;
+  }>({ sleepMood: null, sleepClarity: null, sleepProductivity: null });
+  const [comparison, setComparison] = useState<{
+    mood: { goodSleep: number; poorSleep: number; difference: number; percentChange: number };
+    clarity: { goodSleep: number; poorSleep: number; difference: number; percentChange: number };
+    productivity: { goodSleep: number; poorSleep: number; difference: number; percentChange: number };
+    sampleSize: { goodSleep: number; poorSleep: number };
+  } | null>(null);
   const [fadeAnim] = useState(new Animated.Value(0));
+  const [recommendations, setRecommendations] = useState<string[]>([]);
 
   useEffect(() => {
     loadSleepData();
@@ -38,25 +51,170 @@ export default function SleepDashboard({
   const loadSleepData = async () => {
     setLoading(true);
     try {
-      console.log('🛌 Loading sleep dashboard data...');
-      const result = await AnalyticsService.getSleepTrackingAnalysis(userId, period, sleepTarget);
+      console.log(`🛌 Loading sleep dashboard data for period: ${period}...`);
+      
+      // Calculate date range based on the main period filter
+      const getDateRangeForPeriod = (selectedPeriod: 'today' | 'week' | 'month' | 'year') => {
+        const now = new Date();
+        const endDate = now.toISOString().split('T')[0];
+        let startDate: string;
+        
+        if (selectedPeriod === 'today') {
+          startDate = endDate;
+        } else if (selectedPeriod === 'week') {
+          const start = new Date(now);
+          start.setDate(now.getDate() - 7);
+          startDate = start.toISOString().split('T')[0];
+        } else if (selectedPeriod === 'month') {
+          const start = new Date(now);
+          start.setDate(now.getDate() - 30);
+          startDate = start.toISOString().split('T')[0];
+        } else { // year
+          const start = new Date(now);
+          start.setDate(now.getDate() - 365);
+          startDate = start.toISOString().split('T')[0];
+        }
+        
+        return { start: startDate, end: endDate };
+      };
+      
+      const dateRange = getDateRangeForPeriod(period);
+      
+      // Convert period for analytics service (it doesn't support 'today')
+      const analyticsPeriod = period === 'today' ? 'week' : period;
+      
+      // Load sleep analytics, correlations, and comparison data in parallel
+      const [sleepResult, sleepMoodCorr, sleepClarityCorr, sleepProductivityCorr, comparisonResult] = await Promise.all([
+        AnalyticsService.getSleepTrackingAnalysis(userId, analyticsPeriod, sleepTarget),
+        CorrelationService.calculateCorrelation({
+          userId,
+          factorType: 'sleep',
+          outcomeType: 'mood',
+          lagDays: 0, // Same day correlation
+          dateRange,
+        }),
+        CorrelationService.calculateCorrelation({
+          userId,
+          factorType: 'sleep',
+          outcomeType: 'clarity',
+          lagDays: 0, // Same day correlation
+          dateRange,
+        }),
+        CorrelationService.calculateCorrelation({
+          userId,
+          factorType: 'sleep',
+          outcomeType: 'productivity',
+          lagDays: 0, // Same day correlation
+          dateRange,
+        }),
+        AnalyticsService.getSleepCorrelationComparison(userId, dateRange, sleepTarget),
+      ]);
 
-      if (result.data) {
-        setData(result.data);
+      if (sleepResult.data) {
+        setData(sleepResult.data);
+        setCorrelations({
+          sleepMood: sleepMoodCorr,
+          sleepClarity: sleepClarityCorr,
+          sleepProductivity: sleepProductivityCorr,
+        });
+
+        // Set comparison data
+        if (comparisonResult.data) {
+          setComparison(comparisonResult.data);
+        }
+
+        // Generate recommendations based on correlations
+        generateRecommendations(sleepMoodCorr, sleepClarityCorr, sleepProductivityCorr, sleepResult.data);
 
         Animated.timing(fadeAnim, {
           toValue: 1,
           duration: 600,
           useNativeDriver: true,
         }).start();
+        
+        console.log('✅ Sleep correlations loaded:', {
+          sleepMood: sleepMoodCorr?.coefficient || 'none',
+          sleepClarity: sleepClarityCorr?.coefficient || 'none',
+          sleepProductivity: sleepProductivityCorr?.coefficient || 'none',
+        });
       } else {
-        console.error('❌ Failed to load sleep data:', result.error);
+        console.error('❌ Failed to load sleep data:', sleepResult.error);
       }
     } catch (error) {
       console.error('❌ Error loading sleep data:', error);
     } finally {
       setLoading(false);
     }
+  };
+
+  const generateRecommendations = (
+    moodCorr: CorrelationResult | null,
+    clarityCorr: CorrelationResult | null,
+    productivityCorr: CorrelationResult | null,
+    sleepData: any
+  ) => {
+    const recs: string[] = [];
+
+    // Analyze sleep duration
+    if (sleepData.summary?.avgSleep) {
+      const avgSleep = sleepData.summary.avgSleep;
+      if (avgSleep < 6) {
+        recs.push('⚠️ You\'re averaging less than 6 hours of sleep. Aim for 7-9 hours to improve overall well-being.');
+      } else if (avgSleep < 7) {
+        recs.push('💤 Try adding 30-60 minutes to your sleep duration to reach the recommended 7-9 hours.');
+      } else if (avgSleep >= 8 && avgSleep <= 9) {
+        recs.push('✨ Great! You\'re hitting the optimal sleep duration of 7-9 hours.');
+      }
+    }
+
+    // Mood correlation recommendations
+    if (moodCorr && moodCorr.pValue < 0.05) {
+      if (moodCorr.coefficient > 0.3) {
+        recs.push('😊 Better sleep significantly improves your mood. Prioritize consistent sleep schedules.');
+      } else if (moodCorr.coefficient < -0.3) {
+        recs.push('🔍 Longer sleep correlates with lower mood. Consider sleep quality over quantity.');
+      }
+    }
+
+    // Mental clarity correlation recommendations
+    if (clarityCorr && clarityCorr.pValue < 0.05) {
+      if (clarityCorr.coefficient > 0.3) {
+        recs.push('🧠 Quality sleep enhances your mental clarity. Maintain your sleep routine for peak performance.');
+      } else if (clarityCorr.coefficient < -0.3) {
+        recs.push('💡 Review your sleep environment - quality matters more than duration for mental clarity.');
+      }
+    }
+
+    // Productivity correlation recommendations
+    if (productivityCorr && productivityCorr.pValue < 0.05) {
+      if (productivityCorr.coefficient > 0.3) {
+        recs.push('📈 Your productivity thrives on good sleep. Keep maintaining consistent sleep habits.');
+      }
+    }
+
+    // Sleep quality recommendations
+    if (sleepData.summary?.qualityAvg) {
+      const qualityAvg = sleepData.summary.qualityAvg;
+      if (qualityAvg < 3) {
+        recs.push('🌙 Low sleep quality detected. Try improving your sleep environment: dark room, cool temperature, comfortable bedding.');
+      } else if (qualityAvg >= 4) {
+        recs.push('⭐ Excellent sleep quality! Your sleep hygiene practices are working well.');
+      }
+    }
+
+    // Consistency recommendations
+    if (sleepData.summary?.consistency) {
+      if (sleepData.summary.consistency < 0.7) {
+        recs.push('⏰ Inconsistent sleep schedule detected. Try going to bed and waking up at similar times daily.');
+      }
+    }
+
+    // Default recommendation if no specific patterns found
+    if (recs.length === 0) {
+      recs.push('📊 Keep tracking your sleep to discover personalized insights and recommendations.');
+    }
+
+    setRecommendations(recs.slice(0, 3)); // Limit to top 3 recommendations
   };
 
   const renderDonutChart = (percentage: number, label: string, size: number = 160) => {
@@ -197,7 +355,25 @@ export default function SleepDashboard({
   const renderAreaChart = () => {
     if (!data || !data.dailyData || data.dailyData.length === 0) return null;
 
-    const dailyData = data.dailyData.slice(-7); // Last 7 days
+    // Filter data based on main period prop
+    let daysToShow = 7;
+    if (period === 'today') daysToShow = 1;
+    else if (period === 'week') daysToShow = 7;
+    else if (period === 'month') daysToShow = 30;
+    else if (period === 'year') daysToShow = 365;
+
+    const dailyData = data.dailyData.slice(-daysToShow);
+    
+    if (dailyData.length === 0) {
+      return (
+        <View style={styles.noDataContainer}>
+          <Text style={[styles.noDataText, { color: theme.colors.textSecondary }]}>
+            No sleep data available for this period
+          </Text>
+        </View>
+      );
+    }
+
     const chartWidth = SCREEN_WIDTH - 80;
     const chartHeight = 120;
     const padding = { top: 10, right: 10, bottom: 20, left: 30 };
@@ -248,17 +424,39 @@ export default function SleepDashboard({
 
         {/* X-axis labels */}
         <View style={styles.xAxisLabels}>
-          {dailyData.map((day: any, index: number) => (
-            <Text
-              key={index}
-              style={[
-                styles.xAxisLabel,
-                { color: theme.colors.textSecondary, left: padding.left + index * xStep - 10 },
-              ]}
-            >
-              {index}
-            </Text>
-          ))}
+          {dailyData.map((day: any, index: number) => {
+            // Show labels based on period
+            let label = '';
+            if (period === 'today') {
+              label = 'Today';
+            } else if (period === 'year') {
+              // Show month abbreviations for year view
+              const date = new Date(day.date);
+              label = date.toLocaleString('default', { month: 'short' });
+            } else {
+              // Show day number for week/month view
+              label = String(index + 1);
+            }
+            
+            // Only show some labels to avoid crowding
+            const shouldShow = period === 'year' 
+              ? index % Math.ceil(dailyData.length / 6) === 0
+              : period === 'month'
+              ? index % 5 === 0
+              : true;
+            
+            return shouldShow ? (
+              <Text
+                key={index}
+                style={[
+                  styles.xAxisLabel,
+                  { color: theme.colors.textSecondary, left: padding.left + index * xStep - 10 },
+                ]}
+              >
+                {label}
+              </Text>
+            ) : null;
+          })}
         </View>
       </View>
     );
@@ -281,10 +479,10 @@ export default function SleepDashboard({
       <View style={styles.barChartSection}>
         <View style={styles.barChartHeader}>
           <Text style={[styles.barChartTitle, { color: theme.colors.text }]}>
-            Your Insights
+            Sleep Duration Trend
           </Text>
           <Text style={[styles.barChartSubtitle, { color: theme.colors.textSecondary }]}>
-            Updated 1 week ago • {period === 'week' ? 'July 2025' : period === 'month' ? 'Last 30 days' : 'Last 12 months'}
+            {period === 'week' ? 'Last 7 days' : period === 'month' ? 'Last 30 days' : period === 'year' ? 'Last 12 months' : 'Today'}
           </Text>
         </View>
 
@@ -309,6 +507,254 @@ export default function SleepDashboard({
             );
           })}
         </View>
+      </View>
+    );
+  };
+
+  const getSignificanceBadge = (pValue: number) => {
+    if (pValue < 0.001) return { label: 'Highly Significant', color: '#10B981' };
+    if (pValue < 0.01) return { label: 'Very Significant', color: '#3B82F6' };
+    if (pValue < 0.05) return { label: 'Significant', color: '#6366F1' };
+    return { label: 'Not Significant', color: '#9CA3AF' };
+  };
+
+  const getStrengthLabel = (coefficient: number) => {
+    const abs = Math.abs(coefficient);
+    if (abs >= 0.7) return 'Strong';
+    if (abs >= 0.4) return 'Moderate';
+    if (abs >= 0.2) return 'Weak';
+    return 'Very Weak';
+  };
+
+  const renderSimplifiedCorrelationCard = (
+    title: string,
+    icon: string,
+    correlation: CorrelationResult | null,
+    impactDescription: string,
+    comparisonData?: { goodSleep: number; poorSleep: number; difference: number; percentChange: number }
+  ) => {
+    if (!correlation) {
+      return (
+        <View style={[styles.simplifiedCorrelationCard, { backgroundColor: theme.colors.border + '20' }]}>
+          <View style={styles.correlationHeader}>
+            <Text style={styles.correlationIcon}>{icon}</Text>
+            <Text style={[styles.correlationTitle, { color: theme.colors.text }]}>{title}</Text>
+          </View>
+          <Text style={[styles.correlationNoData, { color: theme.colors.textSecondary }]}>
+            Not enough data yet
+          </Text>
+        </View>
+      );
+    }
+
+    const isSignificant = correlation.pValue < 0.05;
+    const impactLevel = Math.abs(correlation.coefficient);
+    const isPositive = correlation.coefficient > 0;
+
+    // Determine colors based on correlation direction
+    const barColor = isPositive ? '#10B981' : '#EF4444';
+    const changeColor = comparisonData && comparisonData.percentChange > 0 ? '#10B981' :
+                        comparisonData && comparisonData.percentChange < 0 ? '#EF4444' : theme.colors.textSecondary;
+
+    return (
+      <View
+        style={[
+          styles.simplifiedCorrelationCard,
+          {
+            backgroundColor: isSignificant
+              ? theme.colors.primary + '10'
+              : theme.colors.border + '20',
+          },
+        ]}
+      >
+        <View style={styles.correlationHeader}>
+          <Text style={styles.correlationIcon}>{icon}</Text>
+          <Text style={[styles.correlationTitle, { color: theme.colors.text }]}>{title}</Text>
+        </View>
+
+        {/* Correlation Bar */}
+        <View style={styles.correlationBarContainer}>
+          <View style={[styles.correlationBarBackground, { backgroundColor: theme.colors.border }]}>
+            <View
+              style={[
+                styles.correlationBarFill,
+                {
+                  width: `${Math.min(impactLevel * 100, 100)}%`,
+                  backgroundColor: barColor,
+                }
+              ]}
+            />
+          </View>
+          <Text style={[styles.correlationBarLabel, { color: theme.colors.textSecondary }]}>
+            {correlation.strength === 'none' ? 'No correlation' :
+             correlation.strength === 'weak' ? 'Weak' :
+             correlation.strength === 'moderate' ? 'Moderate' :
+             correlation.strength === 'strong' ? 'Strong' : 'Very Strong'}
+            {isSignificant ? '' : ' (not significant)'}
+          </Text>
+        </View>
+
+        {/* Comparison Metrics */}
+        {comparisonData && (comparisonData.goodSleep > 0 || comparisonData.poorSleep > 0) && (
+          <View style={styles.comparisonContainer}>
+            <View style={styles.comparisonRow}>
+              <View style={styles.comparisonItem}>
+                <View style={[styles.comparisonDot, { backgroundColor: '#10B981' }]} />
+                <Text style={[styles.comparisonLabel, { color: theme.colors.textSecondary }]}>
+                  Good sleep ({sleepTarget}h+)
+                </Text>
+                <Text style={[styles.comparisonValue, { color: theme.colors.text }]}>
+                  {comparisonData.goodSleep.toFixed(1)}
+                </Text>
+              </View>
+              <View style={styles.comparisonItem}>
+                <View style={[styles.comparisonDot, { backgroundColor: '#F59E0B' }]} />
+                <Text style={[styles.comparisonLabel, { color: theme.colors.textSecondary }]}>
+                  Poor sleep ({'<'}{sleepTarget}h)
+                </Text>
+                <Text style={[styles.comparisonValue, { color: theme.colors.text }]}>
+                  {comparisonData.poorSleep.toFixed(1)}
+                </Text>
+              </View>
+            </View>
+
+            {comparisonData.percentChange !== 0 && (
+              <View style={[styles.changeIndicator, { backgroundColor: changeColor + '15' }]}>
+                <Text style={[styles.changeText, { color: changeColor }]}>
+                  {comparisonData.percentChange > 0 ? '↑' : '↓'} {Math.abs(comparisonData.percentChange)}%
+                  {comparisonData.percentChange > 0 ? ' better' : ' lower'} with good sleep
+                </Text>
+              </View>
+            )}
+          </View>
+        )}
+
+        {/* Sample size */}
+        {correlation.sampleSize && (
+          <Text style={[styles.sampleText, { color: theme.colors.textSecondary }]}>
+            Based on {correlation.sampleSize} days of data
+          </Text>
+        )}
+      </View>
+    );
+  };
+
+  const renderCorrelationCard = (
+    title: string,
+    icon: string,
+    correlation: CorrelationResult | null
+  ) => {
+    if (!correlation) {
+      return (
+        <View style={[styles.correlationCard, { backgroundColor: theme.colors.border + '20' }]}>
+          <View style={styles.correlationHeader}>
+            <Text style={styles.correlationIcon}>{icon}</Text>
+            <Text style={[styles.correlationTitle, { color: theme.colors.text }]}>{title}</Text>
+          </View>
+          <Text style={[styles.correlationNoData, { color: theme.colors.textSecondary }]}>
+            Not enough data yet
+          </Text>
+        </View>
+      );
+    }
+
+    const significance = getSignificanceBadge(correlation.pValue);
+    const strength = getStrengthLabel(correlation.coefficient);
+    const direction = correlation.coefficient > 0 ? 'positive' : 'negative';
+    const isSignificant = correlation.pValue < 0.05;
+
+    return (
+      <View
+        style={[
+          styles.correlationCard,
+          {
+            backgroundColor: isSignificant
+              ? theme.colors.primary + '10'
+              : theme.colors.border + '20',
+          },
+        ]}
+      >
+        <View style={styles.correlationHeader}>
+          <Text style={styles.correlationIcon}>{icon}</Text>
+          <Text style={[styles.correlationTitle, { color: theme.colors.text }]}>{title}</Text>
+        </View>
+
+        {/* Coefficient */}
+        <View style={styles.correlationMetrics}>
+          <View style={styles.correlationMainStat}>
+            <Text
+              style={[
+                styles.correlationCoefficient,
+                {
+                  color:
+                    correlation.coefficient > 0
+                      ? theme.colors.success
+                      : theme.colors.error,
+                },
+              ]}
+            >
+              {correlation.coefficient > 0 ? '+' : ''}
+              {correlation.coefficient.toFixed(3)}
+            </Text>
+            <Text style={[styles.correlationStrength, { color: theme.colors.textSecondary }]}>
+              {strength} {direction}
+            </Text>
+          </View>
+
+          {/* Significance Badge */}
+          <View
+            style={[
+              styles.significanceBadge,
+              { backgroundColor: significance.color + '20' },
+            ]}
+          >
+            <Text style={[styles.significanceText, { color: significance.color }]}>
+              {significance.label}
+            </Text>
+          </View>
+        </View>
+
+        {/* Statistical Details */}
+        <View style={styles.correlationStats}>
+          <View style={styles.correlationStat}>
+            <Text style={[styles.correlationStatLabel, { color: theme.colors.textSecondary }]}>
+              p-value
+            </Text>
+            <Text style={[styles.correlationStatValue, { color: theme.colors.text }]}>
+              {correlation.pValue < 0.001 ? '<0.001' : correlation.pValue.toFixed(4)}
+            </Text>
+          </View>
+
+          <View style={styles.correlationStat}>
+            <Text style={[styles.correlationStatLabel, { color: theme.colors.textSecondary }]}>
+              95% CI
+            </Text>
+            <Text style={[styles.correlationStatValue, { color: theme.colors.text }]}>
+              [{correlation.confidenceInterval[0].toFixed(2)}, {correlation.confidenceInterval[1].toFixed(2)}]
+            </Text>
+          </View>
+
+          <View style={styles.correlationStat}>
+            <Text style={[styles.correlationStatLabel, { color: theme.colors.textSecondary }]}>
+              Sample
+            </Text>
+            <Text style={[styles.correlationStatValue, { color: theme.colors.text }]}>
+              {correlation.sampleSize} days
+            </Text>
+          </View>
+        </View>
+
+        {/* Interpretation */}
+        {isSignificant && (
+          <View style={[styles.correlationInterpretation, { backgroundColor: theme.colors.card }]}>
+            <Text style={[styles.interpretationText, { color: theme.colors.text }]}>
+              💡{' '}
+              {correlation.coefficient > 0
+                ? `Better sleep correlates with higher ${title.toLowerCase()}`
+                : `Better sleep correlates with lower ${title.toLowerCase()}`}
+            </Text>
+          </View>
+        )}
       </View>
     );
   };
@@ -350,9 +796,6 @@ export default function SleepDashboard({
         {/* Header */}
         <View style={styles.header}>
           <Text style={[styles.title, { color: theme.colors.text }]}>Sleep Tracker</Text>
-          <TouchableOpacity>
-            <Text style={[styles.seeAll, { color: theme.colors.primary }]}>See all</Text>
-          </TouchableOpacity>
         </View>
 
         {/* Main Donut Chart */}
@@ -399,9 +842,6 @@ export default function SleepDashboard({
             <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
               Sleep Quality Statistics
             </Text>
-            <TouchableOpacity>
-              <Text style={[styles.seeAll, { color: theme.colors.primary }]}>See all</Text>
-            </TouchableOpacity>
           </View>
 
           {renderAreaChart()}
@@ -427,6 +867,58 @@ export default function SleepDashboard({
             ))}
           </View>
         )}
+
+        {/* Correlations Section */}
+        <View style={styles.correlationsSection}>
+          <View style={styles.sectionHeader}>
+            <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
+              Sleep Correlations
+            </Text>
+          </View>
+          <Text style={[styles.correlationsSubtitle, { color: theme.colors.textSecondary }]}>
+            How your sleep affects your daily wellness
+          </Text>
+
+          <View style={styles.correlationsGrid}>
+            {renderSimplifiedCorrelationCard(
+              'Mood Score',
+              '😊',
+              correlations.sleepMood,
+              'mood and emotional well-being',
+              comparison?.mood
+            )}
+            {renderSimplifiedCorrelationCard(
+              'Mental Clarity',
+              '🧠',
+              correlations.sleepClarity,
+              'focus and mental sharpness',
+              comparison?.clarity
+            )}
+            {renderSimplifiedCorrelationCard(
+              'Productivity',
+              '📈',
+              correlations.sleepProductivity,
+              'productivity and task completion',
+              comparison?.productivity
+            )}
+          </View>
+
+          {/* Recommendations based on data */}
+          {recommendations.length > 0 && (
+            <View style={[styles.recommendationsBox, { backgroundColor: theme.colors.primary + '10' }]}>
+              <Text style={[styles.recommendationsTitle, { color: theme.colors.text }]}>
+                💡 Personalized Recommendations
+              </Text>
+              {recommendations.map((rec, index) => (
+                <View key={index} style={styles.recommendationItem}>
+                  <Text style={[styles.recommendationText, { color: theme.colors.text }]}>
+                    {rec}
+                  </Text>
+                </View>
+              ))}
+            </View>
+          )}
+        </View>
       </ScrollView>
     </Animated.View>
   );
@@ -451,12 +943,8 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   title: {
-    fontSize: 20,
-    fontWeight: '700',
-  },
-  seeAll: {
-    fontSize: 14,
-    fontWeight: '500',
+    fontSize: 24,
+    fontWeight: '800',
   },
   loadingContainer: {
     padding: 40,
@@ -552,8 +1040,8 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   sectionTitle: {
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: 18,
+    fontWeight: '700',
   },
   chartContainer: {
     position: 'relative',
@@ -630,5 +1118,237 @@ const styles = StyleSheet.create({
   insightText: {
     fontSize: 13,
     lineHeight: 18,
+  },
+  correlationsSection: {
+    marginTop: 24,
+  },
+  correlationsSubtitle: {
+    fontSize: 13,
+    marginBottom: 16,
+    lineHeight: 18,
+  },
+  correlationsGrid: {
+    gap: 16,
+  },
+  correlationCard: {
+    padding: 16,
+    borderRadius: 16,
+    marginBottom: 12,
+  },
+  correlationHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  correlationIcon: {
+    fontSize: 24,
+    marginRight: 8,
+  },
+  correlationTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  correlationNoData: {
+    fontSize: 13,
+    fontStyle: 'italic',
+  },
+  correlationMetrics: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  correlationMainStat: {
+    flex: 1,
+  },
+  correlationCoefficient: {
+    fontSize: 32,
+    fontWeight: '700',
+    marginBottom: 4,
+  },
+  correlationStrength: {
+    fontSize: 13,
+    fontWeight: '500',
+  },
+  significanceBadge: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+  },
+  significanceText: {
+    fontSize: 11,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+  },
+  correlationStats: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(0,0,0,0.05)',
+  },
+  correlationStat: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  correlationStatLabel: {
+    fontSize: 11,
+    marginBottom: 4,
+    textTransform: 'uppercase',
+  },
+  correlationStatValue: {
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  correlationInterpretation: {
+    marginTop: 12,
+    padding: 10,
+    borderRadius: 8,
+  },
+  interpretationText: {
+    fontSize: 12,
+    lineHeight: 18,
+  },
+  correlationLegend: {
+    marginTop: 16,
+    padding: 14,
+    borderRadius: 12,
+  },
+  legendTitle: {
+    fontSize: 13,
+    fontWeight: '600',
+    marginBottom: 8,
+  },
+  legendText: {
+    fontSize: 11,
+    lineHeight: 18,
+  },
+  simplifiedCorrelationCard: {
+    padding: 16,
+    borderRadius: 16,
+    marginBottom: 12,
+  },
+  correlationBarContainer: {
+    marginTop: 12,
+    marginBottom: 12,
+  },
+  correlationBarBackground: {
+    height: 8,
+    borderRadius: 4,
+    overflow: 'hidden',
+  },
+  correlationBarFill: {
+    height: '100%',
+    borderRadius: 4,
+  },
+  correlationBarLabel: {
+    fontSize: 11,
+    marginTop: 4,
+    fontWeight: '500',
+  },
+  comparisonContainer: {
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(0,0,0,0.05)',
+  },
+  comparisonRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  comparisonItem: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+  },
+  comparisonDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    marginRight: 6,
+  },
+  comparisonLabel: {
+    fontSize: 10,
+    marginRight: 4,
+  },
+  comparisonValue: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  changeIndicator: {
+    padding: 8,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginTop: 4,
+  },
+  changeText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  sampleText: {
+    fontSize: 11,
+    fontStyle: 'italic',
+    marginTop: 8,
+  },
+  impactContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+    marginTop: 8,
+  },
+  impactScoreContainer: {
+    alignItems: 'center',
+    minWidth: 80,
+  },
+  impactScore: {
+    fontSize: 32,
+    fontWeight: '700',
+    marginBottom: 4,
+  },
+  impactLabel: {
+    fontSize: 11,
+    fontWeight: '500',
+    textTransform: 'uppercase',
+  },
+  impactDescription: {
+    flex: 1,
+  },
+  impactText: {
+    fontSize: 13,
+    lineHeight: 18,
+    marginBottom: 4,
+  },
+  noImpactText: {
+    fontSize: 13,
+    fontStyle: 'italic',
+    marginTop: 8,
+  },
+  noDataContainer: {
+    padding: 20,
+    alignItems: 'center',
+  },
+  noDataText: {
+    fontSize: 13,
+    fontStyle: 'italic',
+  },
+  recommendationsBox: {
+    marginTop: 16,
+    padding: 16,
+    borderRadius: 12,
+  },
+  recommendationsTitle: {
+    fontSize: 15,
+    fontWeight: '600',
+    marginBottom: 12,
+  },
+  recommendationItem: {
+    marginBottom: 8,
+    paddingLeft: 4,
+  },
+  recommendationText: {
+    fontSize: 13,
+    lineHeight: 20,
   },
 });

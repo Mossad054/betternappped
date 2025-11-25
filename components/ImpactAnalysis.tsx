@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Modal, ScrollView } from 'react-native';
 import { useTheme } from '@/contexts/ThemeContext';
-import { AnalyticsService, ActivityImpactData, ActivityImpactResult } from '@/services/analytics.service';
+import { PatternsService, Pattern } from '@/services/analytics/patterns.service';
+import { ActivityImpactService, EnhancedActivityImpact } from '@/services/analytics/activityImpact.service';
 import { router } from 'expo-router';
 
 interface ImpactAnalysisProps {
@@ -12,11 +13,16 @@ interface ImpactAnalysisProps {
 export default function ImpactAnalysis({ userId, timeRange }: ImpactAnalysisProps) {
   const { theme } = useTheme();
   const [loading, setLoading] = useState(true);
-  const [impactResult, setImpactResult] = useState<ActivityImpactResult | null>(null);
+  const [patterns, setPatterns] = useState<{
+    routines: Pattern[];
+    cyclical: Pattern[];
+    warnings: Pattern[];
+  } | null>(null);
+  const [topActivities, setTopActivities] = useState<EnhancedActivityImpact[]>([]);
+  const [insights, setInsights] = useState<string[]>([]);
   const [isModalVisible, setIsModalVisible] = useState(false);
-  const [selectedActivity, setSelectedActivity] = useState<ActivityImpactData | null>(null);
-  const [showAll, setShowAll] = useState(false);
-  const [sortBy, setSortBy] = useState<'impact' | 'frequency'>('impact');
+  const [selectedPattern, setSelectedPattern] = useState<Pattern | null>(null);
+  const [activeTab, setActiveTab] = useState<'patterns' | 'activities'>('activities'); // Default to activities tab
 
   useEffect(() => {
     loadImpactData();
@@ -25,15 +31,42 @@ export default function ImpactAnalysis({ userId, timeRange }: ImpactAnalysisProp
   const loadImpactData = async () => {
     setLoading(true);
     try {
-      console.log('🔄 Loading impact data for:', timeRange);
-      const result = await AnalyticsService.getActivityImpact(userId, timeRange);
+      console.log('🔄 Loading patterns and activity impacts...');
       
-      if (result.data) {
-        setImpactResult(result.data);
-        console.log('✅ Impact data loaded:', result.data.activities.length, 'activities');
-      } else {
-        console.error('❌ Failed to load impact data:', result.error);
-      }
+      // Map timeRange to days for pattern detection
+      const daysMap = { today: 7, week: 14, month: 30, year: 90 };
+      const days = daysMap[timeRange];
+      
+      // Load patterns (flat array) and top activities in parallel
+      const [patternsFlat, activitiesResult] = await Promise.all([
+        PatternsService.detectPatterns(userId, days),
+        ActivityImpactService.analyzeActivities(userId, timeRange === 'year' ? 'quarter' : timeRange === 'today' ? 'week' : timeRange as any)
+      ]);
+
+      // Categorize patterns returned as a flat list into routines/cyclical/warnings
+      const categorized = {
+        routines: [] as Pattern[],
+        cyclical: [] as Pattern[],
+        warnings: [] as Pattern[],
+      };
+
+      (patternsFlat || []).forEach(p => {
+        if (p.type === 'routine') categorized.routines.push(p);
+        else if (p.type === 'cyclical') categorized.cyclical.push(p);
+        else if (p.type === 'warning') categorized.warnings.push(p);
+        else {
+          // Put other types into cyclical as a sensible default
+          categorized.cyclical.push(p);
+        }
+      });
+
+      setPatterns(categorized);
+      setTopActivities(activitiesResult.activities.slice(0, 10)); // Top 10 activities (increased from 3)
+      setInsights(activitiesResult.insights || []);
+
+      console.log('✅ Loaded:', categorized.routines.length, 'routines,', 
+                  categorized.warnings.length, 'warnings,', 
+                  categorized.cyclical.length, 'cyclical patterns');
     } catch (error) {
       console.error('❌ Error loading impact data:', error);
     } finally {
@@ -51,83 +84,39 @@ export default function ImpactAnalysis({ userId, timeRange }: ImpactAnalysisProp
     );
   }
 
-  if (!impactResult || impactResult.activities.length === 0) {
+  if (!patterns || (patterns.routines.length === 0 && patterns.warnings.length === 0 && patterns.cyclical.length === 0 && topActivities.length === 0)) {
     return (
       <View style={[styles.container, { backgroundColor: theme.colors.card }]}>
-        <Text style={[styles.title, { color: theme.colors.text }]}>Impact Analysis</Text>
+        <Text style={[styles.title, { color: theme.colors.text }]}>Activity Impact Analysis</Text>
         <Text style={[styles.emptyText, { color: theme.colors.textSecondary }]}>
-          {impactResult?.insights[0] || 'Log activities to see their impact on your well-being.'}
+          {insights[0] || `No activities tracked for this ${timeRange}. Keep logging your activities, mood, and sleep to discover patterns!`}
         </Text>
       </View>
     );
   }
 
-  const getImpactColor = (score: number) => {
-    if (score >= 60) return theme.colors.success;
-    if (score >= 45) return theme.colors.warning;
-    return theme.colors.error;
+  const getPatternTypeIcon = (type: string) => {
+    if (type === 'routine') return '✨';
+    if (type === 'cyclical') return '📅';
+    if (type === 'warning') return '⚠️';
+    return '💡';
   };
 
-  const getImpactBadge = (score: number) => {
-    if (score >= 60) return { text: 'Positive', emoji: '✨' };
-    if (score >= 45) return { text: 'Neutral', emoji: '🔄' };
-    return { text: 'Negative', emoji: '⚠️' };
+  const getPatternTypeColor = (type: string) => {
+    if (type === 'routine') return theme.colors.success;
+    if (type === 'cyclical') return theme.colors.primary;
+    if (type === 'warning') return theme.colors.error;
+    return theme.colors.textSecondary;
   };
 
-  const getTrendIcon = (trend: string) => {
-    if (trend === 'up') return '📈';
-    if (trend === 'down') return '📉';
-    return '➡️';
-  };
-
-  const sortedActivities = [...impactResult.activities].sort((a, b) => {
-    if (sortBy === 'impact') {
-      return b.impactScore - a.impactScore;
-    } else {
-      return b.frequencyPercent - a.frequencyPercent;
-    }
-  });
-
-  const displayedActivities = showAll ? sortedActivities : sortedActivities.slice(0, 5);
-
-  const openActivityDetail = (activity: ActivityImpactData) => {
-    setSelectedActivity(activity);
-    setIsModalVisible(true);
-  };
-
-  const handleConvertToHabit = () => {
-    if (!selectedActivity) return;
-    setIsModalVisible(false);
-    // Navigate to habit creation with pre-filled data
-    router.push({
-      pathname: '/habit-library',
-      params: {
-        prefill: 'true',
-        name: selectedActivity.activityName,
-        category: selectedActivity.category,
-        emoji: selectedActivity.emoji,
-      }
-    });
-  };
-
-  const handleRunExperiment = () => {
-    if (!selectedActivity) return;
-    setIsModalVisible(false);
-    // Navigate to experiment creation with pre-filled data
-    router.push({
-      pathname: '/create-experiment',
-      params: {
-        prefill: 'true',
-        activity: selectedActivity.activityName,
-        category: selectedActivity.category,
-      }
-    });
+  const getSeverityColor = (severity?: string) => {
+    if (severity === 'high') return theme.colors.error;
+    if (severity === 'medium') return theme.colors.warning;
+    return theme.colors.textSecondary;
   };
 
   const renderModal = () => {
-    if (!selectedActivity) return null;
-
-    const badge = getImpactBadge(selectedActivity.impactScore);
+    if (!selectedPattern) return null;
 
     return (
       <Modal
@@ -137,167 +126,115 @@ export default function ImpactAnalysis({ userId, timeRange }: ImpactAnalysisProp
         onRequestClose={() => setIsModalVisible(false)}
       >
         <View style={[styles.modalContainer, { backgroundColor: 'rgba(0,0,0,0.7)' }]}>
-          <ScrollView style={[styles.modalContent, { backgroundColor: theme.colors.card }]}>
+          <ScrollView style={[styles.modalContent, { backgroundColor: theme.colors.background }]}>
             {/* Header */}
             <View style={styles.modalHeader}>
               <Text style={[styles.modalTitle, { color: theme.colors.text }]}>
-                {selectedActivity.emoji} {selectedActivity.activityName}
+                {getPatternTypeIcon(selectedPattern.type)} {selectedPattern.name}
               </Text>
               <TouchableOpacity onPress={() => setIsModalVisible(false)}>
                 <Text style={[styles.closeX, { color: theme.colors.textSecondary }]}>✕</Text>
               </TouchableOpacity>
             </View>
 
-            {/* Category Badge */}
-            <View style={[styles.categoryBadge, { backgroundColor: theme.colors.border }]}>
-              <Text style={[styles.categoryBadgeText, { color: theme.colors.text }]}>
-                {selectedActivity.category}
+            {/* Type Badge */}
+            <View style={[styles.typeBadge, { backgroundColor: getPatternTypeColor(selectedPattern.type) + '20' }]}>
+              <Text style={[styles.typeBadgeText, { color: getPatternTypeColor(selectedPattern.type) }]}>
+                {selectedPattern.type.toUpperCase()}
               </Text>
             </View>
 
-            {/* Impact Score */}
+            {/* Description */}
             <View style={styles.modalSection}>
               <Text style={[styles.modalSectionTitle, { color: theme.colors.text }]}>
-                Impact Score
+                What We Found
               </Text>
-              <View style={styles.scoreRow}>
-                <Text style={[styles.scoreValue, { color: getImpactColor(selectedActivity.impactScore) }]}>
-                  {selectedActivity.impactScore}/100
-                </Text>
-                <View style={[styles.badgePill, { backgroundColor: getImpactColor(selectedActivity.impactScore) + '20' }]}>
-                  <Text style={[styles.badgeText, { color: getImpactColor(selectedActivity.impactScore) }]}>
-                    {badge.emoji} {badge.text}
-                  </Text>
-                </View>
-              </View>
+              <Text style={[styles.descriptionText, { color: theme.colors.text }]}>
+                {selectedPattern.description}
+              </Text>
             </View>
 
-            {/* Confidence & Trend */}
+            {/* Confidence & Occurrences */}
             <View style={styles.modalSection}>
               <View style={styles.infoRow}>
                 <View style={styles.infoItem}>
                   <Text style={[styles.infoLabel, { color: theme.colors.textSecondary }]}>Confidence</Text>
                   <Text style={[styles.infoValue, { color: theme.colors.text }]}>
-                    {selectedActivity.confidence.toUpperCase()}
+                    {typeof selectedPattern.confidence === 'number'
+                      ? `${Math.round(selectedPattern.confidence * 100)}%`
+                      : String(selectedPattern.confidence)}
                   </Text>
                 </View>
                 <View style={styles.infoItem}>
-                  <Text style={[styles.infoLabel, { color: theme.colors.textSecondary }]}>Trend</Text>
+                  <Text style={[styles.infoLabel, { color: theme.colors.textSecondary }]}>Occurrences</Text>
                   <Text style={[styles.infoValue, { color: theme.colors.text }]}>
-                    {getTrendIcon(selectedActivity.trend)} {selectedActivity.trend.toUpperCase()}
+                    {selectedPattern.frequency}x
                   </Text>
                 </View>
-                <View style={styles.infoItem}>
-                  <Text style={[styles.infoLabel, { color: theme.colors.textSecondary }]}>Frequency</Text>
-                  <Text style={[styles.infoValue, { color: theme.colors.text }]}>
-                    {selectedActivity.frequencyPercent}%
-                  </Text>
-                </View>
-              </View>
-              {selectedActivity.confidence === 'low' && (
-                <View style={[styles.warningBox, { backgroundColor: theme.colors.warning + '20', borderColor: theme.colors.warning }]}>
-                  <Text style={[styles.warningText, { color: theme.colors.warning }]}>
-                    ⚠️ Limited data - keep logging for more accurate insights
-                  </Text>
-                </View>
-              )}
-            </View>
-
-            {/* Metric Changes */}
-            <View style={styles.modalSection}>
-              <Text style={[styles.modalSectionTitle, { color: theme.colors.text }]}>
-                Average Changes
-              </Text>
-              <View style={styles.metricGrid}>
-                <View style={styles.metricCard}>
-                  <Text style={[styles.metricLabel, { color: theme.colors.textSecondary }]}>😊 Mood</Text>
-                  <Text style={[styles.metricValue, { color: selectedActivity.avgMoodChange > 0 ? theme.colors.success : theme.colors.error }]}>
-                    {selectedActivity.avgMoodChange > 0 ? '+' : ''}{selectedActivity.avgMoodChange.toFixed(2)}
-                  </Text>
-                </View>
-                <View style={styles.metricCard}>
-                  <Text style={[styles.metricLabel, { color: theme.colors.textSecondary }]}>😴 Sleep</Text>
-                  <Text style={[styles.metricValue, { color: selectedActivity.avgSleepChange > 0 ? theme.colors.success : theme.colors.error }]}>
-                    {selectedActivity.avgSleepChange > 0 ? '+' : ''}{selectedActivity.avgSleepChange.toFixed(2)}
-                  </Text>
-                </View>
-                <View style={styles.metricCard}>
-                  <Text style={[styles.metricLabel, { color: theme.colors.textSecondary }]}>🧠 Clarity</Text>
-                  <Text style={[styles.metricValue, { color: selectedActivity.avgClarityChange > 0 ? theme.colors.success : theme.colors.error }]}>
-                    {selectedActivity.avgClarityChange > 0 ? '+' : ''}{selectedActivity.avgClarityChange.toFixed(2)}
-                  </Text>
-                </View>
-                <View style={styles.metricCard}>
-                  <Text style={[styles.metricLabel, { color: theme.colors.textSecondary }]}>⚡ Productivity</Text>
-                  <Text style={[styles.metricValue, { color: selectedActivity.avgProductivityChange > 0 ? theme.colors.success : theme.colors.error }]}>
-                    {selectedActivity.avgProductivityChange > 0 ? '+' : ''}{selectedActivity.avgProductivityChange.toFixed(2)}
-                  </Text>
-                </View>
+                {selectedPattern.severity && (
+                  <View style={styles.infoItem}>
+                    <Text style={[styles.infoLabel, { color: theme.colors.textSecondary }]}>Severity</Text>
+                    <Text style={[styles.infoValue, { color: getSeverityColor(selectedPattern.severity) }]}>
+                      {selectedPattern.severity.toUpperCase()}
+                    </Text>
+                  </View>
+                )}
               </View>
             </View>
 
-            {/* Correlations */}
+            {/* Evidence */}
+            {selectedPattern.evidence && selectedPattern.evidence.length > 0 && (
+              <View style={styles.modalSection}>
+                <Text style={[styles.modalSectionTitle, { color: theme.colors.text }]}>
+                  Evidence
+                </Text>
+                {selectedPattern.evidence.map((item: any, idx: number) => (
+                  <View key={idx} style={[styles.evidenceItem, { backgroundColor: theme.colors.border + '10', padding: 8, borderRadius: 8 }]}>
+                    <Text style={[styles.evidenceText, { color: theme.colors.text }]}>
+                      • {item.date || item.context || item.metric} — {item.metric}: {typeof item.value === 'number' ? item.value : String(item.value)}{item.context ? ` (${item.context})` : ''}
+                    </Text>
+                  </View>
+                ))}
+              </View>
+            )}
+
+            {/* Recommendation */}
             <View style={styles.modalSection}>
               <Text style={[styles.modalSectionTitle, { color: theme.colors.text }]}>
-                Correlations
+                Recommendation
               </Text>
-              <View style={styles.correlationList}>
-                {['mood', 'sleep', 'clarity', 'productivity'].map((metric) => {
-                  const value = selectedActivity.correlations[metric as keyof typeof selectedActivity.correlations];
-                  return (
-                    <View key={metric} style={styles.correlationRow}>
-                      <Text style={[styles.correlationLabel, { color: theme.colors.text }]}>
-                        {metric.charAt(0).toUpperCase() + metric.slice(1)}
-                      </Text>
-                      <View style={styles.correlationBarContainer}>
-                        <View 
-                          style={[
-                            styles.correlationBar, 
-                            { 
-                              width: `${Math.abs(value) * 100}%`,
-                              backgroundColor: value > 0 ? theme.colors.success : theme.colors.error 
-                            }
-                          ]} 
-                        />
+              <View style={[styles.recommendationBox, { 
+                backgroundColor: getPatternTypeColor(selectedPattern.type) + '10',
+                borderColor: getPatternTypeColor(selectedPattern.type) + '30'
+              }]}>
+                <Text style={[styles.recommendationText, { color: theme.colors.text }]}>
+                  {selectedPattern.recommendation}
+                </Text>
+              </View>
+            </View>
+
+            {/* For routines, show the activities */}
+            {selectedPattern.type === 'routine' && (selectedPattern as any).activities && (
+              <View style={[styles.modalSection, { marginBottom: 20 }]}>
+                <Text style={[styles.modalSectionTitle, { color: theme.colors.text }]}>
+                  Activities in This Routine
+                </Text>
+                <View style={styles.activityChain}>
+                  {(selectedPattern as any).activities.map((activity: string, idx: number) => (
+                    <React.Fragment key={idx}>
+                      <View style={[styles.activityChainItem, { backgroundColor: theme.colors.primary + '20' }]}>
+                        <Text style={[styles.activityChainText, { color: theme.colors.text }]}>
+                          {activity}
+                        </Text>
                       </View>
-                      <Text style={[styles.correlationValue, { color: theme.colors.textSecondary }]}>
-                        {value.toFixed(2)}
-                      </Text>
-                    </View>
-                  );
-                })}
+                      {idx < (selectedPattern as any).activities.length - 1 && (
+                        <Text style={[styles.chainArrow, { color: theme.colors.textSecondary }]}>→</Text>
+                      )}
+                    </React.Fragment>
+                  ))}
+                </View>
               </View>
-            </View>
-
-            {/* Action Buttons */}
-            <View style={styles.actionButtons}>
-              <TouchableOpacity
-                style={[styles.actionButton, { backgroundColor: theme.colors.primary }]}
-                onPress={handleConvertToHabit}
-              >
-                <Text style={[styles.actionButtonText, { color: '#FFFFFF' }]}>
-                  🔄 Convert to Habit
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.actionButton, { backgroundColor: theme.colors.accent, borderWidth: 1, borderColor: theme.colors.primary }]}
-                onPress={handleRunExperiment}
-              >
-                <Text style={[styles.actionButtonText, { color: theme.colors.primary }]}>
-                  🧪 Run Experiment
-                </Text>
-              </TouchableOpacity>
-            </View>
-
-            {/* Occurrences */}
-            <View style={[styles.modalSection, { marginBottom: 20 }]}>
-              <Text style={[styles.modalSectionTitle, { color: theme.colors.text }]}>
-                Activity Stats
-              </Text>
-              <Text style={[styles.statsText, { color: theme.colors.textSecondary }]}>
-                Logged {selectedActivity.totalOccurrences} times ({selectedActivity.frequencyPercent}% of all activities)
-              </Text>
-            </View>
+            )}
           </ScrollView>
         </View>
       </Modal>
@@ -309,25 +246,37 @@ export default function ImpactAnalysis({ userId, timeRange }: ImpactAnalysisProp
       {/* Header */}
       <View style={styles.header}>
         <View>
-          <Text style={[styles.title, { color: theme.colors.text }]}>Impact Analysis</Text>
+          <Text style={[styles.title, { color: theme.colors.text }]}>Activity Impact Analysis</Text>
           <Text style={[styles.subtitle, { color: theme.colors.textSecondary }]}>
-            How your activities affect your wellbeing
+            {timeRange === 'week' ? 'This Week' : timeRange === 'month' ? 'This Month' : 'This Year'} • {topActivities.length} Activities Ranked
           </Text>
         </View>
-        <TouchableOpacity 
-          style={[styles.sortButton, { borderColor: theme.colors.border }]}
-          onPress={() => setSortBy(sortBy === 'impact' ? 'frequency' : 'impact')}
+      </View>
+
+      {/* Tabs */}
+      <View style={styles.tabsContainer}>
+        <TouchableOpacity
+          style={[styles.tab, activeTab === 'patterns' && { borderBottomColor: theme.colors.primary, borderBottomWidth: 2 }]}
+          onPress={() => setActiveTab('patterns')}
         >
-          <Text style={[styles.sortButtonText, { color: theme.colors.primary }]}>
-            {sortBy === 'impact' ? '📊 Impact' : '📈 Frequency'}
+          <Text style={[styles.tabText, { color: activeTab === 'patterns' ? theme.colors.primary : theme.colors.textSecondary }]}>
+            Patterns ({(patterns?.routines.length || 0) + (patterns?.cyclical.length || 0) + (patterns?.warnings.length || 0)})
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.tab, activeTab === 'activities' && { borderBottomColor: theme.colors.primary, borderBottomWidth: 2 }]}
+          onPress={() => setActiveTab('activities')}
+        >
+          <Text style={[styles.tabText, { color: activeTab === 'activities' ? theme.colors.primary : theme.colors.textSecondary }]}>
+            Top Activities ({topActivities.length})
           </Text>
         </TouchableOpacity>
       </View>
 
       {/* Insights */}
-      {impactResult.insights.length > 0 && (
+      {insights.length > 0 && (
         <View style={[styles.insightsBox, { backgroundColor: theme.colors.primary + '10', borderColor: theme.colors.primary + '30' }]}>
-          {impactResult.insights.map((insight, idx) => (
+          {insights.slice(0, 2).map((insight, idx) => (
             <Text key={idx} style={[styles.insightText, { color: theme.colors.text }]}>
               • {insight}
             </Text>
@@ -335,73 +284,221 @@ export default function ImpactAnalysis({ userId, timeRange }: ImpactAnalysisProp
         </View>
       )}
 
-      {/* Activity List */}
-      <View style={styles.activityList}>
-        {displayedActivities.map((activity, index) => {
-          const badge = getImpactBadge(activity.impactScore);
-          return (
-            <TouchableOpacity
-              key={`${activity.activityName}-${index}`}
-              style={[styles.activityCard, { backgroundColor: theme.colors.border + '30' }]}
-              onPress={() => openActivityDetail(activity)}
-            >
-              <View style={styles.activityHeader}>
-                <View style={styles.activityTitleRow}>
-                  <Text style={[styles.activityEmoji]}>{activity.emoji}</Text>
-                  <View style={styles.activityInfo}>
-                    <Text style={[styles.activityName, { color: theme.colors.text }]}>
-                      {activity.activityName}
+      {/* Content based on active tab */}
+      {activeTab === 'patterns' && patterns && (
+        <View style={styles.patternsContainer}>
+          {/* Warnings (Priority) */}
+          {patterns.warnings.length > 0 && (
+            <View style={styles.patternSection}>
+              <Text style={[styles.patternSectionTitle, { color: theme.colors.error }]}>
+                ⚠️ Warnings
+              </Text>
+              {patterns.warnings.slice(0, 2).map((pattern, idx) => (
+                <TouchableOpacity
+                  key={idx}
+                  style={[styles.patternCard, { backgroundColor: theme.colors.error + '10', borderLeftColor: theme.colors.error }]}
+                  onPress={() => {
+                    setSelectedPattern(pattern);
+                    setIsModalVisible(true);
+                  }}
+                >
+                  <View style={styles.patternCardHeader}>
+                    <Text style={[styles.patternTitle, { color: theme.colors.text }]}>
+                      {getPatternTypeIcon(pattern.type)} {pattern.name}
                     </Text>
-                    <Text style={[styles.activityFrequency, { color: theme.colors.textSecondary }]}>
-                      {activity.totalOccurrences}x • {activity.frequencyPercent}%
+                    {pattern.severity && (
+                      <View style={[styles.severityBadge, { backgroundColor: getSeverityColor(pattern.severity) + '20' }]}>
+                        <Text style={[styles.severityText, { color: getSeverityColor(pattern.severity) }]}>
+                          {pattern.severity}
+                        </Text>
+                      </View>
+                    )}
+                  </View>
+                  <Text style={[styles.patternDescription, { color: theme.colors.textSecondary }]} numberOfLines={2}>
+                    {pattern.description}
+                  </Text>
+                  <Text style={[styles.patternRecommendation, { color: theme.colors.text }]}>
+                    💡 {pattern.recommendation}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
+
+          {/* Routines */}
+          {patterns.routines.length > 0 && (
+            <View style={styles.patternSection}>
+              <Text style={[styles.patternSectionTitle, { color: theme.colors.success }]}>
+                ✨ Successful Routines
+              </Text>
+              {patterns.routines.slice(0, 3).map((pattern, idx) => (
+                <TouchableOpacity
+                  key={idx}
+                  style={[styles.patternCard, { backgroundColor: theme.colors.success + '10', borderLeftColor: theme.colors.success }]}
+                  onPress={() => {
+                    setSelectedPattern(pattern);
+                    setIsModalVisible(true);
+                  }}
+                >
+                  <View style={styles.patternCardHeader}>
+                    <Text style={[styles.patternTitle, { color: theme.colors.text }]}>
+                      {getPatternTypeIcon(pattern.type)} {pattern.name}
+                    </Text>
+                    <View style={[styles.confidenceBadge, { backgroundColor: theme.colors.success + '20' }]}>
+                      <Text style={[styles.confidenceText, { color: theme.colors.success }]}>
+                        {typeof pattern.confidence === 'number' ? `${Math.round(pattern.confidence * 100)}%` : String(pattern.confidence)}
+                      </Text>
+                    </View>
+                  </View>
+                  <Text style={[styles.patternDescription, { color: theme.colors.textSecondary }]} numberOfLines={2}>
+                    {pattern.description}
+                  </Text>
+                  <Text style={[styles.patternMeta, { color: theme.colors.textSecondary }]}>
+                    {pattern.frequency}x occurrences
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
+
+          {/* Cyclical Patterns */}
+          {patterns.cyclical.length > 0 && (
+            <View style={styles.patternSection}>
+              <Text style={[styles.patternSectionTitle, { color: theme.colors.primary }]}>
+                📅 Day-of-Week Patterns
+              </Text>
+              {patterns.cyclical.slice(0, 2).map((pattern, idx) => (
+                <TouchableOpacity
+                  key={idx}
+                  style={[styles.patternCard, { backgroundColor: theme.colors.primary + '10', borderLeftColor: theme.colors.primary }]}
+                  onPress={() => {
+                    setSelectedPattern(pattern);
+                    setIsModalVisible(true);
+                  }}
+                >
+                  <View style={styles.patternCardHeader}>
+                    <Text style={[styles.patternTitle, { color: theme.colors.text }]}>
+                      {getPatternTypeIcon(pattern.type)} {pattern.name}
+                    </Text>
+                  </View>
+                  <Text style={[styles.patternDescription, { color: theme.colors.textSecondary }]} numberOfLines={2}>
+                    {pattern.description}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
+        </View>
+      )}
+
+      {/* Top Activities Tab */}
+      {activeTab === 'activities' && (
+        <View style={styles.activityList}>
+          {topActivities.length === 0 ? (
+            <View style={[styles.activityCard, { backgroundColor: theme.colors.border + '10', padding: 20 }]}>
+              <Text style={[styles.emptyText, { color: theme.colors.textSecondary, textAlign: 'center' }]}>
+                No activities with enough data yet. Keep tracking!
+              </Text>
+            </View>
+          ) : (
+            topActivities.map((activity, index) => (
+              <View
+                key={index}
+                style={[styles.activityCard, {
+                  backgroundColor: theme.colors.border + '30',
+                  borderLeftWidth: 4,
+                  borderLeftColor: activity.overallBenefit >= 70
+                    ? theme.colors.success
+                    : activity.overallBenefit >= 50
+                    ? theme.colors.warning
+                    : theme.colors.error
+                }]}
+              >
+                <View style={styles.activityHeader}>
+                  <View style={styles.activityTitleRow}>
+                    {/* Rank badge */}
+                    <View style={[styles.rankBadge, {
+                      backgroundColor: index < 3
+                        ? theme.colors.primary + '20'
+                        : theme.colors.border + '30'
+                    }]}>
+                      <Text style={[styles.rankText, {
+                        color: index < 3 ? theme.colors.primary : theme.colors.textSecondary,
+                        fontWeight: index < 3 ? '700' : '600'
+                      }]}>
+                        #{index + 1}
+                      </Text>
+                    </View>
+                    <Text style={[styles.activityEmoji]}>{activity.emoji}</Text>
+                    <View style={styles.activityInfo}>
+                      <Text style={[styles.activityName, { color: theme.colors.text }]}>
+                        {activity.activityName}
+                      </Text>
+                      <Text style={[styles.activityFrequency, { color: theme.colors.textSecondary }]}>
+                        {activity.occurrences}x • {activity.frequencyPercent}% of activities
+                      </Text>
+                    </View>
+                  </View>
+                  <View style={[styles.benefitBadge, {
+                    backgroundColor: activity.overallBenefit >= 70
+                      ? theme.colors.success + '20'
+                      : activity.overallBenefit >= 50
+                      ? theme.colors.warning + '20'
+                      : theme.colors.error + '20'
+                  }]}>
+                    <Text style={[styles.benefitScore, {
+                      color: activity.overallBenefit >= 70
+                        ? theme.colors.success
+                        : activity.overallBenefit >= 50
+                        ? theme.colors.warning
+                        : theme.colors.error
+                    }]}>
+                      {activity.overallBenefit}
                     </Text>
                   </View>
                 </View>
-                <View style={[styles.impactBadge, { backgroundColor: getImpactColor(activity.impactScore) + '20' }]}>
-                  <Text style={[styles.impactBadgeText, { color: getImpactColor(activity.impactScore) }]}>
-                    {badge.emoji} {activity.impactScore}
-                  </Text>
-                </View>
-              </View>
-              
-              {/* Mini metrics */}
-              <View style={styles.miniMetrics}>
-                {activity.avgMoodChange !== 0 && (
-                  <Text style={[styles.miniMetric, { color: theme.colors.textSecondary }]}>
-                    😊 {activity.avgMoodChange > 0 ? '+' : ''}{activity.avgMoodChange.toFixed(1)}
-                  </Text>
-                )}
-                {activity.avgSleepChange !== 0 && (
-                  <Text style={[styles.miniMetric, { color: theme.colors.textSecondary }]}>
-                    😴 {activity.avgSleepChange > 0 ? '+' : ''}{activity.avgSleepChange.toFixed(1)}
-                  </Text>
-                )}
-                {activity.avgClarityChange !== 0 && (
-                  <Text style={[styles.miniMetric, { color: theme.colors.textSecondary }]}>
-                    🧠 {activity.avgClarityChange > 0 ? '+' : ''}{activity.avgClarityChange.toFixed(1)}
-                  </Text>
-                )}
-                {activity.confidence === 'low' && (
-                  <Text style={[styles.miniMetric, { color: theme.colors.warning }]}>
-                    ⚠️ Low confidence
-                  </Text>
-                )}
-              </View>
-            </TouchableOpacity>
-          );
-        })}
-      </View>
 
-      {/* Show More/Less Button */}
-      {sortedActivities.length > 5 && (
-        <TouchableOpacity
-          style={[styles.showMoreButton, { borderColor: theme.colors.border }]}
-          onPress={() => setShowAll(!showAll)}
-        >
-          <Text style={[styles.showMoreText, { color: theme.colors.primary }]}>
-            {showAll ? '↑ Show Less' : `↓ Show ${sortedActivities.length - 5} More`}
-          </Text>
-        </TouchableOpacity>
+                {/* Impact breakdown */}
+                <View style={styles.impactBreakdown}>
+                  <View style={styles.impactItem}>
+                    <Text style={[styles.impactLabel, { color: theme.colors.textSecondary }]}>Mood</Text>
+                    <Text style={[styles.impactValue, { color: theme.colors.text }]}>
+                      {activity.impacts.mood.immediate >= 0 ? '+' : ''}{(activity.impacts.mood.immediate * 100).toFixed(0)}%
+                    </Text>
+                  </View>
+                  <View style={styles.impactItem}>
+                    <Text style={[styles.impactLabel, { color: theme.colors.textSecondary }]}>Sleep</Text>
+                    <Text style={[styles.impactValue, { color: theme.colors.text }]}>
+                      {activity.impacts.sleep.nextDay >= 0 ? '+' : ''}{(activity.impacts.sleep.nextDay * 100).toFixed(0)}%
+                    </Text>
+                  </View>
+                  <View style={styles.impactItem}>
+                    <Text style={[styles.impactLabel, { color: theme.colors.textSecondary }]}>Clarity</Text>
+                    <Text style={[styles.impactValue, { color: theme.colors.text }]}>
+                      {activity.impacts.clarity.immediate >= 0 ? '+' : ''}{(activity.impacts.clarity.immediate * 100).toFixed(0)}%
+                    </Text>
+                  </View>
+                  <View style={styles.impactItem}>
+                    <Text style={[styles.impactLabel, { color: theme.colors.textSecondary }]}>Trend</Text>
+                    <Text style={[styles.impactValue, {
+                      color: activity.trend === 'improving'
+                        ? theme.colors.success
+                        : activity.trend === 'declining'
+                        ? theme.colors.error
+                        : theme.colors.textSecondary
+                    }]}>
+                      {activity.trend === 'improving' ? '↗️' : activity.trend === 'declining' ? '↘️' : '→'}
+                    </Text>
+                  </View>
+                </View>
+
+                <Text style={[styles.activityRecommendation, { color: theme.colors.textSecondary }]}>
+                  {activity.recommendation}
+                </Text>
+              </View>
+            ))
+          )}
+        </View>
       )}
 
       {renderModal()}
@@ -429,16 +526,24 @@ const styles = StyleSheet.create({
   subtitle: {
     fontSize: 14,
   },
-  sortButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 8,
-    borderWidth: 1,
+  
+  // Tabs
+  tabsContainer: {
+    flexDirection: 'row',
+    marginBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E7EB',
   },
-  sortButtonText: {
-    fontSize: 12,
+  tab: {
+    flex: 1,
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  tabText: {
+    fontSize: 14,
     fontWeight: '600',
   },
+  
   loadingText: {
     fontSize: 16,
     textAlign: 'center',
@@ -460,6 +565,70 @@ const styles = StyleSheet.create({
     marginBottom: 4,
     lineHeight: 18,
   },
+  
+  // Patterns
+  patternsContainer: {
+    gap: 16,
+  },
+  patternSection: {
+    marginBottom: 16,
+  },
+  patternSectionTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginBottom: 8,
+  },
+  patternCard: {
+    padding: 14,
+    borderRadius: 12,
+    marginBottom: 10,
+    borderLeftWidth: 4,
+  },
+  patternCardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  patternTitle: {
+    fontSize: 15,
+    fontWeight: '600',
+    flex: 1,
+  },
+  patternDescription: {
+    fontSize: 13,
+    marginBottom: 8,
+    lineHeight: 18,
+  },
+  patternRecommendation: {
+    fontSize: 13,
+    fontWeight: '500',
+    lineHeight: 18,
+  },
+  patternMeta: {
+    fontSize: 12,
+  },
+  severityBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  severityText: {
+    fontSize: 12,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+  },
+  confidenceBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  confidenceText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  
+  // Activities
   activityList: {
     gap: 12,
   },
@@ -493,36 +662,56 @@ const styles = StyleSheet.create({
   activityFrequency: {
     fontSize: 12,
   },
-  impactBadge: {
-    paddingHorizontal: 10,
+  activityRecommendation: {
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  benefitBadge: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+    minWidth: 48,
+    alignItems: 'center',
+  },
+  benefitScore: {
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  rankBadge: {
+    paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 8,
+    marginRight: 8,
+    minWidth: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  impactBadgeText: {
+  rankText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  impactBreakdown: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(0,0,0,0.05)',
+  },
+  impactItem: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  impactLabel: {
+    fontSize: 11,
+    marginBottom: 2,
+  },
+  impactValue: {
     fontSize: 13,
     fontWeight: '600',
   },
-  miniMetrics: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  miniMetric: {
-    fontSize: 11,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-  },
-  showMoreButton: {
-    marginTop: 12,
-    padding: 12,
-    borderRadius: 8,
-    borderWidth: 1,
-    alignItems: 'center',
-  },
-  showMoreText: {
-    fontSize: 14,
-    fontWeight: '600',
-  },
+  
+  // Modal
   modalContainer: {
     flex: 1,
     justifyContent: 'center',
@@ -550,16 +739,19 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: '300',
   },
-  categoryBadge: {
+  typeBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingHorizontal: 12,
     paddingVertical: 6,
-    borderRadius: 8,
+    borderRadius: 12,
+    marginBottom: 16,
     alignSelf: 'flex-start',
-    marginBottom: 20,
   },
-  categoryBadgeText: {
+  typeBadgeText: {
     fontSize: 13,
     fontWeight: '600',
+    textTransform: 'uppercase',
   },
   modalSection: {
     marginBottom: 20,
@@ -568,6 +760,84 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
     marginBottom: 12,
+  },
+  modalSectionText: {
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  descriptionText: {
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  statsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 16,
+  },
+  statBox: {
+    flex: 1,
+    alignItems: 'center',
+    padding: 12,
+    borderRadius: 12,
+    marginHorizontal: 4,
+  },
+  statLabel: {
+    fontSize: 12,
+    marginBottom: 4,
+  },
+  statValue: {
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  evidenceList: {
+    marginBottom: 16,
+  },
+  evidenceItem: {
+    fontSize: 13,
+    lineHeight: 20,
+    marginBottom: 6,
+  },
+  evidenceText: {
+    fontSize: 13,
+    lineHeight: 20,
+  },
+  recommendationBox: {
+    padding: 14,
+    borderRadius: 12,
+    marginBottom: 16,
+  },
+  recommendationText: {
+    fontSize: 14,
+    fontWeight: '500',
+    lineHeight: 20,
+  },
+  activityChain: {
+    marginBottom: 16,
+  },
+  activityChainItem: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    marginRight: 6,
+    marginBottom: 6,
+  },
+  activityChainText: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  chainRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    marginTop: 8,
+  },
+  chainActivity: {
+    fontSize: 20,
+    marginHorizontal: 4,
+  },
+  chainArrow: {
+    fontSize: 16,
+    marginHorizontal: 4,
   },
   scoreRow: {
     flexDirection: 'row',
@@ -585,93 +855,6 @@ const styles = StyleSheet.create({
   },
   badgeText: {
     fontSize: 14,
-    fontWeight: '600',
-  },
-  infoRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    marginBottom: 12,
-  },
-  infoItem: {
-    alignItems: 'center',
-  },
-  infoLabel: {
-    fontSize: 11,
-    marginBottom: 4,
-    textTransform: 'uppercase',
-  },
-  infoValue: {
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  warningBox: {
-    padding: 10,
-    borderRadius: 8,
-    borderWidth: 1,
-  },
-  warningText: {
-    fontSize: 12,
-    textAlign: 'center',
-  },
-  metricGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12,
-  },
-  metricCard: {
-    flex: 1,
-    minWidth: '45%',
-    padding: 12,
-    alignItems: 'center',
-  },
-  metricLabel: {
-    fontSize: 12,
-    marginBottom: 4,
-  },
-  metricValue: {
-    fontSize: 20,
-    fontWeight: '700',
-  },
-  correlationList: {
-    gap: 12,
-  },
-  correlationRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  correlationLabel: {
-    width: 80,
-    fontSize: 13,
-    fontWeight: '500',
-  },
-  correlationBarContainer: {
-    flex: 1,
-    height: 8,
-    backgroundColor: 'rgba(128, 128, 128, 0.2)',
-    borderRadius: 4,
-    overflow: 'hidden',
-  },
-  correlationBar: {
-    height: '100%',
-    borderRadius: 4,
-  },
-  correlationValue: {
-    width: 40,
-    textAlign: 'right',
-    fontSize: 12,
-  },
-  actionButtons: {
-    gap: 10,
-    marginBottom: 20,
-  },
-  actionButton: {
-    padding: 14,
-    borderRadius: 12,
-    alignItems: 'center',
-  },
-  actionButtonText: {
-    fontSize: 15,
     fontWeight: '600',
   },
   statsText: {

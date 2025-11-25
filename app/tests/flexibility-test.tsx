@@ -151,20 +151,23 @@ export default function FlexibilityTestScreen() {
     if (switchTimerRef.current) clearTimeout(switchTimerRef.current);
 
     const totalAttempts = correctTaps + incorrectTaps;
-    const errorRate = totalAttempts > 0 ? (incorrectTaps / totalAttempts) : 0;
-    
-    // Calculate switch cost (RT after switch - RT before switch)
-    const avgRTBefore = reactionTimesBeforeSwitch.length > 0 
-      ? reactionTimesBeforeSwitch.reduce((a, b) => a + b, 0) / reactionTimesBeforeSwitch.length 
-      : 0;
-    const avgRTAfter = reactionTimesAfterSwitch.length > 0 
-      ? reactionTimesAfterSwitch.reduce((a, b) => a + b, 0) / reactionTimesAfterSwitch.length 
-      : 0;
-    const switchCost = avgRTAfter - avgRTBefore;
-    
-    // Score = max(0, 100 − (SwitchCost/10) − (ErrorRate×100))
-    const score = Math.max(0, 100 - (switchCost / 10) - (errorRate * 100));
     const accuracy = totalAttempts > 0 ? (correctTaps / totalAttempts) * 100 : 0;
+
+    // Calculate switch cost (RT after switch - RT before switch)
+    const avgRTBefore = reactionTimesBeforeSwitch.length > 0
+      ? reactionTimesBeforeSwitch.reduce((a, b) => a + b, 0) / reactionTimesBeforeSwitch.length
+      : 0;
+    const avgRTAfter = reactionTimesAfterSwitch.length > 0
+      ? reactionTimesAfterSwitch.reduce((a, b) => a + b, 0) / reactionTimesAfterSwitch.length
+      : 0;
+    const switchCost = Math.max(0, avgRTAfter - avgRTBefore);
+
+    // Improved scoring:
+    // - Accuracy (60%): percentage correct
+    // - Adaptability (40%): lower switch cost = higher score
+    const accuracyScore = accuracy * 0.6;
+    const adaptabilityScore = Math.max(0, 40 * (1 - Math.min(switchCost / 500, 1)));
+    const score = Math.max(0, Math.min(100, accuracyScore + adaptabilityScore));
 
     setSaving(true);
     if (user) {
@@ -420,15 +423,16 @@ export default function FlexibilityTestScreen() {
 
   const totalAttempts = correctTaps + incorrectTaps;
   const accuracy = totalAttempts > 0 ? (correctTaps / totalAttempts) * 100 : 0;
-  const errorRate = totalAttempts > 0 ? (incorrectTaps / totalAttempts) * 100 : 0;
-  const avgRTBefore = reactionTimesBeforeSwitch.length > 0 
-    ? reactionTimesBeforeSwitch.reduce((a, b) => a + b, 0) / reactionTimesBeforeSwitch.length 
+  const avgRTBefore = reactionTimesBeforeSwitch.length > 0
+    ? reactionTimesBeforeSwitch.reduce((a, b) => a + b, 0) / reactionTimesBeforeSwitch.length
     : 0;
-  const avgRTAfter = reactionTimesAfterSwitch.length > 0 
-    ? reactionTimesAfterSwitch.reduce((a, b) => a + b, 0) / reactionTimesAfterSwitch.length 
+  const avgRTAfter = reactionTimesAfterSwitch.length > 0
+    ? reactionTimesAfterSwitch.reduce((a, b) => a + b, 0) / reactionTimesAfterSwitch.length
     : 0;
-  const switchCost = avgRTAfter - avgRTBefore;
-  const finalScore = Math.max(0, 100 - (switchCost / 10) - (errorRate * 100));
+  const switchCost = Math.max(0, avgRTAfter - avgRTBefore);
+  const accuracyScore = accuracy * 0.6;
+  const adaptabilityScore = Math.max(0, 40 * (1 - Math.min(switchCost / 500, 1)));
+  const finalScore = Math.max(0, Math.min(100, accuracyScore + adaptabilityScore));
 
   const ruleBackgroundColor = flashAnim.interpolate({
     inputRange: [0, 1],
@@ -501,22 +505,11 @@ export default function FlexibilityTestScreen() {
             </Text>
           </Animated.View>
 
+          {/* Timer Only - Hide stats to prevent cramming */}
           <View style={styles.statsRow}>
             <View style={styles.statItem}>
               <Text style={styles.statValue}>{timeLeft}s</Text>
-              <Text style={styles.statLabel}>Time</Text>
-            </View>
-            <View style={styles.statItem}>
-              <Text style={[styles.statValue, { color: '#10B981' }]}>{correctTaps}</Text>
-              <Text style={styles.statLabel}>Correct</Text>
-            </View>
-            <View style={styles.statItem}>
-              <Text style={[styles.statValue, { color: '#EF4444' }]}>{incorrectTaps}</Text>
-              <Text style={styles.statLabel}>Errors</Text>
-            </View>
-            <View style={styles.statItem}>
-              <Text style={[styles.statValue, { color: '#8B5CF6' }]}>{ruleSwitches}</Text>
-              <Text style={styles.statLabel}>Switches</Text>
+              <Text style={styles.statLabel}>Time Remaining</Text>
             </View>
           </View>
 

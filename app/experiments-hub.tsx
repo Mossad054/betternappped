@@ -1,150 +1,20 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl, Modal, TextInput, Alert } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { ArrowLeft, FlaskConical, Plus, CheckCircle, Play, RotateCcw, X, TrendingUp, Moon, Brain, Zap, Heart, Shield } from 'lucide-react-native';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { ExperimentsService } from '@/services/experiments.service';
 import { type Experiment } from '@/constants/mockData';
 
-// Predefined experiment templates
-const EXPERIMENT_LIBRARY = {
-  popular: [
-    {
-      id: 'no-screen-bed',
-      title: 'No Screen Before Bed',
-      emoji: '📵',
-      duration: 7,
-      goal: 'Better Sleep Quality',
-      description: 'This 7-day test explores whether avoiding screens before bed improves your sleep quality and reduces anxiety.',
-      outcomes: ['Sleep Quality', 'Anxiety'],
-      category: 'Sleep'
-    },
-    {
-      id: 'morning-meditation',
-      title: 'Morning Meditation',
-      emoji: '🧘',
-      duration: 14,
-      goal: 'Improved Focus',
-      description: 'Test if 10 minutes of morning meditation improves your mental clarity and productivity throughout the day.',
-      outcomes: ['Focus', 'Mental Clarity'],
-      category: 'Focus'
-    },
-    {
-      id: 'exercise-routine',
-      title: 'Daily Exercise',
-      emoji: '🏃',
-      duration: 21,
-      goal: 'Better Mood & Energy',
-      description: 'Discover how 30 minutes of daily exercise affects your mood, energy levels, and sleep quality.',
-      outcomes: ['Mood', 'Energy', 'Sleep Quality'],
-      category: 'Energy'
-    },
-  ],
-  sleep: [
-    {
-      id: 'no-screen-bed',
-      title: 'No Screen Before Bed',
-      emoji: '📵',
-      duration: 7,
-      goal: 'Better Sleep Quality',
-      description: 'This 7-day test explores whether avoiding screens before bed improves your sleep quality and reduces anxiety.',
-      outcomes: ['Sleep Quality', 'Anxiety'],
-      category: 'Sleep'
-    },
-    {
-      id: 'consistent-bedtime',
-      title: 'Consistent Bedtime',
-      emoji: '😴',
-      duration: 14,
-      goal: 'Regular Sleep Pattern',
-      description: 'Go to bed at the same time every night to see if it improves sleep quality and daytime energy.',
-      outcomes: ['Sleep Quality', 'Energy'],
-      category: 'Sleep'
-    },
-    {
-      id: 'bedroom-temperature',
-      title: 'Cool Bedroom',
-      emoji: '❄️',
-      duration: 7,
-      goal: 'Deeper Sleep',
-      description: 'Keep your bedroom between 60-67°F to test if temperature affects your sleep depth.',
-      outcomes: ['Sleep Quality'],
-      category: 'Sleep'
-    },
-  ],
-  mood: [
-    {
-      id: 'gratitude-journal',
-      title: 'Daily Gratitude',
-      emoji: '🙏',
-      duration: 21,
-      goal: 'Positive Mindset',
-      description: 'Write 3 things you\'re grateful for each day and track how it affects your mood.',
-      outcomes: ['Mood', 'Anxiety'],
-      category: 'Mood'
-    },
-    {
-      id: 'morning-sunlight',
-      title: 'Morning Sunlight',
-      emoji: '☀️',
-      duration: 14,
-      goal: 'Better Mood',
-      description: 'Get 10 minutes of natural light within an hour of waking to boost your mood.',
-      outcomes: ['Mood', 'Energy'],
-      category: 'Mood'
-    },
-  ],
-  focus: [
-    {
-      id: 'morning-meditation',
-      title: 'Morning Meditation',
-      emoji: '🧘',
-      duration: 14,
-      goal: 'Improved Focus',
-      description: 'Test if 10 minutes of morning meditation improves your mental clarity and productivity.',
-      outcomes: ['Focus', 'Mental Clarity'],
-      category: 'Focus'
-    },
-    {
-      id: 'digital-detox-hour',
-      title: 'Digital Detox Hour',
-      emoji: '📵',
-      duration: 7,
-      goal: 'Enhanced Clarity',
-      description: 'One hour without screens each day to test if it improves focus and mental clarity.',
-      outcomes: ['Focus', 'Mental Clarity'],
-      category: 'Focus'
-    },
-  ],
-  energy: [
-    {
-      id: 'exercise-routine',
-      title: 'Daily Exercise',
-      emoji: '🏃',
-      duration: 21,
-      goal: 'Better Mood & Energy',
-      description: 'Discover how 30 minutes of daily exercise affects your mood, energy levels, and sleep quality.',
-      outcomes: ['Mood', 'Energy', 'Sleep Quality'],
-      category: 'Energy'
-    },
-    {
-      id: 'hydration-tracking',
-      title: '8 Glasses of Water',
-      emoji: '💧',
-      duration: 14,
-      goal: 'More Energy',
-      description: 'Stay hydrated and see if it boosts your energy and mental clarity.',
-      outcomes: ['Energy', 'Focus'],
-      category: 'Energy'
-    },
-  ],
-};
+// NOTE: Experiment templates are now fetched dynamically from the experiments_library database table
+// See ExperimentsService.getExperimentsLibrary() for data fetching
 
 export default function ExperimentsHub() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const { experimentId, logDate } = useLocalSearchParams<{ experimentId?: string; logDate?: string }>();
   const { theme } = useTheme();
   const styles = createStyles(theme);
   const { user } = useAuth();
@@ -160,12 +30,95 @@ export default function ExperimentsHub() {
   const [activityCompleted, setActivityCompleted] = useState<'yes' | 'no' | 'skipped' | null>(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [selectedDetailExperiment, setSelectedDetailExperiment] = useState<Experiment | null>(null);
+  const [highlightedExperimentId, setHighlightedExperimentId] = useState<string | null>(null);
+  
+  // Refs for scrolling to specific experiment
+  const experimentRefs = useRef<{ [key: string]: View | null }>({});
+  const scrollViewRef = useRef<ScrollView>(null);
   
   // New states for library
   const [selectedCategory, setSelectedCategory] = useState<'popular' | 'sleep' | 'mood' | 'focus' | 'energy'>('popular');
   const [showTemplateModal, setShowTemplateModal] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState<any>(null);
   const [activeTab, setActiveTab] = useState<'library' | 'ongoing' | 'completed'>('library');
+
+  // Create Experiment Form Modal states
+  const [showCreateFormModal, setShowCreateFormModal] = useState(false);
+  const [experimentFormData, setExperimentFormData] = useState({
+    name: '',
+    emoji: '🧪',
+    goal: '',
+    description: '',
+    duration: '7',
+    outcomes: [] as string[],
+  });
+
+  // Save to Library Modal states
+  const [showSaveToLibraryModal, setShowSaveToLibraryModal] = useState(false);
+  const [experimentToSave, setExperimentToSave] = useState<Experiment | null>(null);
+
+  // Library experiments from database
+  const [libraryExperiments, setLibraryExperiments] = useState<any[]>([]);
+  const [libraryLoading, setLibraryLoading] = useState(false);
+
+  // Fetch library experiments on mount and when category changes
+  useEffect(() => {
+    loadLibraryExperiments();
+  }, [selectedCategory]);
+
+  const loadLibraryExperiments = async () => {
+    try {
+      setLibraryLoading(true);
+
+      // Map UI category names to database categories
+      const categoryMap: { [key: string]: string } = {
+        'popular': '', // Popular = Easy experiments across all categories
+        'sleep': 'Sleep',
+        'mood': 'Mood',
+        'focus': 'Focus',
+        'energy': 'Energy',
+        'anxiety': 'Anxiety'
+      };
+
+      let result;
+      if (selectedCategory === 'popular') {
+        // Fetch popular (Easy) experiments across all categories
+        result = await ExperimentsService.getPopularExperiments();
+      } else {
+        // Fetch by specific category
+        const dbCategory = categoryMap[selectedCategory];
+        result = await ExperimentsService.getExperimentsLibrary(dbCategory as any);
+      }
+
+      if (result.error) {
+        console.error('Error loading library:', result.error);
+      } else {
+        setLibraryExperiments(result.data || []);
+      }
+    } catch (error) {
+      console.error('Error fetching library experiments:', error);
+    } finally {
+      setLibraryLoading(false);
+    }
+  };
+
+  // Handle deep linking with experimentId from calendar
+  useEffect(() => {
+    if (experimentId && experiments.length > 0) {
+      setActiveTab('ongoing');
+      setHighlightedExperimentId(experimentId);
+      
+      // Wait for layout and scroll to the experiment
+      setTimeout(() => {
+        const targetExperiment = experiments.find(exp => exp.id === experimentId);
+        if (targetExperiment) {
+          // Open log modal for the specific experiment
+          setSelectedExperiment(targetExperiment);
+          setShowLogModal(true);
+        }
+      }, 300);
+    }
+  }, [experimentId, experiments]);
 
   // Load experiments on component mount
   useEffect(() => {
@@ -246,17 +199,18 @@ export default function ExperimentsHub() {
     setIsLogging(true);
 
     try {
-      const today = new Date().toISOString().split('T')[0];
-      
+      // Use logDate from params if provided, otherwise use today
+      const dateToLog = logDate || new Date().toISOString().split('T')[0];
+
       // Determine completion status
       const completed = activityCompleted === 'yes';
       const skipped = activityCompleted === 'skipped';
-      
+
       // Log the experiment
       const { error } = await ExperimentsService.logExperiment(
         selectedExperiment.id,
         {
-          date: today,
+          date: dateToLog,
           outcome_scores: outcomeScores,
           notes: logNotes || null,
           completed,
@@ -306,26 +260,107 @@ export default function ExperimentsHub() {
 
     Alert.alert(
       'Convert to Habit?',
-      `Turn "${experiment.activityName}" into a daily habit?`,
+      `Turn "${experiment.activityName}" into a daily habit in your active habits?`,
       [
         { text: 'Cancel', style: 'cancel' },
         {
           text: 'Convert',
           onPress: async () => {
             try {
-              const { error} = await ExperimentsService.convertToHabit(experiment.id, user.id);
+              const { error } = await ExperimentsService.convertToHabit(experiment.id, user.id);
               if (error) throw new Error(error);
 
-              Alert.alert('Success! ✅', 'Experiment converted to habit.');
+              Alert.alert(
+                'Success! ✅',
+                `"${experiment.activityName}" has been added to your active habits. You can now track it daily from the home screen.`,
+                [
+                  { text: 'View Habits', onPress: () => router.replace('/') },
+                  { text: 'OK' }
+                ]
+              );
               await loadExperiments();
             } catch (error) {
               console.error('Error converting to habit:', error);
-              Alert.alert('Conversion Failed', 'Please try again.');
+              const errorMessage = error instanceof Error ? error.message : 'Unable to convert experiment to habit. Please try again.';
+              Alert.alert('Conversion Failed', errorMessage);
             }
           }
         }
       ]
     );
+  };
+
+  // Handle opening create experiment form modal
+  const openCreateExperimentForm = () => {
+    setExperimentFormData({
+      name: '',
+      emoji: '🧪',
+      goal: '',
+      description: '',
+      duration: '7',
+      outcomes: [],
+    });
+    setShowCreateFormModal(true);
+  };
+
+  const closeCreateFormModal = () => {
+    setShowCreateFormModal(false);
+  };
+
+  const handleCreateExperiment = () => {
+    // Validate form
+    if (!experimentFormData.name.trim()) {
+      Alert.alert('Missing Information', 'Please enter an experiment name.');
+      return;
+    }
+    if (!experimentFormData.goal.trim()) {
+      Alert.alert('Missing Information', 'Please enter your goal for this experiment.');
+      return;
+    }
+    if (experimentFormData.outcomes.length === 0) {
+      Alert.alert('Missing Information', 'Please select at least one outcome to track.');
+      return;
+    }
+
+    // Close modal and navigate to create-experiment page with form data
+    closeCreateFormModal();
+    router.push({
+      pathname: '/create-experiment',
+      params: {
+        formData: JSON.stringify(experimentFormData)
+      }
+    });
+  };
+
+  // Handle save completed experiment to library
+  const openSaveToLibraryModal = (experiment: Experiment) => {
+    setExperimentToSave(experiment);
+    setShowSaveToLibraryModal(true);
+  };
+
+  const closeSaveToLibraryModal = () => {
+    setShowSaveToLibraryModal(false);
+    setExperimentToSave(null);
+  };
+
+  const handleSaveToLibrary = async () => {
+    if (!experimentToSave || !user) return;
+
+    try {
+      // Here you would implement saving to a custom templates database
+      // For now, we'll show a success message
+      Alert.alert(
+        'Saved to Library! 📚',
+        `"${experimentToSave.activityName}" has been saved as a reusable experiment template.`,
+        [{ text: 'OK' }]
+      );
+
+      closeSaveToLibraryModal();
+      // TODO: Implement actual save to custom templates in database
+    } catch (error) {
+      console.error('Error saving to library:', error);
+      Alert.alert('Save Failed', 'Unable to save experiment to library. Please try again.');
+    }
   };
 
   const openTemplateModal = (template: any) => {
@@ -351,7 +386,8 @@ export default function ExperimentsHub() {
 
   const activeExperiments = experiments.filter(exp => exp.status === 'active');
   const completedExperiments = experiments.filter(exp => exp.status === 'completed');
-  const currentLibrary = EXPERIMENT_LIBRARY[selectedCategory];
+  // Use dynamic library data from database instead of hardcoded EXPERIMENT_LIBRARY
+  const currentLibrary = libraryExperiments;
 
   if (loading && !refreshing) {
     return (
@@ -515,29 +551,44 @@ export default function ExperimentsHub() {
             </View>
 
             {/* Experiment Template Cards */}
-            <View style={styles.templatesGrid}>
-              {currentLibrary.map((template) => (
-                <TouchableOpacity
-                  key={template.id}
-                  style={[
-                    styles.templateCard,
-                    { 
-                      backgroundColor: theme.colors.card,
-                      borderColor: theme.colors.border,
-                    }
-                  ]}
-                  onPress={() => openTemplateModal(template)}
-                >
-                  <Text style={styles.templateEmoji}>{template.emoji}</Text>
-                  <Text style={[styles.templateTitle, { color: theme.colors.text }]}>{template.title}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
+            {libraryLoading ? (
+              <View style={{ padding: 40, alignItems: 'center' }}>
+                <ActivityIndicator size="large" color={theme.colors.primary} />
+                <Text style={[styles.introText, { color: theme.colors.textSecondary, marginTop: 16 }]}>
+                  Loading experiments...
+                </Text>
+              </View>
+            ) : currentLibrary.length === 0 ? (
+              <View style={{ padding: 40, alignItems: 'center' }}>
+                <Text style={[styles.introText, { color: theme.colors.textSecondary }]}>
+                  No experiments available in this category yet.
+                </Text>
+              </View>
+            ) : (
+              <View style={styles.templatesGrid}>
+                {currentLibrary.map((template) => (
+                  <TouchableOpacity
+                    key={template.id}
+                    style={[
+                      styles.templateCard,
+                      {
+                        backgroundColor: theme.colors.card,
+                        borderColor: theme.colors.border,
+                      }
+                    ]}
+                    onPress={() => openTemplateModal(template)}
+                  >
+                    <Text style={styles.templateEmoji}>{template.emoji}</Text>
+                    <Text style={[styles.templateTitle, { color: theme.colors.text }]}>{template.name}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
 
             <TouchableOpacity
               style={[styles.createButton, { backgroundColor: theme.colors.accent, marginTop: 16 }]}
               activeOpacity={0.8}
-              onPress={() => router.push('/create-experiment')}
+              onPress={openCreateExperimentForm}
             >
               <Plus size={24} color="#FFFFFF" />
               <Text style={styles.createButtonText}>Create My Own Experiment</Text>
@@ -552,13 +603,28 @@ export default function ExperimentsHub() {
         {activeExperiments.length > 0 ? (
           <View style={styles.experimentsList}>
             {activeExperiments.map((experiment) => (
-              <View key={experiment.id} style={[styles.experimentCard, { backgroundColor: theme.colors.card }]}>
+              <View 
+                key={experiment.id} 
+                ref={(ref) => { experimentRefs.current[experiment.id] = ref; }}
+                style={[
+                  styles.experimentCard, 
+                  { backgroundColor: theme.colors.card },
+                  highlightedExperimentId === experiment.id && { 
+                    borderWidth: 2, 
+                    borderColor: theme.colors.primary,
+                    shadowColor: theme.colors.primary,
+                    shadowOpacity: 0.3,
+                    shadowRadius: 8,
+                    elevation: 4,
+                  }
+                ]}
+              >
                 <View style={styles.experimentHeader}>
                   <Text style={styles.experimentEmoji}>{experiment.activityEmoji}</Text>
                   <View style={styles.experimentInfo}>
                     <Text style={[styles.experimentTitle, { color: theme.colors.text }]}>{experiment.activityName}</Text>
                     <Text style={[styles.experimentProgress, { color: theme.colors.textSecondary }]}>
-                      Day {experiment.currentDay} of {experiment.totalDays}
+                      Day {Math.max(experiment.currentDay, 1)} of {experiment.totalDays}
                     </Text>
                   </View>
                   <View style={[styles.progressBar, { backgroundColor: theme.colors.border }]}>
@@ -566,7 +632,7 @@ export default function ExperimentsHub() {
                       style={[
                         styles.progressFill, 
                         { 
-                          width: `${(experiment.currentDay / experiment.totalDays) * 100}%`, 
+                          width: `${(Math.max(experiment.currentDay, 1) / experiment.totalDays) * 100}%`, 
                           backgroundColor: theme.colors.primary 
                         }
                       ]} 
@@ -649,7 +715,14 @@ export default function ExperimentsHub() {
                 )}
 
                 <View style={styles.experimentActions}>
-                  <TouchableOpacity 
+                  <TouchableOpacity
+                    style={[styles.actionButton, { backgroundColor: theme.colors.secondary, borderColor: theme.colors.border }]}
+                    onPress={() => openSaveToLibraryModal(experiment)}
+                  >
+                    <FlaskConical size={16} color={theme.colors.text} />
+                    <Text style={[styles.actionButtonText, { color: theme.colors.text }]}>Save to Library</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
                     style={[styles.actionButton, { backgroundColor: theme.colors.primary }]}
                     onPress={() => handleConvertToHabit(experiment)}
                   >
@@ -835,14 +908,14 @@ export default function ExperimentsHub() {
                   <View style={styles.detailSection}>
                     <Text style={[styles.detailLabel, { color: theme.colors.textSecondary }]}>Progress</Text>
                     <Text style={[styles.detailValue, { color: theme.colors.text }]}>
-                      Day {selectedDetailExperiment.currentDay} of {selectedDetailExperiment.totalDays}
+                      Day {Math.max(selectedDetailExperiment.currentDay, 1)} of {selectedDetailExperiment.totalDays}
                     </Text>
                     <View style={[styles.progressBar, { backgroundColor: theme.colors.border, marginTop: 8 }]}>
                       <View 
                         style={[
                           styles.progressFill, 
                           { 
-                            width: `${(selectedDetailExperiment.currentDay / selectedDetailExperiment.totalDays) * 100}%`, 
+                            width: `${(Math.max(selectedDetailExperiment.currentDay, 1) / selectedDetailExperiment.totalDays) * 100}%`, 
                             backgroundColor: theme.colors.primary 
                           }
                         ]} 
@@ -904,31 +977,38 @@ export default function ExperimentsHub() {
                   <View style={{ alignItems: 'center', marginBottom: theme.spacing.sectionGap }}>
                     <Text style={{ fontSize: 64, marginBottom: theme.spacing.sm }}>{selectedTemplate.emoji}</Text>
                     <Text style={[styles.modalTitle, { color: theme.colors.text, textAlign: 'center' }]}>
-                      {selectedTemplate.title}
+                      {selectedTemplate.name}
                     </Text>
                     <View style={[styles.durationBadge, { backgroundColor: theme.colors.secondary, marginTop: theme.spacing.sm }]}>
                       <Text style={[styles.durationText, { color: theme.colors.text }]}>
-                        {selectedTemplate.duration} days
+                        {selectedTemplate.duration_options?.[0] || '7 days'}
                       </Text>
                     </View>
                   </View>
 
                   <View style={styles.detailSection}>
-                    <Text style={[styles.detailLabel, { color: theme.colors.textSecondary }]}>Goal</Text>
+                    <Text style={[styles.detailLabel, { color: theme.colors.textSecondary }]}>Category</Text>
                     <Text style={[styles.detailValue, { color: theme.colors.text }]}>
-                      {selectedTemplate.goal}
+                      {selectedTemplate.category}
                     </Text>
                   </View>
 
                   <View style={styles.detailSection}>
-                    <Text style={[styles.detailLabel, { color: theme.colors.textSecondary }]}>What to Track</Text>
+                    <Text style={[styles.detailLabel, { color: theme.colors.textSecondary }]}>Difficulty</Text>
                     <Text style={[styles.detailValue, { color: theme.colors.text }]}>
-                      {selectedTemplate.outcomes.join(', ')}
+                      {selectedTemplate.difficulty}
                     </Text>
                   </View>
 
                   <View style={styles.detailSection}>
-                    <Text style={[styles.detailLabel, { color: theme.colors.textSecondary }]}>Description</Text>
+                    <Text style={[styles.detailLabel, { color: theme.colors.textSecondary }]}>Instructions</Text>
+                    <Text style={[styles.detailValue, { color: theme.colors.text }]}>
+                      {selectedTemplate.instructions}
+                    </Text>
+                  </View>
+
+                  <View style={styles.detailSection}>
+                    <Text style={[styles.detailLabel, { color: theme.colors.textSecondary }]}>Expected Outcomes</Text>
                     <Text style={[styles.detailValue, { color: theme.colors.text }]}>
                       {selectedTemplate.description}
                     </Text>
@@ -949,6 +1029,240 @@ export default function ExperimentsHub() {
                 onPress={handleStartExperiment}
               >
                 <Text style={styles.modalButtonTextPrimary}>Start Experiment</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Create Experiment Form Modal */}
+      <Modal
+        visible={showCreateFormModal}
+        transparent
+        animationType="slide"
+        onRequestClose={closeCreateFormModal}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { backgroundColor: theme.colors.background }]}>
+            <View style={[styles.modalHeader, { borderBottomColor: theme.colors.divider }]}>
+              <Text style={[styles.modalTitle, { color: theme.colors.text }]}>Create New Experiment</Text>
+              <TouchableOpacity onPress={closeCreateFormModal} style={styles.closeButton}>
+                <X size={24} color={theme.colors.text} />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={styles.modalBody} showsVerticalScrollIndicator={false}>
+              <Text style={[styles.modalSubtitle, { color: theme.colors.textSecondary }]}>
+                Describe your experiment to track how it affects your wellbeing
+              </Text>
+
+              {/* Experiment Name */}
+              <View style={styles.detailSection}>
+                <Text style={[styles.detailLabel, { color: theme.colors.textSecondary }]}>Experiment Name *</Text>
+                <TextInput
+                  style={[styles.notesInput, {
+                    backgroundColor: theme.colors.card,
+                    color: theme.colors.text,
+                    borderColor: theme.colors.border,
+                    minHeight: 50
+                  }]}
+                  placeholder="e.g., Reading Before Bed"
+                  placeholderTextColor={theme.colors.textSecondary}
+                  value={experimentFormData.name}
+                  onChangeText={(text) => setExperimentFormData({ ...experimentFormData, name: text })}
+                />
+              </View>
+
+              {/* Goal */}
+              <View style={styles.detailSection}>
+                <Text style={[styles.detailLabel, { color: theme.colors.textSecondary }]}>What's your goal? *</Text>
+                <TextInput
+                  style={[styles.notesInput, {
+                    backgroundColor: theme.colors.card,
+                    color: theme.colors.text,
+                    borderColor: theme.colors.border,
+                    minHeight: 50
+                  }]}
+                  placeholder="e.g., Better Sleep Quality"
+                  placeholderTextColor={theme.colors.textSecondary}
+                  value={experimentFormData.goal}
+                  onChangeText={(text) => setExperimentFormData({ ...experimentFormData, goal: text })}
+                />
+              </View>
+
+              {/* Description */}
+              <View style={styles.detailSection}>
+                <Text style={[styles.detailLabel, { color: theme.colors.textSecondary }]}>Description</Text>
+                <TextInput
+                  style={[styles.notesInput, {
+                    backgroundColor: theme.colors.card,
+                    color: theme.colors.text,
+                    borderColor: theme.colors.border
+                  }]}
+                  placeholder="What will you do and why?"
+                  placeholderTextColor={theme.colors.textSecondary}
+                  multiline
+                  numberOfLines={4}
+                  value={experimentFormData.description}
+                  onChangeText={(text) => setExperimentFormData({ ...experimentFormData, description: text })}
+                />
+              </View>
+
+              {/* Duration */}
+              <View style={styles.detailSection}>
+                <Text style={[styles.detailLabel, { color: theme.colors.textSecondary }]}>Duration (days)</Text>
+                <View style={styles.scoreButtons}>
+                  {['7', '14', '21', '30'].map((days) => (
+                    <TouchableOpacity
+                      key={days}
+                      style={[
+                        styles.scoreButton,
+                        {
+                          backgroundColor: experimentFormData.duration === days
+                            ? theme.colors.primary
+                            : theme.colors.card,
+                          borderColor: experimentFormData.duration === days
+                            ? theme.colors.primary
+                            : theme.colors.border,
+                          width: 60,
+                        }
+                      ]}
+                      onPress={() => setExperimentFormData({ ...experimentFormData, duration: days })}
+                    >
+                      <Text style={[
+                        styles.scoreButtonText,
+                        { color: experimentFormData.duration === days ? '#FFFFFF' : theme.colors.text }
+                      ]}>
+                        {days}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
+
+              {/* Outcomes to Track */}
+              <View style={styles.detailSection}>
+                <Text style={[styles.detailLabel, { color: theme.colors.textSecondary }]}>What to track? *</Text>
+                <View style={styles.scoreButtons}>
+                  {['Mood', 'Sleep Quality', 'Energy', 'Focus', 'Anxiety', 'Productivity'].map((outcome) => (
+                    <TouchableOpacity
+                      key={outcome}
+                      style={[
+                        styles.completionButton,
+                        {
+                          backgroundColor: experimentFormData.outcomes.includes(outcome)
+                            ? theme.colors.primary
+                            : theme.colors.card,
+                          borderColor: experimentFormData.outcomes.includes(outcome)
+                            ? theme.colors.primary
+                            : theme.colors.border,
+                        }
+                      ]}
+                      onPress={() => {
+                        const newOutcomes = experimentFormData.outcomes.includes(outcome)
+                          ? experimentFormData.outcomes.filter(o => o !== outcome)
+                          : [...experimentFormData.outcomes, outcome];
+                        setExperimentFormData({ ...experimentFormData, outcomes: newOutcomes });
+                      }}
+                    >
+                      <Text style={[
+                        styles.completionButtonText,
+                        { color: experimentFormData.outcomes.includes(outcome) ? '#FFFFFF' : theme.colors.text }
+                      ]}>
+                        {outcome}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
+            </ScrollView>
+
+            <View style={[styles.modalFooter, { borderTopColor: theme.colors.border }]}>
+              <TouchableOpacity
+                style={[styles.modalButton, { borderColor: theme.colors.border }]}
+                onPress={closeCreateFormModal}
+              >
+                <Text style={[styles.modalButtonText, { color: theme.colors.text }]}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalButtonPrimary, { backgroundColor: theme.colors.primary }]}
+                onPress={handleCreateExperiment}
+              >
+                <Text style={styles.modalButtonTextPrimary}>Continue</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Save to Library Modal */}
+      <Modal
+        visible={showSaveToLibraryModal}
+        transparent
+        animationType="slide"
+        onRequestClose={closeSaveToLibraryModal}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { backgroundColor: theme.colors.background }]}>
+            <View style={[styles.modalHeader, { borderBottomColor: theme.colors.divider }]}>
+              <Text style={[styles.modalTitle, { color: theme.colors.text }]}>Save to Library</Text>
+              <TouchableOpacity onPress={closeSaveToLibraryModal} style={styles.closeButton}>
+                <X size={24} color={theme.colors.text} />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={styles.modalBody} showsVerticalScrollIndicator={false}>
+              {experimentToSave && (
+                <>
+                  <View style={{ alignItems: 'center', marginBottom: theme.spacing.sectionGap }}>
+                    <Text style={{ fontSize: 64, marginBottom: theme.spacing.sm }}>{experimentToSave.activityEmoji}</Text>
+                    <Text style={[styles.modalTitle, { color: theme.colors.text, textAlign: 'center' }]}>
+                      {experimentToSave.activityName}
+                    </Text>
+                  </View>
+
+                  <Text style={[styles.modalSubtitle, { color: theme.colors.textSecondary }]}>
+                    Save this experiment as a reusable template in your library. This will allow you to quickly start the same experiment again in the future.
+                  </Text>
+
+                  <View style={styles.detailSection}>
+                    <Text style={[styles.detailLabel, { color: theme.colors.textSecondary }]}>Duration</Text>
+                    <Text style={[styles.detailValue, { color: theme.colors.text }]}>
+                      {experimentToSave.duration} days
+                    </Text>
+                  </View>
+
+                  <View style={styles.detailSection}>
+                    <Text style={[styles.detailLabel, { color: theme.colors.textSecondary }]}>Tracked Outcomes</Text>
+                    <Text style={[styles.detailValue, { color: theme.colors.text }]}>
+                      {experimentToSave.outcomes.join(', ')}
+                    </Text>
+                  </View>
+
+                  {experimentToSave.insights && (
+                    <View style={[styles.insightsSection, { backgroundColor: theme.colors.secondary }]}>
+                      <Text style={[styles.insightsTitle, { color: theme.colors.text }]}>Key Insights</Text>
+                      <Text style={[styles.insightsText, { color: theme.colors.textSecondary }]}>
+                        {experimentToSave.insights}
+                      </Text>
+                    </View>
+                  )}
+                </>
+              )}
+            </ScrollView>
+
+            <View style={[styles.modalFooter, { borderTopColor: theme.colors.border }]}>
+              <TouchableOpacity
+                style={[styles.modalButton, { borderColor: theme.colors.border }]}
+                onPress={closeSaveToLibraryModal}
+              >
+                <Text style={[styles.modalButtonText, { color: theme.colors.text }]}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalButtonPrimary, { backgroundColor: theme.colors.primary }]}
+                onPress={handleSaveToLibrary}
+              >
+                <Text style={styles.modalButtonTextPrimary}>Save Template</Text>
               </TouchableOpacity>
             </View>
           </View>

@@ -18,6 +18,7 @@ import HabitTrackingCard from '@/components/HabitTrackingCard';
 import ExperimentResultsCard from '@/components/ExperimentResultsCard';
 import ImpactAnalysis from '@/components/ImpactAnalysis';
 import MoreInsights from '@/components/MoreInsights';
+import { FloatingNotificationButton, NotificationPanel } from '@/components/notifications';
 export default function ActivityStatsScreen() {
   const insets = useSafeAreaInsets();
   const { theme } = useTheme();
@@ -219,31 +220,39 @@ export default function ActivityStatsScreen() {
         />
 
         <Animated.View style={[styles.sectionsContainer, { opacity: fadeAnim }]}>
-          <ImpactAnalysis userId={user?.id || ''} timeRange={selectedRange as any} />
-          <MoodScoreCard 
-            userId={user?.id || ''} 
-            period={selectedRange as 'today' | 'week' | 'month' | 'year'} 
+          {/* Show Impact Analysis only for week/month/year - needs sufficient data */}
+          {selectedRange !== 'today' && (
+            <ImpactAnalysis userId={user?.id || ''} timeRange={selectedRange as any} />
+          )}
+
+          <MoodScoreCard
+            userId={user?.id || ''}
+            period={selectedRange as 'today' | 'week' | 'month' | 'year'}
           />
-          <ActivityImpactCard 
-            userId={user?.id || ''} 
-            period={selectedRange as 'today' | 'week' | 'month' | 'year'} 
+          <ActivityImpactCard
+            userId={user?.id || ''}
+            period={selectedRange as 'today' | 'week' | 'month' | 'year'}
           />
-          <SleepDashboard 
-            userId={user?.id || ''} 
-            period={selectedRange === 'today' ? 'week' : selectedRange as 'week' | 'month' | 'year'}
+          <SleepDashboard
+            userId={user?.id || ''}
+            period={selectedRange as 'today' | 'week' | 'month' | 'year'}
             sleepTarget={8.0}
           />
-          <HabitTrackingCard 
-            userId={user?.id || ''} 
+          <HabitTrackingCard
+            userId={user?.id || ''}
             period={selectedRange === 'today' ? 'week' : selectedRange === 'year' ? 'all' : selectedRange as 'week' | 'month' | 'all'}
           />
-          <ExperimentResultsCard 
-            userId={user?.id || ''} 
+          <ExperimentResultsCard
+            userId={user?.id || ''}
             filter="all"
           />
           <MoreInsights />
         </Animated.View>
       </ScrollView>
+      
+      {/* Notification Widget */}
+      <FloatingNotificationButton />
+      <NotificationPanel />
     </View>
   );
 }

@@ -3,6 +3,8 @@ import { Session, User } from '@supabase/supabase-js';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '@/lib/supabase';
 import { useRouter } from 'expo-router';
+import { OnboardingService } from '@/services/onboarding.service';
+import { ProfileService } from '@/services/profile.service';
 
 interface AuthContextType {
   user: User | null;
@@ -10,10 +12,14 @@ interface AuthContextType {
   loading: boolean;
   isGuest: boolean;
   signIn: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
-  signUp: (email: string, password: string) => Promise<{ success: boolean; error?: string; needsVerification?: boolean }>;
+  signUp: (email: string, password: string, preferredName?: string) => Promise<{ success: boolean; error?: string; needsVerification?: boolean }>;
   signOut: () => Promise<void>;
   continueAsGuest: () => Promise<void>;
   refreshSession: () => Promise<void>;
+  signInWithGoogle: () => Promise<{ success: boolean; error?: string }>;
+  signInWithApple: () => Promise<{ success: boolean; error?: string }>;
+  resetPassword: (email: string) => Promise<{ success: boolean; error?: string }>;
+  updatePassword: (newPassword: string) => Promise<{ success: boolean; error?: string }>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -88,6 +94,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setIsGuest(false);
         await AsyncStorage.removeItem('guest_mode');
         console.log('✅ AuthContext: User signed in');
+
+        // Check for pending preferred name (from email verification flow)
+        try {
+          const pendingName = await AsyncStorage.getItem(`pending_name_${session.user.id}`);
+          if (pendingName) {
+            await ProfileService.updateName(session.user.id, pendingName);
+            await AsyncStorage.removeItem(`pending_name_${session.user.id}`);
+            console.log('✅ AuthContext: Pending preferred name saved');
+          }
+        } catch (error) {
+          console.error('⚠️ AuthContext: Error handling pending name:', error);
+        }
+
+        // Complete onboarding and save goals/programs
+        try {
+          await OnboardingService.completeOnboarding(session.user.id);
+        } catch (error) {
+          console.error('Error completing onboarding:', error);
+        }
       }
 
       // Handle token refresh
@@ -131,7 +156,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const signUp = async (email: string, password: string) => {
+  const signUp = async (email: string, password: string, preferredName?: string) => {
     try {
       const { data, error } = await supabase.auth.signUp({
         email,
@@ -143,7 +168,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return { success: false, error: error.message };
       }
 
-      if (data.session) {
+      if (data.session && data.user) {
+        // Save preferred name to profile
+        if (preferredName && preferredName.trim()) {
+          try {
+            await ProfileService.updateName(data.user.id, preferredName.trim());
+            console.log('✅ AuthContext: Preferred name saved');
+          } catch (nameError) {
+            console.error('⚠️ AuthContext: Failed to save preferred name:', nameError);
+            // Don't fail signup if name save fails
+          }
+        }
+
         setSession(data.session);
         setUser(data.session.user);
         setIsGuest(false);
@@ -151,6 +187,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         console.log('✅ AuthContext: Sign up successful with session');
         return { success: true };
       } else if (data.user) {
+        // Email verification required - store preferred name temporarily
+        if (preferredName && preferredName.trim()) {
+          try {
+            await AsyncStorage.setItem(`pending_name_${data.user.id}`, preferredName.trim());
+            console.log('✅ AuthContext: Preferred name stored temporarily');
+          } catch (storageError) {
+            console.error('⚠️ AuthContext: Failed to store pending name:', storageError);
+          }
+        }
         console.log('✅ AuthContext: Sign up successful, email verification required');
         return { success: true, needsVerification: true };
       }
@@ -200,7 +245,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       console.log('🔄 AuthContext: Refreshing session...');
       const { data, error } = await supabase.auth.refreshSession();
-      
+
       if (error) {
         console.error('❌ AuthContext: Session refresh error:', error);
         return;
@@ -216,6 +261,92 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const signInWithGoogle = async () => {
+    try {
+      console.log('🔐 AuthContext: Starting Google sign-in...');
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: 'betternapped://auth/callback',
+        },
+      });
+
+      if (error) {
+        console.error('❌ AuthContext: Google sign-in error:', error);
+        return { success: false, error: error.message };
+      }
+
+      console.log('✅ AuthContext: Google sign-in initiated');
+      return { success: true };
+    } catch (error: any) {
+      console.error('❌ AuthContext: Google sign-in exception:', error);
+      return { success: false, error: error.message || 'Failed to sign in with Google' };
+    }
+  };
+
+  const signInWithApple = async () => {
+    try {
+      console.log('🔐 AuthContext: Starting Apple sign-in...');
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: 'apple',
+        options: {
+          redirectTo: 'betternapped://auth/callback',
+        },
+      });
+
+      if (error) {
+        console.error('❌ AuthContext: Apple sign-in error:', error);
+        return { success: false, error: error.message };
+      }
+
+      console.log('✅ AuthContext: Apple sign-in initiated');
+      return { success: true };
+    } catch (error: any) {
+      console.error('❌ AuthContext: Apple sign-in exception:', error);
+      return { success: false, error: error.message || 'Failed to sign in with Apple' };
+    }
+  };
+
+  const resetPassword = async (email: string) => {
+    try {
+      console.log('🔐 AuthContext: Sending password reset email...');
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: 'betternapped://auth/reset-password',
+      });
+
+      if (error) {
+        console.error('❌ AuthContext: Password reset error:', error);
+        return { success: false, error: error.message };
+      }
+
+      console.log('✅ AuthContext: Password reset email sent');
+      return { success: true };
+    } catch (error: any) {
+      console.error('❌ AuthContext: Password reset exception:', error);
+      return { success: false, error: error.message || 'Failed to send password reset email' };
+    }
+  };
+
+  const updatePassword = async (newPassword: string) => {
+    try {
+      console.log('🔐 AuthContext: Updating password...');
+      const { error } = await supabase.auth.updateUser({
+        password: newPassword,
+      });
+
+      if (error) {
+        console.error('❌ AuthContext: Password update error:', error);
+        return { success: false, error: error.message };
+      }
+
+      console.log('✅ AuthContext: Password updated successfully');
+      return { success: true };
+    } catch (error: any) {
+      console.error('❌ AuthContext: Password update exception:', error);
+      return { success: false, error: error.message || 'Failed to update password' };
+    }
+  };
+
   const value = {
     user,
     session,
@@ -226,6 +357,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     signOut,
     continueAsGuest,
     refreshSession,
+    signInWithGoogle,
+    signInWithApple,
+    resetPassword,
+    updatePassword,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

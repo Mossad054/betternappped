@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ActivityIndicator, Animated } from 'react-native';
 import { useTheme } from '@/contexts/ThemeContext';
 import { AnalyticsService, MoodScoreAnalysis } from '@/services/analytics.service';
+import { BaselineService } from '@/services/analytics/baseline.service';
 import Svg, { Circle, G, Text as SvgText, Path } from 'react-native-svg';
 
 interface MoodScoreCardProps {
@@ -9,10 +10,17 @@ interface MoodScoreCardProps {
   period: 'today' | 'week' | 'month' | 'year';
 }
 
+interface PersonalizedContext {
+  normalizedScore: number;
+  percentileRank: number;
+  context: string;
+}
+
 export default function MoodScoreCard({ userId, period }: MoodScoreCardProps) {
   const { theme } = useTheme();
   const [loading, setLoading] = useState(true);
   const [analysis, setAnalysis] = useState<MoodScoreAnalysis | null>(null);
+  const [personalContext, setPersonalContext] = useState<PersonalizedContext | null>(null);
   const [fadeAnim] = useState(new Animated.Value(0));
 
   useEffect(() => {
@@ -27,6 +35,24 @@ export default function MoodScoreCard({ userId, period }: MoodScoreCardProps) {
       
       if (result.data) {
         setAnalysis(result.data);
+        
+        // Load personalized baseline context
+        try {
+          const normalized = await BaselineService.normalizeScore(
+            userId,
+            'mood',
+            result.data.averageMood
+          );
+          setPersonalContext({
+            normalizedScore: normalized.normalizedScore,
+            percentileRank: normalized.percentileRank,
+            context: normalized.context
+          });
+        } catch (error) {
+          console.warn('⚠️ Could not load baseline context:', error);
+          setPersonalContext(null);
+        }
+        
         // Fade in animation
         Animated.timing(fadeAnim, {
           toValue: 1,
@@ -202,6 +228,63 @@ export default function MoodScoreCard({ userId, period }: MoodScoreCardProps) {
             / 5.0
           </Text>
         </View>
+        
+        {/* Personalized Context */}
+        {personalContext && (
+          <View style={styles.personalContextContainer}>
+            <View style={styles.normalizedScoreBar}>
+              <View style={styles.normalizedScoreTrack}>
+                <View 
+                  style={[
+                    styles.normalizedScoreFill,
+                    { 
+                      width: `${personalContext.normalizedScore}%`,
+                      backgroundColor: personalContext.normalizedScore >= 70 
+                        ? theme.colors.success 
+                        : personalContext.normalizedScore >= 40 
+                        ? theme.colors.warning 
+                        : theme.colors.error
+                    }
+                  ]} 
+                />
+                <View 
+                  style={[
+                    styles.normalizedScoreMarker,
+                    { 
+                      left: `${personalContext.normalizedScore}%`,
+                      backgroundColor: personalContext.normalizedScore >= 70 
+                        ? theme.colors.success 
+                        : personalContext.normalizedScore >= 40 
+                        ? theme.colors.warning 
+                        : theme.colors.error
+                    }
+                  ]}
+                >
+                  <Text style={styles.normalizedScoreValue}>
+                    {Math.round(personalContext.normalizedScore)}
+                  </Text>
+                </View>
+              </View>
+              <View style={styles.normalizedScoreLabels}>
+                <Text style={[styles.normalizedScoreLabel, { color: theme.colors.textSecondary }]}>
+                  Your Low
+                </Text>
+                <Text style={[styles.normalizedScoreLabel, { color: theme.colors.textSecondary }]}>
+                  Your Average
+                </Text>
+                <Text style={[styles.normalizedScoreLabel, { color: theme.colors.textSecondary }]}>
+                  Your High
+                </Text>
+              </View>
+            </View>
+            <View style={[styles.contextBox, { backgroundColor: theme.colors.primary + '10' }]}>
+              <Text style={[styles.contextIcon]}>💡</Text>
+              <Text style={[styles.contextText, { color: theme.colors.text }]}>
+                {personalContext.context}
+              </Text>
+            </View>
+          </View>
+        )}
       </View>
     );
   };
@@ -463,6 +546,71 @@ const styles = StyleSheet.create({
   },
   scoreLabel: {
     fontSize: 18,
+    fontWeight: '500',
+  },
+  personalContextContainer: {
+    gap: 12,
+    marginTop: 8,
+  },
+  normalizedScoreBar: {
+    gap: 8,
+  },
+  normalizedScoreTrack: {
+    height: 40,
+    backgroundColor: 'rgba(128, 128, 128, 0.1)',
+    borderRadius: 20,
+    position: 'relative',
+    overflow: 'visible',
+  },
+  normalizedScoreFill: {
+    height: '100%',
+    borderRadius: 20,
+    transition: 'width 0.3s ease',
+  },
+  normalizedScoreMarker: {
+    position: 'absolute',
+    top: -8,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    marginLeft: -28,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  normalizedScoreValue: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  normalizedScoreLabels: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingHorizontal: 4,
+  },
+  normalizedScoreLabel: {
+    fontSize: 10,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+  },
+  contextBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    padding: 12,
+    borderRadius: 12,
+  },
+  contextIcon: {
+    fontSize: 20,
+  },
+  contextText: {
+    flex: 1,
+    fontSize: 13,
+    lineHeight: 18,
     fontWeight: '500',
   },
   statsRow: {

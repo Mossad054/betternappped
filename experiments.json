@@ -1,0 +1,1372 @@
+[
+  {
+    "category": "Sleep",
+    "name": "Consistent bedtime routine",
+    "instructions": "Undertake the experiment 'Consistent bedtime routine' following the provided steps and record your outcome.",
+    "description": "By completing this experiment for 7 days you will begin noticing early improvements. By 14 days you will observe measurable changes. By 30 days you will experience long-term benefits related to consistent bedtime routine."
+  },
+  {
+    "category": "Sleep",
+    "name": "Avoid screens 1 hour before bed",
+    "instructions": "Undertake the experiment 'Avoid screens 1 hour before bed' following the provided steps and record your outcome.",
+    "description": "By completing this experiment for 7 days you will begin noticing early improvements. By 14 days you will observe measurable changes. By 30 days you will experience long-term benefits related to avoiding screens before bed."
+  },
+  {
+    "category": "Sleep",
+    "name": "Nightly journaling",
+    "instructions": "Undertake the experiment 'Nightly journaling' following the provided steps and record your outcome.",
+    "description": "By completing this experiment for 7 days you will begin noticing early improvements. By 14 days you will observe measurable changes. By 30 days you will experience long-term benefits related to nightly journaling."
+  },
+  {
+    "category": "Sleep",
+    "name": "Warm shower before sleep",
+    "instructions": "Undertake the experiment 'Warm shower before sleep' following the provided steps and record your outcome.",
+    "description": "By completing this experiment for 7 days you will begin noticing early improvements. By 14 days you will observe measurable changes. By 30 days you will experience long-term benefits related to warm shower before sleep."
+  },
+  {
+    "category": "Sleep",
+    "name": "Evening meditation",
+    "instructions": "Undertake the experiment 'Evening meditation' following the provided steps and record your outcome.",
+    "description": "By completing this experiment for 7 days you will begin noticing early improvements. By 14 days you will observe measurable changes. By 30 days you will experience long-term benefits related to evening meditation."
+  },
+  {
+    "category": "Sleep",
+    "name": "Deep breathing before bed",
+    "instructions": "Undertake the experiment 'Deep breathing before bed' following the provided steps and record your outcome.",
+    "description": "By completing this experiment for 7 days you will begin noticing early improvements. By 14 days you will observe measurable changes. By 30 days you will experience long-term benefits related to deep breathing before bed."
+  },
+  {
+    "category": "Sleep",
+    "name": "Limit caffeine after 2 PM",
+    "instructions": "Undertake the experiment 'Limit caffeine after 2 PM' following the provided steps and record your outcome.",
+    "description": "By completing this experiment for 7 days you will begin noticing early improvements. By 14 days you will observe measurable changes. By 30 days you will experience long-term benefits related to limiting caffeine."
+  },
+  {
+    "category": "Sleep",
+    "name": "Sleep in total darkness",
+    "instructions": "Undertake the experiment 'Sleep in total darkness' following the provided steps and record your outcome.",
+    "description": "By completing this experiment for 7 days you will begin noticing early improvements. By 14 days you will observe measurable changes. By 30 days you will experience long-term benefits related to sleeping in darkness."
+  },
+  {
+    "category": "Sleep",
+    "name": "Use relaxing aroma",
+    "instructions": "Undertake the experiment 'Use relaxing aroma' following the provided steps and record your outcome.",
+    "description": "By completing this experiment for 7 days you will begin noticing early improvements. By 14 days you will observe measurable changes. By 30 days you will experience long-term benefits related to relaxing aroma use."
+  },
+  {
+    "category": "Sleep",
+    "name": "Reduce water intake before bed",
+    "instructions": "Undertake the experiment 'Reduce water intake before bed' following the provided steps and record your outcome.",
+    "description": "By completing this experiment for 7 days you will begin noticing early improvements. By 14 days you will observe measurable changes. By 30 days you will experience long-term benefits related to reducing late hydration."
+  },
+  {
+    "category": "Sleep",
+    "name": "Set fixed wake-up time",
+    "instructions": "Undertake the experiment 'Set fixed wake-up time' following the provided steps and record your outcome.",
+    "description": "By completing this experiment for 7 days you will begin noticing early improvements. By 14 days you will observe measurable changes. By 30 days you will experience long-term benefits related to fixed wake-up consistency."
+  },
+  {
+    "category": "Sleep",
+    "name": "Limit heavy meals before bedtime",
+    "instructions": "Undertake the experiment 'Limit heavy meals before bedtime' following the provided steps and record your outcome.",
+    "description": "By completing this experiment for 7 days you will begin noticing early improvements. By 14 days you will observe measurable changes. By 30 days you will experience long-term benefits related to limiting heavy meals before bedtime."
+  },
+  {
+    "category": "Sleep",
+    "name": "Read a calming book before sleep",
+    "instructions": "Undertake the experiment 'Read a calming book before sleep' following the provided steps and record your outcome.",
+    "description": "By completing this experiment for 7 days you will begin noticing early improvements. By 14 days you will observe measurable changes. By 30 days you will experience long-term benefits related to reading before bed."
+  },
+  {
+    "category": "Sleep",
+    "name": "Listen to soft music",
+    "instructions": "Undertake the experiment 'Listen to soft music' following the provided steps and record your outcome.",
+    "description": "By completing this experiment for 7 days you will begin noticing early improvements. By 14 days you will observe measurable changes. By 30 days you will experience long-term benefits related to soft music for sleep."
+  },
+  {
+    "category": "Sleep",
+    "name": "Gentle stretching",
+    "instructions": "Undertake the experiment 'Gentle stretching' following the provided steps and record your outcome.",
+    "description": "By completing this experiment for 7 days you will begin noticing early improvements. By 14 days you will observe measurable changes. By 30 days you will experience long-term benefits related to gentle stretching."
+  },
+  {
+    "category": "Sleep",
+    "name": "Avoid alcohol in evening",
+    "instructions": "Undertake the experiment 'Avoid alcohol in evening' following the provided steps and record your outcome.",
+    "description": "By completing this experiment for 7 days you will begin noticing early improvements. By 14 days you will observe measurable changes. By 30 days you will experience long-term benefits related to avoiding evening alcohol."
+  },
+  {
+    "category": "Sleep",
+    "name": "Bed used only for sleep",
+    "instructions": "Undertake the experiment 'Bed used only for sleep' following the provided steps and record your outcome.",
+    "description": "By completing this experiment for 7 days you will begin noticing early improvements. By 14 days you will observe measurable changes. By 30 days you will experience long-term benefits related to improving sleep association."
+  },
+  {
+    "category": "Sleep",
+    "name": "Relaxed breathing in bed",
+    "instructions": "Undertake the experiment 'Relaxed breathing in bed' following the provided steps and record your outcome.",
+    "description": "By completing this experiment for 7 days you will begin noticing early improvements. By 14 days you will observe measurable changes. By 30 days you will experience long-term benefits related to relaxed breathing."
+  },
+  {
+    "category": "Sleep",
+    "name": "Declutter your sleep space",
+    "instructions": "Undertake the experiment 'Declutter your sleep space' following the provided steps and record your outcome.",
+    "description": "By completing this experiment for 7 days you will begin noticing early improvements. By 14 days you will observe measurable changes. By 30 days you will experience long-term benefits related to sleep-space decluttering."
+  },
+  {
+    "category": "Sleep",
+    "name": "Use weighted blanket",
+    "instructions": "Undertake the experiment 'Use weighted blanket' following the provided steps and record your outcome.",
+    "description": "By completing this experiment for 7 days you will begin noticing early improvements. By 14 days you will observe measurable changes. By 30 days you will experience long-term benefits related to weighted blanket use."
+  },
+  {
+    "category": "Sleep",
+    "name": "No phone inside bedroom",
+    "instructions": "Undertake the experiment 'No phone inside bedroom' following the provided steps and record your outcome.",
+    "description": "By completing this experiment for 7 days you will begin noticing early improvements. By 14 days you will observe measurable changes. By 30 days you will experience long-term benefits related to removing phone distractions."
+  },
+  {
+    "category": "Sleep",
+    "name": "Try white noise",
+    "instructions": "Undertake the experiment 'Try white noise' following the provided steps and record your outcome.",
+    "description": "By completing this experiment for 7 days you will begin noticing early improvements. By 14 days you will observe measurable changes. By 30 days you will experience long-term benefits related to white noise."
+  },
+  {
+    "category": "Sleep",
+    "name": "Try pink noise",
+    "instructions": "Undertake the experiment 'Try pink noise' following the provided steps and record your outcome.",
+    "description": "By completing this experiment for 7 days you will begin noticing early improvements. By 14 days you will observe measurable changes. By 30 days you will experience long-term benefits related to pink noise."
+  },
+  {
+    "category": "Sleep",
+    "name": "Try brown noise",
+    "instructions": "Undertake the experiment 'Try brown noise' following the provided steps and record your outcome.",
+    "description": "By completing this experiment for 7 days you will begin noticing early improvements. By 14 days you will observe measurable changes. By 30 days you will experience long-term benefits related to brown noise."
+  },
+  {
+    "category": "Sleep",
+    "name": "Evening gratitude practice",
+    "instructions": "Undertake the experiment 'Evening gratitude practice' following the provided steps and record your outcome.",
+    "description": "By completing this experiment for 7 days you will begin noticing early improvements. By 14 days you will observe measurable changes. By 30 days you will experience long-term benefits related to gratitude practice."
+  },
+  {
+    "category": "Sleep",
+    "name": "No naps after 4 PM",
+    "instructions": "Undertake the experiment 'No naps after 4 PM' following the provided steps and record your outcome.",
+    "description": "By completing this experiment for 7 days you will begin noticing early improvements. By 14 days you will observe measurable changes. By 30 days you will experience long-term benefits related to avoiding late naps."
+  },
+  {
+    "category": "Sleep",
+    "name": "Light stretching before bed",
+    "instructions": "Undertake the experiment 'Light stretching before bed' following the provided steps and record your outcome.",
+    "description": "By completing this experiment for 7 days you will begin noticing early improvements. By 14 days you will observe measurable changes. By 30 days you will experience long-term benefits related to light stretching."
+  },
+  {
+    "category": "Sleep",
+    "name": "Lower room temperature",
+    "instructions": "Undertake the experiment 'Lower room temperature' following the provided steps and record your outcome.",
+    "description": "By completing this experiment for 7 days you will begin noticing early improvements. By 14 days you will observe measurable changes. By 30 days you will experience long-term benefits related to room temperature adjustments."
+  },
+  {
+    "category": "Sleep",
+    "name": "Use blackout curtains",
+    "instructions": "Undertake the experiment 'Use blackout curtains' following the provided steps and record your outcome.",
+    "description": "By completing this experiment for 7 days you will begin noticing early improvements. By 14 days you will observe measurable changes. By 30 days you will experience long-term benefits related to blackout curtains."
+  },
+  {
+    "category": "Sleep",
+    "name": "Evening herbal tea",
+    "instructions": "Undertake the experiment 'Evening herbal tea' following the provided steps and record your outcome.",
+    "description": "By completing this experiment for 7 days you will begin noticing early improvements. By 14 days you will observe measurable changes. By 30 days you will experience long-term benefits related to herbal tea usage."
+  },
+  {
+    "category": "Sleep",
+    "name": "Avoid stressful conversations at night",
+    "instructions": "Undertake the experiment 'Avoid stressful conversations at night' following the provided steps and record your outcome.",
+    "description": "By completing this experiment for 7 days you will begin noticing early improvements. By 14 days you will observe measurable changes. By 30 days you will experience long-term benefits related to low-stress evenings."
+  },
+  {
+    "category": "Sleep",
+    "name": "Evening walk",
+    "instructions": "Undertake the experiment 'Evening walk' following the provided steps and record your outcome.",
+    "description": "By completing this experiment for 7 days you will begin noticing early improvements. By 14 days you will observe measurable changes. By 30 days you will experience long-term benefits related to evening walks."
+  },
+  {
+    "category": "Sleep",
+    "name": "Keep consistent dinner time",
+    "instructions": "Undertake the experiment 'Keep consistent dinner time' following the provided steps and record your outcome.",
+    "description": "By completing this experiment for 7 days you will begin noticing early improvements. By 14 days you will observe measurable changes. By 30 days you will experience long-term benefits related to consistent meal timing."
+  },
+  {
+    "category": "Sleep",
+    "name": "Practice slow body scan",
+    "instructions": "Undertake the experiment 'Practice slow body scan' following the provided steps and record your outcome.",
+    "description": "By completing this experiment for 7 days you will begin noticing early improvements. By 14 days you will observe measurable changes. By 30 days you will experience long-term benefits related to slow body scan meditation."
+  },
+  {
+    "category": "Sleep",
+    "name": "Turn off bright overhead lights",
+    "instructions": "Undertake the experiment 'Turn off bright overhead lights' following the provided steps and record your outcome.",
+    "description": "By completing this experiment for 7 days you will begin noticing early improvements. By 14 days you will observe measurable changes. By 30 days you will experience long-term benefits related to softer evening lighting."
+  },
+  {
+    "category": "Sleep",
+    "name": "Set up pre-sleep checklist",
+    "instructions": "Undertake the experiment 'Set up pre-sleep checklist' following the provided steps and record your outcome.",
+    "description": "By completing this experiment for 7 days you will begin noticing early improvements. By 14 days you will observe measurable changes. By 30 days you will experience long-term benefits related to structured nighttime routines."
+  },
+  {
+    "category": "Sleep",
+    "name": "Try progressive muscle relaxation",
+    "instructions": "Undertake the experiment 'Try progressive muscle relaxation' following the provided steps and record your outcome.",
+    "description": "By completing this experiment for 7 days you will begin noticing early improvements. By 14 days you will observe measurable changes. By 30 days you will experience long-term benefits related to progressive muscle relaxation."
+  },
+  {
+    "category": "Sleep",
+    "name": "Use comfortable sleepwear",
+    "instructions": "Undertake the experiment 'Use comfortable sleepwear' following the provided steps and record your outcome.",
+    "description": "By completing this experiment for 7 days you will begin noticing early improvements. By 14 days you will observe measurable changes. By 30 days you will experience long-term benefits related to appropriate sleepwear."
+  },
+  {
+    "category": "Sleep",
+    "name": "Establish no-work-after-8PM rule",
+    "instructions": "Undertake the experiment 'Establish no-work-after-8PM rule' following the provided steps and record your outcome.",
+    "description": "By completing this experiment for 7 days you will begin noticing early improvements. By 14 days you will observe measurable changes. By 30 days you will experience long-term benefits from reduced evening overstimulation."
+  },
+  {
+    "category": "Sleep",
+    "name": "Try bedtime light stretching routine",
+    "instructions": "Undertake the experiment 'Try bedtime light stretching routine' following the provided steps and record your outcome.",
+    "description": "By completing this experiment for 7 days you will begin noticing early improvements. By 14 days you will observe measurable changes. By 30 days you will experience long-term benefits related to stretching."
+  },
+  {
+    "category": "Sleep",
+    "name": "Prepare your next day's plan before bed",
+    "instructions": "Undertake the experiment 'Prepare your next day's plan before bed' following the provided steps and record your outcome.",
+    "description": "By completing this experiment for 7 days you will begin noticing early improvements. By 14 days you will observe measurable changes. By 30 days you will experience reduced nighttime overthinking."
+  },
+  {
+    "category": "Sleep",
+    "name": "Try light bedtime yoga",
+    "instructions": "Undertake the experiment 'Try light bedtime yoga' following the provided steps and record your outcome.",
+    "description": "By completing this experiment for 7 days you will begin noticing early improvements. By 14 days you will observe measurable changes. By 30 days you will experience improved sleep readiness."
+  }
+]
+
+[
+  {
+    "category": "Mood",
+    "name": "Practice 5-minute morning gratitude",
+    "instructions": "Undertake the experiment 'Practice 5-minute morning gratitude' following the provided steps and record your outcome.",
+    "description": "By completing this experiment for 7 days you will start noticing small mood boosts. By 14 days you will feel more emotionally balanced. By 30 days you will experience long-term increases in positivity and resilience."
+  },
+  {
+    "category": "Mood",
+    "name": "Listen to uplifting music for 10 minutes daily",
+    "instructions": "Undertake the experiment 'Listen to uplifting music for 10 minutes daily' following the provided steps and record your outcome.",
+    "description": "By doing this for 7 days you will notice quick emotional lifts. By 14 days your overall mood baseline will improve. By 30 days you will feel sustained mood elevation and better emotional regulation."
+  },
+  {
+    "category": "Mood",
+    "name": "Go for a mood walk every afternoon",
+    "instructions": "Undertake the experiment 'Go for a mood walk every afternoon' following the provided steps and record your outcome.",
+    "description": "After 7 days you will feel lighter and calmer. By 14 days stress levels decrease. By 30 days you will experience long-term mood stabilization and lower irritability."
+  },
+  {
+    "category": "Mood",
+    "name": "Journal one positive moment each day",
+    "instructions": "Undertake the experiment 'Journal one positive moment each day' following the provided steps and record your outcome.",
+    "description": "After 7 days you will notice improved emotional awareness. By 14 days your brain will start scanning for positivity. By 30 days you will experience a stronger daily sense of fulfillment."
+  },
+  {
+    "category": "Mood",
+    "name": "10-minute daily mindfulness practice",
+    "instructions": "Undertake the experiment '10-minute daily mindfulness practice' following the provided steps and record your outcome.",
+    "description": "By 7 days you will feel calmer and more grounded. By 14 days you will observe decreased rumination. By 30 days you will experience long-term emotional clarity and reduced mood swings."
+  },
+  {
+    "category": "Mood",
+    "name": "Hydrate first thing in the morning",
+    "instructions": "Undertake the experiment 'Hydrate first thing in the morning' following the provided steps and record your outcome.",
+    "description": "After 7 days you will feel more alert. By 14 days mood stability increases. By 30 days you will notice sustained improvements in energy and overall mood."
+  },
+  {
+    "category": "Mood",
+    "name": "Do one small act of kindness daily",
+    "instructions": "Undertake the experiment 'Do one small act of kindness daily' following the provided steps and record your outcome.",
+    "description": "Within 7 days you will feel more connected. By 14 days happiness levels rise. By 30 days you will experience long-term mood elevation and improved empathy."
+  },
+  {
+    "category": "Mood",
+    "name": "Limit social media to 30 minutes daily",
+    "instructions": "Undertake the experiment 'Limit social media to 30 minutes daily' following the provided steps and record your outcome.",
+    "description": "After 7 days mood swings decrease. By 14 days anxiety reduces. By 30 days you will feel mentally lighter, calmer, and more emotionally stable."
+  },
+  {
+    "category": "Mood",
+    "name": "Practice intentional deep breathing 3 times daily",
+    "instructions": "Undertake the experiment 'Practice intentional deep breathing 3 times daily' following the provided steps and record your outcome.",
+    "description": "In 7 days you will feel calmer. By 14 days emotional control improves. By 30 days you experience long-term stress reduction and improved mood stability."
+  },
+  {
+    "category": "Mood",
+    "name": "Spend 10 minutes outdoors every morning",
+    "instructions": "Undertake the experiment 'Spend 10 minutes outdoors every morning' following the provided steps and record your outcome.",
+    "description": "After 7 days your spirits lift. By 14 days mood and energy increase. By 30 days you benefit from long-term improved emotional well-being."
+  },
+
+  {
+    "category": "Mood",
+    "name": "Practice a daily affirmation",
+    "instructions": "Undertake the experiment 'Practice a daily affirmation' following the provided steps and record your outcome.",
+    "description": "After 7 days you feel a shift in self-talk. By 14 days self-esteem increases. By 30 days you experience significant improvements in confidence and daily positivity."
+  },
+  {
+    "category": "Mood",
+    "name": "Do 5 minutes of morning stretching",
+    "instructions": "Undertake the experiment 'Do 5 minutes of morning stretching' following the provided steps and record your outcome.",
+    "description": "7 days improves morning tension. 14 days improves emotional clarity. 30 days creates long-term calmness and mood balance."
+  },
+  {
+    "category": "Mood",
+    "name": "Take a 15-minute creativity break",
+    "instructions": "Undertake the experiment 'Take a 15-minute creativity break' following the provided steps and record your outcome.",
+    "description": "7 days increases joy. 14 days improves mood resilience. 30 days boosts emotional expression and happiness."
+  },
+  {
+    "category": "Mood",
+    "name": "Do a weekly social check-in",
+    "instructions": "Undertake the experiment 'Do a weekly social check-in' following the provided steps and record your outcome.",
+    "description": "7 days improves connection. 14 days decreases loneliness. 30 days improves long-term emotional health."
+  },
+  {
+    "category": "Mood",
+    "name": "Limit negative news consumption",
+    "instructions": "Undertake the experiment 'Limit negative news consumption' following the provided steps and record your outcome.",
+    "description": "7 days reduces emotional heaviness. 14 days decreases anxiety. 30 days improves mood stability."
+  },
+  {
+    "category": "Mood",
+    "name": "Drink herbal tea in the evening",
+    "instructions": "Undertake the experiment 'Drink herbal tea in the evening' following the provided steps and record your outcome.",
+    "description": "7 days boosts relaxation. 14 days lowers emotional stress. 30 days improves long-term emotional balance."
+  },
+  {
+    "category": "Mood",
+    "name": "Smile intentionally 5 times per day",
+    "instructions": "Undertake the experiment 'Smile intentionally 5 times per day' following the provided steps and record your outcome.",
+    "description": "7 days improves momentary mood. 14 days boosts positivity. 30 days rewires emotional baseline upward."
+  },
+  {
+    "category": "Mood",
+    "name": "Practice emotional naming",
+    "instructions": "Undertake the experiment 'Practice emotional naming' following the provided steps and record your outcome.",
+    "description": "7 days boosts emotional clarity. 14 days reduces overwhelm. 30 days strengthens emotional intelligence."
+  },
+  {
+    "category": "Mood",
+    "name": "Do a daily dopamine detox hour",
+    "instructions": "Undertake the experiment 'Do a daily dopamine detox hour' following the provided steps and record your outcome.",
+    "description": "7 days improves calm. 14 days reduces emotional volatility. 30 days increases long-term mood regulation."
+  },
+  {
+    "category": "Mood",
+    "name": "Track one mood trigger daily",
+    "instructions": "Undertake the experiment 'Track one mood trigger daily' following the provided steps and record your outcome.",
+    "description": "7 days increases awareness. 14 days improves reaction control. 30 days enhances long-term mood resilience."
+  },
+
+  {
+    "category": "Mood",
+    "name": "Add one fun activity weekly",
+    "instructions": "Undertake the experiment 'Add one fun activity weekly' following the provided steps and record your outcome.",
+    "description": "7 days increases joy. 14 days boosts emotional satisfaction. 30 days enhances long-term happiness."
+  },
+  {
+    "category": "Mood",
+    "name": "Practice weekly self-compassion reflection",
+    "instructions": "Undertake the experiment 'Practice weekly self-compassion reflection' following the provided steps and record your outcome.",
+    "description": "7 days reduces emotional harshness. 14 days increases emotional openness. 30 days boosts long-term mood stability."
+  },
+  {
+    "category": "Mood",
+    "name": "Take a 5-minute breathing pause before stressful tasks",
+    "instructions": "Undertake the experiment 'Take a 5-minute breathing pause before stressful tasks' following the provided steps and record your outcome.",
+    "description": "7 days improves calm. 14 days reduces mood swings. 30 days improves long-term emotional control."
+  },
+  {
+    "category": "Mood",
+    "name": "Do a daily 10-minute hobby session",
+    "instructions": "Undertake the experiment 'Do a daily 10-minute hobby session' following the provided steps and record your outcome.",
+    "description": "7 days increases enjoyment. 14 days improves emotional expression. 30 days boosts overall happiness."
+  },
+  {
+    "category": "Mood",
+    "name": "Try a daily humor session",
+    "instructions": "Undertake the experiment 'Try a daily humor session' following the provided steps and record your outcome.",
+    "description": "7 days boosts mood. 14 days improves emotional lightness. 30 days increases resilience to stress."
+  },
+  {
+    "category": "Mood",
+    "name": "Practice daily forgiveness",
+    "instructions": "Undertake the experiment 'Practice daily forgiveness' following the provided steps and record your outcome.",
+    "description": "7 days lightens emotional load. 14 days reduces anger. 30 days brings long-term emotional freedom."
+  },
+  {
+    "category": "Mood",
+    "name": "Track and reduce emotional triggers",
+    "instructions": "Undertake the experiment 'Track and reduce emotional triggers' following the provided steps and record your outcome.",
+    "description": "7 days improves awareness. 14 days lowers reactivity. 30 days improves emotional mastery."
+  },
+  {
+    "category": "Mood",
+    "name": "Do a mood reset ritual before bed",
+    "instructions": "Undertake the experiment 'Do a mood reset ritual before bed' following the provided steps and record your outcome.",
+    "description": "7 days improves nightly calm. 14 days decreases lingering stress. 30 days improves emotional sleep quality."
+  },
+  {
+    "category": "Mood",
+    "name": "Reduce sugar intake for emotional balance",
+    "instructions": "Undertake the experiment 'Reduce sugar intake for emotional balance' following the provided steps and record your outcome.",
+    "description": "7 days stabilizes energy. 14 days reduces irritability. 30 days boosts overall mood consistency."
+  },
+  {
+    "category": "Mood",
+    "name": "Add one vegetable to each meal",
+    "instructions": "Undertake the experiment 'Add one vegetable to each meal' following the provided steps and record your outcome.",
+    "description": "7 days improves energy. 14 days supports mood balance. 30 days enhances long-term emotional well-being."
+  },
+  {
+    "category": "Mood",
+    "name": "Practice weekly reflection journaling",
+    "instructions": "Undertake the experiment 'Practice weekly reflection journaling' following the provided steps and record your outcome.",
+    "description": "7 days improves clarity. 14 days boosts emotional insight. 30 days increases long-term mood stability."
+  },
+  {
+    "category": "Mood",
+    "name": "Do a sensory grounding exercise daily",
+    "instructions": "Undertake the experiment 'Do a sensory grounding exercise daily' following the provided steps and record your outcome.",
+    "description": "7 days reduces stress. 14 days improves emotional grounding. 30 days boosts long-term calmness."
+  },
+  {
+    "category": "Mood",
+    "name": "Reduce multitasking to lower stress",
+    "instructions": "Undertake the experiment 'Reduce multitasking to lower stress' following the provided steps and record your outcome.",
+    "description": "7 days reduces overwhelm. 14 days increases emotional clarity. 30 days improves long-term stability."
+  },
+  {
+    "category": "Mood",
+    "name": "Practice weekly digital sunset",
+    "instructions": "Undertake the experiment 'Practice weekly digital sunset' following the provided steps and record your outcome.",
+    "description": "7 days improves relaxation. 14 days reduces emotional overload. 30 days boosts ongoing mood clarity."
+  },
+  {
+    "category": "Mood",
+    "name": "Do a daily mood rating",
+    "instructions": "Undertake the experiment 'Do a daily mood rating' following the provided steps and record your outcome.",
+    "description": "7 days improves awareness. 14 days highlights patterns. 30 days improves long-term mood understanding."
+  },
+  {
+    "category": "Mood",
+    "name": "Practice joy visualization daily",
+    "instructions": "Undertake the experiment 'Practice joy visualization daily' following the provided steps and record your outcome.",
+    "description": "7 days boosts optimism. 14 days improves emotional direction. 30 days strengthens long-term mood elevation."
+  },
+  {
+    "category": "Mood",
+    "name": "Do a daily self-kindness check",
+    "instructions": "Undertake the experiment 'Do a daily self-kindness check' following the provided steps and record your outcome.",
+    "description": "7 days reduces self-criticism. 14 days boosts emotional softness. 30 days improves long-term emotional wellbeing."
+  },
+  {
+    "category": "Mood",
+    "name": "Reduce evening stimulation",
+    "instructions": "Undertake the experiment 'Reduce evening stimulation' following the provided steps and record your outcome.",
+    "description": "7 days improves calm. 14 days lowers emotional stress. 30 days improves mood going into sleep."
+  },
+  {
+    "category": "Mood",
+    "name": "Practice emotional gratitude",
+    "instructions": "Undertake the experiment 'Practice emotional gratitude' following the provided steps and record your outcome.",
+    "description": "7 days increases emotional warmth. 14 days enhances positivity. 30 days builds long-term emotional happiness."
+  },
+  {
+    "category": "Mood",
+    "name": "Limit caffeine after midday",
+    "instructions": "Undertake the experiment 'Limit caffeine after midday' following the provided steps and record your outcome.",
+    "description": "7 days reduces anxiety. 14 days stabilizes mood. 30 days boosts emotional consistency."
+  }
+]
+[
+  {
+    "category": "Focus",
+    "name": "Pomodoro 25-minute focus sessions",
+    "instructions": "Undertake the experiment 'Pomodoro 25-minute focus sessions' following the provided steps and record your outcome.",
+    "description": "By completing this experiment for 7 days you will notice improved concentration. By 14 days your attention span will extend. By 30 days you will experience long-term enhanced productivity and mental clarity."
+  },
+  {
+    "category": "Focus",
+    "name": "Daily single-tasking hour",
+    "instructions": "Undertake the experiment 'Daily single-tasking hour' following the provided steps and record your outcome.",
+    "description": "By 7 days you will notice fewer distractions. By 14 days focus retention improves. By 30 days you will experience sustained attention and efficiency gains."
+  },
+  {
+    "category": "Focus",
+    "name": "Morning brain dump journaling",
+    "instructions": "Undertake the experiment 'Morning brain dump journaling' following the provided steps and record your outcome.",
+    "description": "7 days reduces mental clutter. 14 days increases clarity. 30 days strengthens cognitive organization and focus."
+  },
+  {
+    "category": "Focus",
+    "name": "Digital declutter 15 mins daily",
+    "instructions": "Undertake the experiment 'Digital declutter 15 mins daily' following the provided steps and record your outcome.",
+    "description": "7 days lowers distractions. 14 days improves task focus. 30 days enhances long-term digital productivity."
+  },
+  {
+    "category": "Focus",
+    "name": "Deep work 1-hour block daily",
+    "instructions": "Undertake the experiment 'Deep work 1-hour block daily' following the provided steps and record your outcome.",
+    "description": "7 days boosts concentration. 14 days improves task completion. 30 days strengthens sustained focus and efficiency."
+  },
+  {
+    "category": "Focus",
+    "name": "Morning meditation for focus",
+    "instructions": "Undertake the experiment 'Morning meditation for focus' following the provided steps and record your outcome.",
+    "description": "7 days improves mental clarity. 14 days enhances attention. 30 days leads to long-term improved cognitive performance."
+  },
+  {
+    "category": "Focus",
+    "name": "Limit notifications during work",
+    "instructions": "Undertake the experiment 'Limit notifications during work' following the provided steps and record your outcome.",
+    "description": "7 days reduces interruptions. 14 days improves focus consistency. 30 days creates lasting environment for deep concentration."
+  },
+  {
+    "category": "Focus",
+    "name": "Daily 10-minute vision planning",
+    "instructions": "Undertake the experiment 'Daily 10-minute vision planning' following the provided steps and record your outcome.",
+    "description": "7 days increases task clarity. 14 days strengthens goal alignment. 30 days enhances long-term focus and prioritization."
+  },
+  {
+    "category": "Focus",
+    "name": "Morning reading for mental activation",
+    "instructions": "Undertake the experiment 'Morning reading for mental activation' following the provided steps and record your outcome.",
+    "description": "7 days improves alertness. 14 days enhances comprehension. 30 days boosts sustained cognitive engagement."
+  },
+  {
+    "category": "Focus",
+    "name": "Mindful breathing before tasks",
+    "instructions": "Undertake the experiment 'Mindful breathing before tasks' following the provided steps and record your outcome.",
+    "description": "7 days reduces stress. 14 days improves attention. 30 days creates long-term readiness for focused work."
+  },
+  {
+    "category": "Focus",
+    "name": "Review top 3 priorities daily",
+    "instructions": "Undertake the experiment 'Review top 3 priorities daily' following the provided steps and record your outcome.",
+    "description": "7 days increases task clarity. 14 days reduces mental scatter. 30 days boosts consistent task execution."
+  },
+  {
+    "category": "Focus",
+    "name": "Daily mental puzzle challenge",
+    "instructions": "Undertake the experiment 'Daily mental puzzle challenge' following the provided steps and record your outcome.",
+    "description": "7 days improves problem-solving. 14 days enhances cognitive flexibility. 30 days strengthens long-term mental sharpness."
+  },
+  {
+    "category": "Focus",
+    "name": "Evening reflection on completed tasks",
+    "instructions": "Undertake the experiment 'Evening reflection on completed tasks' following the provided steps and record your outcome.",
+    "description": "7 days improves awareness. 14 days enhances memory. 30 days strengthens mental tracking and productivity."
+  },
+  {
+    "category": "Focus",
+    "name": "Use noise-canceling for deep work",
+    "instructions": "Undertake the experiment 'Use noise-canceling for deep work' following the provided steps and record your outcome.",
+    "description": "7 days reduces distractions. 14 days improves concentration. 30 days ensures long-term uninterrupted focus."
+  },
+  {
+    "category": "Focus",
+    "name": "Set micro-goals every hour",
+    "instructions": "Undertake the experiment 'Set micro-goals every hour' following the provided steps and record your outcome.",
+    "description": "7 days improves task tracking. 14 days increases motivation. 30 days strengthens focus and productivity cycles."
+  },
+  {
+    "category": "Focus",
+    "name": "Daily priority matrix planning",
+    "instructions": "Undertake the experiment 'Daily priority matrix planning' following the provided steps and record your outcome.",
+    "description": "7 days boosts task clarity. 14 days improves time management. 30 days leads to consistent long-term focus."
+  },
+  {
+    "category": "Focus",
+    "name": "Practice single-tasking 30 mins",
+    "instructions": "Undertake the experiment 'Practice single-tasking 30 mins' following the provided steps and record your outcome.",
+    "description": "7 days reduces task switching. 14 days improves concentration. 30 days enhances mental efficiency and control."
+  },
+  {
+    "category": "Focus",
+    "name": "Morning visualization for focus",
+    "instructions": "Undertake the experiment 'Morning visualization for focus' following the provided steps and record your outcome.",
+    "description": "7 days improves mental alignment. 14 days increases sustained attention. 30 days strengthens long-term cognitive clarity."
+  },
+  {
+    "category": "Focus",
+    "name": "Use focus timer apps",
+    "instructions": "Undertake the experiment 'Use focus timer apps' following the provided steps and record your outcome.",
+    "description": "7 days reduces wasted time. 14 days improves task completion. 30 days boosts overall sustained focus."
+  },
+  {
+    "category": "Focus",
+    "name": "Practice attention switching exercises",
+    "instructions": "Undertake the experiment 'Practice attention switching exercises' following the provided steps and record your outcome.",
+    "description": "7 days improves cognitive flexibility. 14 days enhances mental adaptability. 30 days strengthens long-term executive function."
+  },
+  {
+    "category": "Focus",
+    "name": "Mindful listening for 10 minutes",
+    "instructions": "Undertake the experiment 'Mindful listening for 10 minutes' following the provided steps and record your outcome.",
+    "description": "7 days improves attention to detail. 14 days strengthens focus. 30 days enhances long-term active listening skills."
+  },
+  {
+    "category": "Focus",
+    "name": "Declutter workspace weekly",
+    "instructions": "Undertake the experiment 'Declutter workspace weekly' following the provided steps and record your outcome.",
+    "description": "7 days reduces visual distractions. 14 days improves task focus. 30 days strengthens long-term workspace efficiency."
+  },
+  {
+    "category": "Focus",
+    "name": "Take 5-minute mid-task breaks",
+    "instructions": "Undertake the experiment 'Take 5-minute mid-task breaks' following the provided steps and record your outcome.",
+    "description": "7 days refreshes attention. 14 days improves sustained engagement. 30 days strengthens focus over long work sessions."
+  },
+  {
+    "category": "Focus",
+    "name": "Daily 10-minute memory exercise",
+    "instructions": "Undertake the experiment 'Daily 10-minute memory exercise' following the provided steps and record your outcome.",
+    "description": "7 days improves recall. 14 days enhances mental sharpness. 30 days strengthens overall cognitive focus."
+  },
+  {
+    "category": "Focus",
+    "name": "Limit multitasking to one major task",
+    "instructions": "Undertake the experiment 'Limit multitasking to one major task' following the provided steps and record your outcome.",
+    "description": "7 days reduces mental strain. 14 days improves efficiency. 30 days strengthens long-term sustained focus."
+  },
+  {
+    "category": "Focus",
+    "name": "Plan top tasks before lunch",
+    "instructions": "Undertake the experiment 'Plan top tasks before lunch' following the provided steps and record your outcome.",
+    "description": "7 days improves clarity. 14 days enhances task completion. 30 days strengthens productivity consistency."
+  },
+  {
+    "category": "Focus",
+    "name": "Morning caffeine only after 1 hour work",
+    "instructions": "Undertake the experiment 'Morning caffeine only after 1 hour work' following the provided steps and record your outcome.",
+    "description": "7 days boosts alertness. 14 days improves natural focus. 30 days strengthens long-term productivity rhythms."
+  },
+  {
+    "category": "Focus",
+    "name": "Use visual cues for task reminders",
+    "instructions": "Undertake the experiment 'Use visual cues for task reminders' following the provided steps and record your outcome.",
+    "description": "7 days improves attention. 14 days reduces forgotten tasks. 30 days enhances sustained focus patterns."
+  },
+  {
+    "category": "Focus",
+    "name": "Review completed tasks nightly",
+    "instructions": "Undertake the experiment 'Review completed tasks nightly' following the provided steps and record your outcome.",
+    "description": "7 days increases task clarity. 14 days enhances mental closure. 30 days boosts cognitive organization."
+  },
+  {
+    "category": "Focus",
+    "name": "Daily focus journaling",
+    "instructions": "Undertake the experiment 'Daily focus journaling' following the provided steps and record your outcome.",
+    "description": "7 days improves awareness of distractions. 14 days strengthens attention management. 30 days boosts sustained focus over time."
+  },
+  {
+    "category": "Focus",
+    "name": "Practice visualization before meetings",
+    "instructions": "Undertake the experiment 'Practice visualization before meetings' following the provided steps and record your outcome.",
+    "description": "7 days improves mental readiness. 14 days enhances attention during tasks. 30 days strengthens cognitive engagement long-term."
+  },
+  {
+    "category": "Focus",
+    "name": "Take deep breaths after interruptions",
+    "instructions": "Undertake the experiment 'Take deep breaths after interruptions' following the provided steps and record your outcome.",
+    "description": "7 days reduces distraction hangover. 14 days improves focus recovery. 30 days strengthens mental resilience."
+  },
+  {
+    "category": "Focus",
+    "name": "Practice single-focus digital sessions",
+    "instructions": "Undertake the experiment 'Practice single-focus digital sessions' following the provided steps and record your outcome.",
+    "description": "7 days reduces multitasking stress. 14 days improves attention span. 30 days creates long-term digital focus habits."
+  },
+  {
+    "category": "Focus",
+    "name": "Limit emails to two daily sessions",
+    "instructions": "Undertake the experiment 'Limit emails to two daily sessions' following the provided steps and record your outcome.",
+    "description": "7 days reduces interruptions. 14 days improves task focus. 30 days strengthens sustainable focus and productivity."
+  },
+  {
+    "category": "Focus",
+    "name": "Evening planning for next day focus",
+    "instructions": "Undertake the experiment 'Evening planning for next day focus' following the provided steps and record your outcome.",
+    "description": "7 days increases clarity. 14 days improves task execution. 30 days strengthens cognitive readiness and focus."
+  },
+  {
+    "category": "Focus",
+    "name": "Weekly digital detox session",
+    "instructions": "Undertake the experiment 'Weekly digital detox session' following the provided steps and record your outcome.",
+    "description": "7 days reduces mental fatigue. 14 days enhances attention. 30 days boosts long-term focus resilience."
+  }
+]
+[
+  {
+    "category": "Energy",
+    "name": "Morning sunlight exposure",
+    "instructions": "Undertake the experiment 'Morning sunlight exposure' following the provided steps and record your outcome.",
+    "description": "By completing this experiment for 7 days you will notice improved alertness. By 14 days your circadian rhythm strengthens. By 30 days you will experience long-term sustained energy throughout the day."
+  },
+  {
+    "category": "Energy",
+    "name": "Drink a glass of water upon waking",
+    "instructions": "Undertake the experiment 'Drink a glass of water upon waking' following the provided steps and record your outcome.",
+    "description": "7 days improves morning alertness. 14 days enhances hydration levels. 30 days boosts consistent daily energy."
+  },
+  {
+    "category": "Energy",
+    "name": "10-minute morning stretch routine",
+    "instructions": "Undertake the experiment '10-minute morning stretch routine' following the provided steps and record your outcome.",
+    "description": "7 days reduces stiffness. 14 days increases mobility. 30 days enhances overall daily energy and circulation."
+  },
+  {
+    "category": "Energy",
+    "name": "High-protein breakfast",
+    "instructions": "Undertake the experiment 'High-protein breakfast' following the provided steps and record your outcome.",
+    "description": "7 days improves satiety and alertness. 14 days stabilizes blood sugar. 30 days supports consistent energy levels."
+  },
+  {
+    "category": "Energy",
+    "name": "Short mid-morning walk",
+    "instructions": "Undertake the experiment 'Short mid-morning walk' following the provided steps and record your outcome.",
+    "description": "7 days boosts circulation. 14 days increases alertness. 30 days enhances long-term daily energy patterns."
+  },
+  {
+    "category": "Energy",
+    "name": "Power nap 15-20 mins",
+    "instructions": "Undertake the experiment 'Power nap 15-20 mins' following the provided steps and record your outcome.",
+    "description": "7 days reduces fatigue. 14 days enhances cognitive recovery. 30 days supports consistent energy and focus throughout the day."
+  },
+  {
+    "category": "Energy",
+    "name": "Limit caffeine after 2 PM",
+    "instructions": "Undertake the experiment 'Limit caffeine after 2 PM' following the provided steps and record your outcome.",
+    "description": "7 days improves sleep quality. 14 days enhances energy recovery. 30 days stabilizes daily energy levels."
+  },
+  {
+    "category": "Energy",
+    "name": "Drink herbal tea in afternoon",
+    "instructions": "Undertake the experiment 'Drink herbal tea in afternoon' following the provided steps and record your outcome.",
+    "description": "7 days improves hydration. 14 days reduces energy crashes. 30 days enhances daily sustained energy."
+  },
+  {
+    "category": "Energy",
+    "name": "Avoid sugary snacks",
+    "instructions": "Undertake the experiment 'Avoid sugary snacks' following the provided steps and record your outcome.",
+    "description": "7 days stabilizes blood sugar. 14 days reduces energy spikes and crashes. 30 days boosts long-term energy consistency."
+  },
+  {
+    "category": "Energy",
+    "name": "Daily 5-minute breathing exercise",
+    "instructions": "Undertake the experiment 'Daily 5-minute breathing exercise' following the provided steps and record your outcome.",
+    "description": "7 days reduces fatigue. 14 days improves alertness. 30 days strengthens energy levels and mental clarity."
+  },
+  {
+    "category": "Energy",
+    "name": "Eat small meals every 3-4 hours",
+    "instructions": "Undertake the experiment 'Eat small meals every 3-4 hours' following the provided steps and record your outcome.",
+    "description": "7 days reduces hunger dips. 14 days stabilizes energy levels. 30 days enhances overall stamina and productivity."
+  },
+  {
+    "category": "Energy",
+    "name": "Evening light exercise",
+    "instructions": "Undertake the experiment 'Evening light exercise' following the provided steps and record your outcome.",
+    "description": "7 days boosts circulation. 14 days improves sleep quality. 30 days supports daily energy renewal."
+  },
+  {
+    "category": "Energy",
+    "name": "Take standing breaks hourly",
+    "instructions": "Undertake the experiment 'Take standing breaks hourly' following the provided steps and record your outcome.",
+    "description": "7 days reduces lethargy. 14 days increases alertness. 30 days improves long-term energy and posture."
+  },
+  {
+    "category": "Energy",
+    "name": "Listen to energizing music",
+    "instructions": "Undertake the experiment 'Listen to energizing music' following the provided steps and record your outcome.",
+    "description": "7 days boosts mood. 14 days increases alertness. 30 days supports sustained energy levels."
+  },
+  {
+    "category": "Energy",
+    "name": "Cold shower or splash in morning",
+    "instructions": "Undertake the experiment 'Cold shower or splash in morning' following the provided steps and record your outcome.",
+    "description": "7 days improves wakefulness. 14 days strengthens circulation. 30 days enhances overall energy and mental clarity."
+  },
+  {
+    "category": "Energy",
+    "name": "Stretch breaks every 2 hours",
+    "instructions": "Undertake the experiment 'Stretch breaks every 2 hours' following the provided steps and record your outcome.",
+    "description": "7 days reduces stiffness. 14 days improves alertness. 30 days strengthens sustained energy levels."
+  },
+  {
+    "category": "Energy",
+    "name": "Stand during calls",
+    "instructions": "Undertake the experiment 'Stand during calls' following the provided steps and record your outcome.",
+    "description": "7 days reduces sedentary fatigue. 14 days improves circulation. 30 days enhances energy consistency."
+  },
+  {
+    "category": "Energy",
+    "name": "Limit alcohol intake",
+    "instructions": "Undertake the experiment 'Limit alcohol intake' following the provided steps and record your outcome.",
+    "description": "7 days improves morning alertness. 14 days enhances energy recovery. 30 days strengthens long-term stamina."
+  },
+  {
+    "category": "Energy",
+    "name": "Walk after meals",
+    "instructions": "Undertake the experiment 'Walk after meals' following the provided steps and record your outcome.",
+    "description": "7 days boosts digestion. 14 days increases alertness. 30 days strengthens overall energy and metabolism."
+  },
+  {
+    "category": "Energy",
+    "name": "Snack on nuts instead of sugar",
+    "instructions": "Undertake the experiment 'Snack on nuts instead of sugar' following the provided steps and record your outcome.",
+    "description": "7 days reduces energy crashes. 14 days stabilizes blood sugar. 30 days strengthens sustained energy levels."
+  },
+  {
+    "category": "Energy",
+    "name": "Power nap before afternoon slump",
+    "instructions": "Undertake the experiment 'Power nap before afternoon slump' following the provided steps and record your outcome.",
+    "description": "7 days reduces fatigue. 14 days improves afternoon alertness. 30 days strengthens energy management."
+  },
+  {
+    "category": "Energy",
+    "name": "Hydration check every 2 hours",
+    "instructions": "Undertake the experiment 'Hydration check every 2 hours' following the provided steps and record your outcome.",
+    "description": "7 days improves alertness. 14 days stabilizes energy. 30 days supports consistent daily stamina."
+  },
+  {
+    "category": "Energy",
+    "name": "Bright light exposure in afternoon",
+    "instructions": "Undertake the experiment 'Bright light exposure in afternoon' following the provided steps and record your outcome.",
+    "description": "7 days reduces fatigue. 14 days improves wakefulness. 30 days enhances long-term energy regulation."
+  },
+  {
+    "category": "Energy",
+    "name": "Avoid heavy meals mid-day",
+    "instructions": "Undertake the experiment 'Avoid heavy meals mid-day' following the provided steps and record your outcome.",
+    "description": "7 days reduces post-lunch slump. 14 days improves focus. 30 days strengthens sustained energy levels."
+  },
+  {
+    "category": "Energy",
+    "name": "Walk outdoors during breaks",
+    "instructions": "Undertake the experiment 'Walk outdoors during breaks' following the provided steps and record your outcome.",
+    "description": "7 days boosts mood. 14 days increases alertness. 30 days enhances long-term energy patterns."
+  },
+  {
+    "category": "Energy",
+    "name": "Practice quick desk exercises",
+    "instructions": "Undertake the experiment 'Practice quick desk exercises' following the provided steps and record your outcome.",
+    "description": "7 days reduces stiffness. 14 days improves circulation. 30 days strengthens long-term daily energy."
+  },
+  {
+    "category": "Energy",
+    "name": "Stand up every hour",
+    "instructions": "Undertake the experiment 'Stand up every hour' following the provided steps and record your outcome.",
+    "description": "7 days reduces lethargy. 14 days boosts alertness. 30 days enhances consistent energy levels."
+  },
+  {
+    "category": "Energy",
+    "name": "Limit prolonged sitting",
+    "instructions": "Undertake the experiment 'Limit prolonged sitting' following the provided steps and record your outcome.",
+    "description": "7 days improves circulation. 14 days enhances alertness. 30 days strengthens overall energy."
+  },
+  {
+    "category": "Energy",
+    "name": "Daily 15-minute light cardio",
+    "instructions": "Undertake the experiment 'Daily 15-minute light cardio' following the provided steps and record your outcome.",
+    "description": "7 days increases heartbeat and alertness. 14 days improves stamina. 30 days boosts long-term energy."
+  },
+  {
+    "category": "Energy",
+    "name": "Chew food slowly for better digestion",
+    "instructions": "Undertake the experiment 'Chew food slowly for better digestion' following the provided steps and record your outcome.",
+    "description": "7 days reduces post-meal fatigue. 14 days improves nutrient absorption. 30 days enhances energy consistency."
+  },
+  {
+    "category": "Energy",
+    "name": "Listen to uplifting podcasts",
+    "instructions": "Undertake the experiment 'Listen to uplifting podcasts' following the provided steps and record your outcome.",
+    "description": "7 days boosts mood. 14 days increases motivation. 30 days strengthens long-term energy and positivity."
+  },
+  {
+    "category": "Energy",
+    "name": "Practice standing desk use",
+    "instructions": "Undertake the experiment 'Practice standing desk use' following the provided steps and record your outcome.",
+    "description": "7 days reduces fatigue. 14 days improves posture. 30 days enhances daily energy consistency."
+  },
+  {
+    "category": "Energy",
+    "name": "Breathing exercises before meetings",
+    "instructions": "Undertake the experiment 'Breathing exercises before meetings' following the provided steps and record your outcome.",
+    "description": "7 days reduces stress. 14 days improves alertness. 30 days strengthens sustained energy and focus."
+  },
+  {
+    "category": "Energy",
+    "name": "Eat fruits with high water content",
+    "instructions": "Undertake the experiment 'Eat fruits with high water content' following the provided steps and record your outcome.",
+    "description": "7 days improves hydration. 14 days enhances alertness. 30 days boosts overall energy levels."
+  },
+  {
+    "category": "Energy",
+    "name": "Limit late-night snacking",
+    "instructions": "Undertake the experiment 'Limit late-night snacking' following the provided steps and record your outcome.",
+    "description": "7 days improves sleep quality. 14 days enhances energy recovery. 30 days strengthens consistent daily energy."
+  }
+]
+[
+  {
+    "category": "Anxiety",
+    "name": "Practice 5-minute mindful breathing",
+    "instructions": "Undertake the experiment 'Practice 5-minute mindful breathing' following the provided steps and record your outcome.",
+    "description": "By completing this experiment for 7 days you will notice reduced tension. By 14 days you will observe calmer responses. By 30 days you will experience long-term improvements in managing anxiety."
+  },
+  {
+    "category": "Anxiety",
+    "name": "Write a daily worry journal",
+    "instructions": "Undertake the experiment 'Write a daily worry journal' following the provided steps and record your outcome.",
+    "description": "7 days brings awareness to triggers. 14 days improves emotional clarity. 30 days reduces chronic anxiety patterns."
+  },
+  {
+    "category": "Anxiety",
+    "name": "Practice progressive muscle relaxation",
+    "instructions": "Undertake the experiment 'Practice progressive muscle relaxation' following the provided steps and record your outcome.",
+    "description": "7 days reduces physical tension. 14 days increases relaxation. 30 days strengthens control over anxiety symptoms."
+  },
+  {
+    "category": "Anxiety",
+    "name": "Limit caffeine intake",
+    "instructions": "Undertake the experiment 'Limit caffeine intake' following the provided steps and record your outcome.",
+    "description": "7 days reduces jitteriness. 14 days improves calmness. 30 days strengthens overall anxiety management."
+  },
+  {
+    "category": "Anxiety",
+    "name": "Listen to calming music",
+    "instructions": "Undertake the experiment 'Listen to calming music' following the provided steps and record your outcome.",
+    "description": "7 days reduces tension. 14 days enhances emotional balance. 30 days promotes long-term calmness."
+  },
+  {
+    "category": "Anxiety",
+    "name": "Take a 10-minute nature walk",
+    "instructions": "Undertake the experiment 'Take a 10-minute nature walk' following the provided steps and record your outcome.",
+    "description": "7 days improves mood. 14 days reduces stress markers. 30 days supports consistent anxiety reduction."
+  },
+  {
+    "category": "Anxiety",
+    "name": "Limit social media consumption",
+    "instructions": "Undertake the experiment 'Limit social media consumption' following the provided steps and record your outcome.",
+    "description": "7 days reduces mental clutter. 14 days improves focus. 30 days supports long-term anxiety management."
+  },
+  {
+    "category": "Anxiety",
+    "name": "Practice guided meditation",
+    "instructions": "Undertake the experiment 'Practice guided meditation' following the provided steps and record your outcome.",
+    "description": "7 days improves mindfulness. 14 days reduces anxious thoughts. 30 days strengthens emotional regulation."
+  },
+  {
+    "category": "Anxiety",
+    "name": "Declutter one space daily",
+    "instructions": "Undertake the experiment 'Declutter one space daily' following the provided steps and record your outcome.",
+    "description": "7 days reduces environmental stress. 14 days improves focus. 30 days enhances overall mental calmness."
+  },
+  {
+    "category": "Anxiety",
+    "name": "Practice gratitude journaling",
+    "instructions": "Undertake the experiment 'Practice gratitude journaling' following the provided steps and record your outcome.",
+    "description": "7 days increases positivity. 14 days reduces worry. 30 days strengthens resilience to anxiety triggers."
+  },
+  {
+    "category": "Anxiety",
+    "name": "Limit news consumption",
+    "instructions": "Undertake the experiment 'Limit news consumption' following the provided steps and record your outcome.",
+    "description": "7 days reduces stress spikes. 14 days improves focus. 30 days supports consistent anxiety reduction."
+  },
+  {
+    "category": "Anxiety",
+    "name": "Stretch for 10 minutes daily",
+    "instructions": "Undertake the experiment 'Stretch for 10 minutes daily' following the provided steps and record your outcome.",
+    "description": "7 days reduces physical tension. 14 days improves relaxation. 30 days strengthens long-term anxiety control."
+  },
+  {
+    "category": "Anxiety",
+    "name": "Practice visualization exercises",
+    "instructions": "Undertake the experiment 'Practice visualization exercises' following the provided steps and record your outcome.",
+    "description": "7 days enhances focus. 14 days reduces anxious anticipation. 30 days improves emotional regulation."
+  },
+  {
+    "category": "Anxiety",
+    "name": "Limit multitasking",
+    "instructions": "Undertake the experiment 'Limit multitasking' following the provided steps and record your outcome.",
+    "description": "7 days improves concentration. 14 days reduces cognitive overload. 30 days strengthens stress resilience."
+  },
+  {
+    "category": "Anxiety",
+    "name": "Drink herbal calming tea",
+    "instructions": "Undertake the experiment 'Drink herbal calming tea' following the provided steps and record your outcome.",
+    "description": "7 days relaxes body. 14 days enhances calmness. 30 days strengthens daily anxiety management."
+  },
+  {
+    "category": "Anxiety",
+    "name": "Deep breathing before bedtime",
+    "instructions": "Undertake the experiment 'Deep breathing before bedtime' following the provided steps and record your outcome.",
+    "description": "7 days improves sleep quality. 14 days reduces nighttime anxiety. 30 days strengthens daily emotional stability."
+  },
+  {
+    "category": "Anxiety",
+    "name": "Write down triggers",
+    "instructions": "Undertake the experiment 'Write down triggers' following the provided steps and record your outcome.",
+    "description": "7 days increases awareness. 14 days reduces recurring anxious thoughts. 30 days improves emotional control."
+  },
+  {
+    "category": "Anxiety",
+    "name": "Practice mindful eating",
+    "instructions": "Undertake the experiment 'Practice mindful eating' following the provided steps and record your outcome.",
+    "description": "7 days improves attention to meals. 14 days reduces stress eating. 30 days strengthens emotional regulation."
+  },
+  {
+    "category": "Anxiety",
+    "name": "Progressive journaling for stress",
+    "instructions": "Undertake the experiment 'Progressive journaling for stress' following the provided steps and record your outcome.",
+    "description": "7 days enhances reflection. 14 days reduces rumination. 30 days improves anxiety resilience."
+  },
+  {
+    "category": "Anxiety",
+    "name": "Listen to nature sounds",
+    "instructions": "Undertake the experiment 'Listen to nature sounds' following the provided steps and record your outcome.",
+    "description": "7 days reduces tension. 14 days improves mood. 30 days strengthens long-term relaxation."
+  },
+  {
+    "category": "Anxiety",
+    "name": "Do one relaxing activity daily",
+    "instructions": "Undertake the experiment 'Do one relaxing activity daily' following the provided steps and record your outcome.",
+    "description": "7 days improves calmness. 14 days reduces stress markers. 30 days strengthens emotional regulation."
+  },
+  {
+    "category": "Anxiety",
+    "name": "Limit negative self-talk",
+    "instructions": "Undertake the experiment 'Limit negative self-talk' following the provided steps and record your outcome.",
+    "description": "7 days increases awareness of thought patterns. 14 days improves positivity. 30 days strengthens resilience to anxiety."
+  },
+  {
+    "category": "Anxiety",
+    "name": "Meditation before meals",
+    "instructions": "Undertake the experiment 'Meditation before meals' following the provided steps and record your outcome.",
+    "description": "7 days reduces stress. 14 days improves digestion and calmness. 30 days enhances overall emotional stability."
+  },
+  {
+    "category": "Anxiety",
+    "name": "Progressive gratitude listing",
+    "instructions": "Undertake the experiment 'Progressive gratitude listing' following the provided steps and record your outcome.",
+    "description": "7 days increases positivity. 14 days improves mood regulation. 30 days strengthens resilience against anxiety."
+  },
+  {
+    "category": "Anxiety",
+    "name": "Limit multitasking devices",
+    "instructions": "Undertake the experiment 'Limit multitasking devices' following the provided steps and record your outcome.",
+    "description": "7 days reduces cognitive stress. 14 days improves focus. 30 days enhances anxiety management."
+  },
+  {
+    "category": "Anxiety",
+    "name": "Evening reflection journal",
+    "instructions": "Undertake the experiment 'Evening reflection journal' following the provided steps and record your outcome.",
+    "description": "7 days enhances self-awareness. 14 days reduces rumination. 30 days strengthens mental clarity and calm."
+  },
+  {
+    "category": "Anxiety",
+    "name": "Practice yoga poses",
+    "instructions": "Undertake the experiment 'Practice yoga poses' following the provided steps and record your outcome.",
+    "description": "7 days reduces muscle tension. 14 days improves relaxation. 30 days strengthens anxiety management and energy flow."
+  },
+  {
+    "category": "Anxiety",
+    "name": "Limit late-night screen use",
+    "instructions": "Undertake the experiment 'Limit late-night screen use' following the provided steps and record your outcome.",
+    "description": "7 days improves sleep. 14 days reduces nighttime anxiety. 30 days enhances daily emotional balance."
+  },
+  {
+    "category": "Anxiety",
+    "name": "Practice mindful walking",
+    "instructions": "Undertake the experiment 'Practice mindful walking' following the provided steps and record your outcome.",
+    "description": "7 days increases awareness. 14 days reduces stress. 30 days strengthens long-term anxiety management."
+  },
+  {
+    "category": "Anxiety",
+    "name": "Listen to guided relaxation",
+    "instructions": "Undertake the experiment 'Listen to guided relaxation' following the provided steps and record your outcome.",
+    "description": "7 days reduces tension. 14 days improves calmness. 30 days strengthens emotional resilience."
+  },
+  {
+    "category": "Anxiety",
+    "name": "Use a calming scent",
+    "instructions": "Undertake the experiment 'Use a calming scent' following the provided steps and record your outcome.",
+    "description": "7 days reduces stress. 14 days improves alertness. 30 days strengthens emotional balance."
+  },
+  {
+    "category": "Anxiety",
+    "name": "Practice 5-minute visualization",
+    "instructions": "Undertake the experiment 'Practice 5-minute visualization' following the provided steps and record your outcome.",
+    "description": "7 days reduces anxious thoughts. 14 days improves focus. 30 days strengthens long-term anxiety control."
+  },
+  {
+    "category": "Anxiety",
+    "name": "Limit multitasking at work",
+    "instructions": "Undertake the experiment 'Limit multitasking at work' following the provided steps and record your outcome.",
+    "description": "7 days reduces cognitive load. 14 days improves performance. 30 days strengthens daily stress management."
+  },
+  {
+    "category": "Anxiety",
+    "name": "Do one relaxing activity in morning",
+    "instructions": "Undertake the experiment 'Do one relaxing activity in morning' following the provided steps and record your outcome.",
+    "description": "7 days reduces early day tension. 14 days improves energy. 30 days strengthens overall anxiety management."
+  },
+  {
+    "category": "Anxiety",
+    "name": "Progressive relaxation before bed",
+    "instructions": "Undertake the experiment 'Progressive relaxation before bed' following the provided steps and record your outcome.",
+    "description": "7 days improves sleep. 14 days reduces nighttime stress. 30 days strengthens emotional stability."
+  },
+  {
+    "category": "Anxiety",
+    "name": "Focus on 1 task at a time",
+    "instructions": "Undertake the experiment 'Focus on 1 task at a time' following the provided steps and record your outcome.",
+    "description": "7 days improves focus. 14 days reduces anxiety from overload. 30 days strengthens mental clarity."
+  }
+]
+[
+  {
+    "category": "Productivity",
+    "name": "Use Pomodoro technique",
+    "instructions": "Undertake the experiment 'Use Pomodoro technique' following the provided steps and record your outcome.",
+    "description": "By completing this experiment for 7 days you will notice improved focus. By 14 days you will see measurable productivity gains. By 30 days you will experience long-term efficiency improvements."
+  },
+  {
+    "category": "Productivity",
+    "name": "Plan day the night before",
+    "instructions": "Undertake the experiment 'Plan day the night before' following the provided steps and record your outcome.",
+    "description": "7 days increases preparedness. 14 days improves task execution. 30 days strengthens long-term time management skills."
+  },
+  {
+    "category": "Productivity",
+    "name": "Prioritize top 3 tasks",
+    "instructions": "Undertake the experiment 'Prioritize top 3 tasks' following the provided steps and record your outcome.",
+    "description": "7 days improves task focus. 14 days enhances efficiency. 30 days strengthens consistent productivity habits."
+  },
+  {
+    "category": "Productivity",
+    "name": "Track time spent on tasks",
+    "instructions": "Undertake the experiment 'Track time spent on tasks' following the provided steps and record your outcome.",
+    "description": "7 days increases awareness of time use. 14 days reduces wasted time. 30 days improves long-term productivity."
+  },
+  {
+    "category": "Productivity",
+    "name": "Batch similar tasks",
+    "instructions": "Undertake the experiment 'Batch similar tasks' following the provided steps and record your outcome.",
+    "description": "7 days reduces context switching. 14 days improves efficiency. 30 days strengthens focused work habits."
+  },
+  {
+    "category": "Productivity",
+    "name": "Limit multitasking",
+    "instructions": "Undertake the experiment 'Limit multitasking' following the provided steps and record your outcome.",
+    "description": "7 days improves concentration. 14 days reduces errors. 30 days strengthens consistent productivity."
+  },
+  {
+    "category": "Productivity",
+    "name": "Set daily goals",
+    "instructions": "Undertake the experiment 'Set daily goals' following the provided steps and record your outcome.",
+    "description": "7 days improves motivation. 14 days enhances task completion. 30 days strengthens long-term goal achievement."
+  },
+  {
+    "category": "Productivity",
+    "name": "Use focus-blocks",
+    "instructions": "Undertake the experiment 'Use focus-blocks' following the provided steps and record your outcome.",
+    "description": "7 days increases concentration. 14 days reduces distractions. 30 days strengthens sustained attention skills."
+  },
+  {
+    "category": "Productivity",
+    "name": "Declutter workspace",
+    "instructions": "Undertake the experiment 'Declutter workspace' following the provided steps and record your outcome.",
+    "description": "7 days improves clarity. 14 days reduces stress. 30 days strengthens productivity through an organized environment."
+  },
+  {
+    "category": "Productivity",
+    "name": "Take regular breaks",
+    "instructions": "Undertake the experiment 'Take regular breaks' following the provided steps and record your outcome.",
+    "description": "7 days reduces burnout. 14 days improves mental energy. 30 days strengthens consistent productivity habits."
+  },
+  {
+    "category": "Productivity",
+    "name": "Automate repetitive tasks",
+    "instructions": "Undertake the experiment 'Automate repetitive tasks' following the provided steps and record your outcome.",
+    "description": "7 days saves time. 14 days increases efficiency. 30 days strengthens workflow automation skills."
+  },
+  {
+    "category": "Productivity",
+    "name": "Use task management software",
+    "instructions": "Undertake the experiment 'Use task management software' following the provided steps and record your outcome.",
+    "description": "7 days improves organization. 14 days reduces missed tasks. 30 days strengthens structured productivity."
+  },
+  {
+    "category": "Productivity",
+    "name": "Set deadlines for tasks",
+    "instructions": "Undertake the experiment 'Set deadlines for tasks' following the provided steps and record your outcome.",
+    "description": "7 days increases accountability. 14 days enhances task completion. 30 days strengthens time management skills."
+  },
+  {
+    "category": "Productivity",
+    "name": "Eliminate unnecessary meetings",
+    "instructions": "Undertake the experiment 'Eliminate unnecessary meetings' following the provided steps and record your outcome.",
+    "description": "7 days improves focus. 14 days reduces wasted time. 30 days strengthens productive work patterns."
+  },
+  {
+    "category": "Productivity",
+    "name": "Use productivity timers",
+    "instructions": "Undertake the experiment 'Use productivity timers' following the provided steps and record your outcome.",
+    "description": "7 days improves focus. 14 days enhances efficiency. 30 days strengthens consistent productivity."
+  },
+  {
+    "category": "Productivity",
+    "name": "Prepare materials in advance",
+    "instructions": "Undertake the experiment 'Prepare materials in advance' following the provided steps and record your outcome.",
+    "description": "7 days reduces last-minute stress. 14 days increases readiness. 30 days strengthens effective planning habits."
+  },
+  {
+    "category": "Productivity",
+    "name": "Set boundaries for work",
+    "instructions": "Undertake the experiment 'Set boundaries for work' following the provided steps and record your outcome.",
+    "description": "7 days reduces interruptions. 14 days improves focus. 30 days strengthens healthy work habits."
+  },
+  {
+    "category": "Productivity",
+    "name": "Delegate tasks effectively",
+    "instructions": "Undertake the experiment 'Delegate tasks effectively' following the provided steps and record your outcome.",
+    "description": "7 days improves efficiency. 14 days reduces overload. 30 days strengthens leadership and productivity."
+  },
+  {
+    "category": "Productivity",
+    "name": "Avoid procrastination triggers",
+    "instructions": "Undertake the experiment 'Avoid procrastination triggers' following the provided steps and record your outcome.",
+    "description": "7 days increases awareness. 14 days reduces delays. 30 days strengthens consistent task execution."
+  },
+  {
+    "category": "Productivity",
+    "name": "Break tasks into smaller steps",
+    "instructions": "Undertake the experiment 'Break tasks into smaller steps' following the provided steps and record your outcome.",
+    "description": "7 days improves manageability. 14 days increases task completion. 30 days strengthens structured productivity."
+  },
+  {
+    "category": "Productivity",
+    "name": "Limit phone distractions",
+    "instructions": "Undertake the experiment 'Limit phone distractions' following the provided steps and record your outcome.",
+    "description": "7 days increases focus. 14 days reduces interruptions. 30 days strengthens concentration."
+  },
+  {
+    "category": "Productivity",
+    "name": "Review tasks at day-end",
+    "instructions": "Undertake the experiment 'Review tasks at day-end' following the provided steps and record your outcome.",
+    "description": "7 days improves awareness of progress. 14 days strengthens task tracking. 30 days enhances productivity consistency."
+  },
+  {
+    "category": "Productivity",
+    "name": "Start day with hardest task",
+    "instructions": "Undertake the experiment 'Start day with hardest task' following the provided steps and record your outcome.",
+    "description": "7 days increases momentum. 14 days improves confidence. 30 days strengthens efficient task completion."
+  },
+  {
+    "category": "Productivity",
+    "name": "Use focus playlists",
+    "instructions": "Undertake the experiment 'Use focus playlists' following the provided steps and record your outcome.",
+    "description": "7 days improves concentration. 14 days reduces distraction. 30 days strengthens consistent work flow."
+  },
+  {
+    "category": "Productivity",
+    "name": "Limit task switching",
+    "instructions": "Undertake the experiment 'Limit task switching' following the provided steps and record your outcome.",
+    "description": "7 days improves focus. 14 days increases efficiency. 30 days strengthens sustained productivity habits."
+  },
+  {
+    "category": "Productivity",
+    "name": "Set specific work goals",
+    "instructions": "Undertake the experiment 'Set specific work goals' following the provided steps and record your outcome.",
+    "description": "7 days improves direction. 14 days enhances task achievement. 30 days strengthens productivity outcomes."
+  },
+  {
+    "category": "Productivity",
+    "name": "Track achievements weekly",
+    "instructions": "Undertake the experiment 'Track achievements weekly' following the provided steps and record your outcome.",
+    "description": "7 days increases motivation. 14 days improves awareness. 30 days strengthens consistency in performance."
+  },
+  {
+    "category": "Productivity",
+    "name": "Use morning focus routine",
+    "instructions": "Undertake the experiment 'Use morning focus routine' following the provided steps and record your outcome.",
+    "description": "7 days increases morning efficiency. 14 days improves sustained focus. 30 days strengthens daily productivity habits."
+  },
+  {
+    "category": "Productivity",
+    "name": "Create weekly priorities",
+    "instructions": "Undertake the experiment 'Create weekly priorities' following the provided steps and record your outcome.",
+    "description": "7 days improves direction. 14 days enhances task focus. 30 days strengthens long-term planning skills."
+  },
+  {
+    "category": "Productivity",
+    "name": "Use task batching in mornings",
+    "instructions": "Undertake the experiment 'Use task batching in mornings' following the provided steps and record your outcome.",
+    "description": "7 days reduces interruptions. 14 days increases efficiency. 30 days strengthens structured workflow habits."
+  },
+  {
+    "category": "Productivity",
+    "name": "Keep a task priority list",
+    "instructions": "Undertake the experiment 'Keep a task priority list' following the provided steps and record your outcome.",
+    "description": "7 days improves focus. 14 days reduces forgotten tasks. 30 days strengthens consistent productivity."
+  },
+  {
+    "category": "Productivity",
+    "name": "Set daily time blocks",
+    "instructions": "Undertake the experiment 'Set daily time blocks' following the provided steps and record your outcome.",
+    "description": "7 days increases efficiency. 14 days improves focus. 30 days strengthens routine and productivity."
+  },
+  {
+    "category": "Productivity",
+    "name": "Reduce unnecessary notifications",
+    "instructions": "Undertake the experiment 'Reduce unnecessary notifications' following the provided steps and record your outcome.",
+    "description": "7 days reduces interruptions. 14 days improves workflow. 30 days strengthens focus and productivity."
+  },
+  {
+    "category": "Productivity",
+    "name": "Use morning planning session",
+    "instructions": "Undertake the experiment 'Use morning planning session' following the provided steps and record your outcome.",
+    "description": "7 days improves clarity. 14 days enhances focus. 30 days strengthens structured daily productivity."
+  },
+  {
+    "category": "Productivity",
+    "name": "End day with reflection",
+    "instructions": "Undertake the experiment 'End day with reflection' following the provided steps and record your outcome.",
+    "description": "7 days increases self-awareness. 14 days improves workflow evaluation. 30 days strengthens continuous improvement in productivity."
+  },
+  {
+    "category": "Productivity",
+    "name": "Identify peak performance hours",
+    "instructions": "Undertake the experiment 'Identify peak performance hours' following the provided steps and record your outcome.",
+    "description": "7 days increases efficiency. 14 days improves task completion. 30 days strengthens daily productivity patterns."
+  },
+  {
+    "category": "Productivity",
+    "name": "Use distraction-free environment",
+    "instructions": "Undertake the experiment 'Use distraction-free environment' following the provided steps and record your outcome.",
+    "description": "7 days improves focus. 14 days reduces interruptions. 30 days strengthens consistent productivity habits."
+  }
+]
+

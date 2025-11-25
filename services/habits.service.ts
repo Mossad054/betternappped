@@ -1,6 +1,7 @@
 import { SupabaseSafe } from '@/lib/supabaseSafe';
 import { Database } from '@/lib/supabase';
 import { isGuestMode, guestDataStore } from '@/lib/guestDataStore';
+import { NotificationTriggerService } from './notificationTrigger.service';
 
 type Habit = Database['public']['Tables']['habits']['Row'];
 type HabitInsert = Database['public']['Tables']['habits']['Insert'];
@@ -105,6 +106,24 @@ export class HabitsService {
       // Update habit streak if completed
       if (data.completed) {
         await this.updateHabitStreak(habitId, userId);
+        
+        // Trigger notification
+        const habitResult = await this.getById(habitId, userId);
+        if (habitResult.data) {
+          const habit = habitResult.data;
+          const allLogsResult = await SupabaseSafe.select('habit_logs', { 
+            eq: { habit_id: habitId, completed: true }
+          }, userId);
+          const currentDay = (allLogsResult.data || []).length;
+          
+          await NotificationTriggerService.onHabitCompleted(
+            userId,
+            habit.name,
+            habit.streak || 0,
+            currentDay,
+            habit.total_days || 30
+          );
+        }
       }
 
       return { data: result.data, error: null };
@@ -142,7 +161,8 @@ export class HabitsService {
       const habits = habitsResult.data || [];
       const habitsWithLogs = habits.map(habit => ({
         ...habit,
-        habit_logs: [] // Guest mode doesn't store separate habit logs
+        habit_logs: [], // Guest mode doesn't store separate habit logs
+        currentDay: habit.streak || 1 // Use streak as currentDay for guest mode
       }));
       
       return { data: habitsWithLogs, error: null };
@@ -162,9 +182,16 @@ export class HabitsService {
         ...(date && { eq: { date } })
       }, userId);
       
+      // Calculate currentDay based on the number of completed logs
+      const allLogsResult = await SupabaseSafe.select('habit_logs', { 
+        eq: { habit_id: habit.id, completed: true }
+      }, userId);
+      const currentDay = (allLogsResult.data || []).length || 0;
+      
       habitsWithLogs.push({
         ...habit,
-        habit_logs: logsResult.data || []
+        habit_logs: logsResult.data || [],
+        currentDay: currentDay > 0 ? currentDay : 1 // Default to 1 if no logs yet
       });
     }
 
@@ -268,6 +295,176 @@ export class HabitsService {
       return { data: result.data || [], error: result.error };
     } catch (error) {
       console.error('Error fetching habit logs by date range:', error);
+      return { data: null, error };
+    }
+  }
+
+  /**
+   * Log habit completion for a specific date (including past dates)
+   * Automatically calculates and updates streaks and cycle days
+   */
+  static async logHabitForDate(
+    habitId: string,
+    userId: string,
+    date: string,
+    completed: boolean = true,
+    feedback?: 'good' | 'neutral' | 'bad'
+  ): Promise<{ data: any | null; error: any }> {
+    if (await isGuestMode()) {
+      // For guest mode, use the existing logHabit method
+      return this.logHabit(habitId, { completed, feedback, date } as any, userId);
+    }
+
+    try {
+      const { supabase } = await import('@/lib/supabase');
+      
+      // Call the database function to log habit and update streaks
+      const { data, error } = await supabase
+        .rpc('log_habit_for_date', {
+          p_habit_id: habitId,
+          p_user_id: userId,
+          p_date: date,
+          p_completed: completed,
+          p_feedback: feedback || null
+        });
+
+      if (error) {
+        console.error('Error logging habit for date:', error);
+        return { data: null, error: error.message };
+      }
+
+      return { data, error: null };
+    } catch (error) {
+      console.error('Error in logHabitForDate:', error);
+      return { data: null, error };
+    }
+  }
+
+  /**
+   * Get all habits with their completion status for a specific date
+   */
+  static async getHabitsForDate(
+    userId: string,
+    date: string
+  ): Promise<{ data: any[] | null; error: any }> {
+    if (await isGuestMode()) {
+      // For guest mode, return habits with mock data
+      const habitsResult = await guestDataStore.getAll('habits');
+      if (habitsResult.error) return { data: null, error: habitsResult.error };
+      
+      return { data: habitsResult.data || [], error: null };
+    }
+
+    try {
+      const { supabase } = await import('@/lib/supabase');
+      
+      // Call the database function to get habits for date
+      const { data, error } = await supabase
+        .rpc('get_habits_for_date', {
+          p_user_id: userId,
+          p_date: date
+        });
+
+      if (error) {
+        console.error('Error getting habits for date:', error);
+        return { data: null, error: error.message };
+      }
+
+      return { data: data || [], error: null };
+    } catch (error) {
+      console.error('Error in getHabitsForDate:', error);
+      return { data: null, error };
+    }
+  }
+
+  /**
+   * Bulk log multiple habits for a specific date
+   */
+  static async bulkLogHabitsForDate(
+    userId: string,
+    date: string,
+    habitLogs: Array<{ habit_id: string; completed: boolean; feedback?: string }>
+  ): Promise<{ data: any | null; error: any }> {
+    if (await isGuestMode()) {
+      // For guest mode, log each habit individually
+      const results = [];
+      for (const log of habitLogs) {
+        const result = await this.logHabitForDate(
+          log.habit_id,
+          userId,
+          date,
+          log.completed,
+          log.feedback as any
+        );
+        results.push(result);
+      }
+      return { data: { results }, error: null };
+    }
+
+    try {
+      const { supabase } = await import('@/lib/supabase');
+
+      // Call the database function to bulk log habits
+      const { data, error } = await supabase
+        .rpc('bulk_log_habits_for_date', {
+          p_user_id: userId,
+          p_date: date,
+          p_habit_logs: habitLogs
+        });
+
+      if (error) {
+        console.error('Error bulk logging habits for date:', error);
+        return { data: null, error: error.message };
+      }
+
+      return { data, error: null };
+    } catch (error) {
+      console.error('Error in bulkLogHabitsForDate:', error);
+      return { data: null, error };
+    }
+  }
+
+  /**
+   * Get all habits from the habits_library table
+   * Returns the complete library of available habits for users to browse
+   */
+  static async getHabitsLibrary(category?: string): Promise<{ data: any[] | null; error: any }> {
+    try {
+      const { supabase } = await import('@/lib/supabase');
+
+      let query = supabase
+        .from('habits_library')
+        .select('*')
+        .order('name', { ascending: true });
+
+      // Filter by category if provided
+      if (category && category !== 'All') {
+        query = query.eq('category', category);
+      }
+
+      const { data, error } = await query;
+
+      if (error) {
+        console.error('Error fetching habits library:', error);
+        return { data: null, error: error.message };
+      }
+
+      // Transform database format to match HabitLibraryItem interface
+      const habits = (data || []).map(habit => ({
+        id: habit.id,
+        name: habit.name,
+        description: habit.description,
+        expectedOutcome: habit.expected_outcome,
+        emoji: habit.emoji,
+        category: habit.category,
+        difficulty: habit.difficulty,
+        timeRequired: habit.time_required,
+        benefits: habit.benefits || []
+      }));
+
+      return { data: habits, error: null };
+    } catch (error) {
+      console.error('Error in getHabitsLibrary:', error);
       return { data: null, error };
     }
   }

@@ -70,8 +70,7 @@ export class UserPreferencesService {
 
     const result = await SupabaseSafe.select<UserPreferences>(
       'user_preferences',
-      { id: userId },
-      userId
+      { id: userId }
     );
     
     if (result.success && result.data && result.data.length > 0) {
@@ -129,8 +128,7 @@ export class UserPreferencesService {
     const result = await SupabaseSafe.update(
       'user_preferences',
       userId,
-      preferences,
-      userId
+      preferences
     );
 
     if (result.success) {
@@ -144,8 +142,7 @@ export class UserPreferencesService {
         {
           id: userId,
           ...preferences,
-        },
-        userId
+        }
       );
 
       if (insertResult.success) {
