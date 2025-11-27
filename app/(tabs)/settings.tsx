@@ -26,62 +26,14 @@ import { HelpSettings } from '@/components/settings/HelpSettings';
 import { LanguageSettings } from '@/components/settings/LanguageSettings';
 import { SecuritySettings } from '@/components/settings/SecuritySettings';
 import { CloudSyncSettings } from '@/components/settings/CloudSyncSettings';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { testSupabaseConnection } from '@/lib/supabase-debug';
-import { SUPABASE_URL } from '@/lib/constants';
 
-type SettingSection = 'notifications' | 'account' | 'privacy' | 'theme' | 'help' | 'language' | 'security' | 'cloud-sync' | 'developer' | null;
+type SettingSection = 'notifications' | 'account' | 'privacy' | 'theme' | 'help' | 'language' | 'security' | 'cloud-sync' | null;
 
 export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
   const { theme } = useTheme();
   const { user, isGuest, signOut } = useAuth();
   const [activeSection, setActiveSection] = useState<SettingSection>(null);
-  const [useMockData, setUseMockData] = useState(false);
-  const [connectionStatus, setConnectionStatus] = useState<'testing' | 'connected' | 'disconnected' | 'unknown'>('unknown');
-  
-  // Load mock data preference on mount
-  React.useEffect(() => {
-    loadMockDataPreference();
-  }, []);
-
-  const loadMockDataPreference = async () => {
-    try {
-      const value = await AsyncStorage.getItem('useMockData');
-      setUseMockData(value === 'true');
-    } catch (error) {
-      console.error('Error loading mock data preference:', error);
-    }
-  };
-
-  const toggleMockData = async () => {
-    const newValue = !useMockData;
-    setUseMockData(newValue);
-    try {
-      await AsyncStorage.setItem('useMockData', newValue.toString());
-    } catch (error) {
-      console.error('Error saving mock data preference:', error);
-    }
-  };
-
-  const testConnection = async () => {
-    setConnectionStatus('testing');
-    try {
-      const result = await testSupabaseConnection();
-      setConnectionStatus(result.success ? 'connected' : 'disconnected');
-      
-      Alert.alert(
-        'Connection Test',
-        result.success 
-          ? '✅ Supabase connection successful!' 
-          : `❌ Connection failed: ${result.error}`,
-        [{ text: 'OK' }]
-      );
-    } catch (error) {
-      setConnectionStatus('disconnected');
-      Alert.alert('Connection Test', '❌ Connection test failed', [{ text: 'OK' }]);
-    }
-  };
 
   const handleSignOut = async () => {
     Alert.alert(
@@ -164,13 +116,6 @@ export default function SettingsScreen() {
       subtitle: 'PIN lock and security settings',
       icon: Lock,
       color: theme.colors.error
-    },
-    {
-      id: 'developer' as const,
-      title: 'Developer',
-      subtitle: 'Testing and development options',
-      icon: HelpCircle,
-      color: theme.colors.warning
     }
   ];
 
@@ -235,81 +180,6 @@ export default function SettingsScreen() {
         return <LanguageSettings onBack={() => setActiveSection(null)} />;
       case 'security':
         return <SecuritySettings onBack={() => setActiveSection(null)} />;
-      case 'developer':
-        return (
-          <View style={styles.sectionContent}>
-            <View style={styles.sectionHeader}>
-              <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Developer Settings</Text>
-              <Text style={[styles.sectionSubtitle, { color: theme.colors.textSecondary }]}>
-                Testing and development options
-              </Text>
-            </View>
-            
-            <View style={[styles.settingItem, { backgroundColor: theme.colors.card }]}>
-              <View style={styles.settingInfo}>
-                <Text style={[styles.settingTitle, { color: theme.colors.text }]}>Supabase Connection</Text>
-                <Text style={[styles.settingDescription, { color: theme.colors.textSecondary }]}>
-                  {SUPABASE_URL === 'https://your-project-id.supabase.co' 
-                    ? 'Using placeholder credentials - update app.json' 
-                    : `Connected to: ${SUPABASE_URL?.substring(0, 30)}...`}
-                </Text>
-                <Text style={[styles.settingDescription, { color: theme.colors.textSecondary, marginTop: 4 }]}>
-                  Status: {connectionStatus === 'testing' ? 'Testing...' : 
-                          connectionStatus === 'connected' ? '✅ Connected' :
-                          connectionStatus === 'disconnected' ? '❌ Disconnected' : '❓ Unknown'}
-                </Text>
-              </View>
-              <TouchableOpacity
-                style={[styles.testButton, { backgroundColor: theme.colors.primary }]}
-                onPress={testConnection}
-                disabled={connectionStatus === 'testing'}
-              >
-                <Text style={styles.testButtonText}>
-                  {connectionStatus === 'testing' ? 'Testing...' : 'Test'}
-                </Text>
-              </TouchableOpacity>
-            </View>
-
-            <View style={[styles.settingItem, { backgroundColor: theme.colors.card }]}>
-              <View style={styles.settingInfo}>
-                <Text style={[styles.settingTitle, { color: theme.colors.text }]}>Use Mock Data</Text>
-                <Text style={[styles.settingDescription, { color: theme.colors.textSecondary }]}>
-                  Toggle between mock data and live Supabase data for testing
-                </Text>
-              </View>
-              <TouchableOpacity
-                style={[
-                  styles.toggle,
-                  { backgroundColor: useMockData ? theme.colors.primary : theme.colors.border }
-                ]}
-                onPress={toggleMockData}
-              >
-                <View style={[
-                  styles.toggleThumb,
-                  { 
-                    backgroundColor: '#FFFFFF',
-                    transform: [{ translateX: useMockData ? 20 : 2 }]
-                  }
-                ]} />
-              </TouchableOpacity>
-            </View>
-
-            <View style={[styles.settingItem, { backgroundColor: theme.colors.card }]}>
-              <View style={styles.settingInfo}>
-                <Text style={[styles.settingTitle, { color: theme.colors.text }]}>Sign Out</Text>
-                <Text style={[styles.settingDescription, { color: theme.colors.textSecondary }]}>
-                  Sign out of your account
-                </Text>
-              </View>
-              <TouchableOpacity
-                style={[styles.signOutButton, { backgroundColor: theme.colors.error }]}
-                onPress={handleSignOut}
-              >
-                <Text style={[styles.signOutText, { color: '#FFFFFF' }]}>Sign Out</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        );
       default:
         return null;
     }
@@ -414,48 +284,5 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   settingSubtitle: {
-  },
-  toggle: {
-    width: 44,
-    height: 24,
-    justifyContent: 'center',
-    paddingHorizontal: 2,
-  },
-  toggleThumb: {
-    width: 20,
-    height: 20,
-  },
-  signOutButton: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-  },
-  signOutText: {
-  },
-  testButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-    minWidth: 60,
-  },
-  testButtonText: {
-    color: '#FFFFFF',
-  },
-  sectionContent: {
-    padding: 20,
-  },
-  sectionHeader: {
-    marginBottom: 20,
-  },
-  sectionTitle: {
-    marginBottom: 8,
-  },
-  sectionSubtitle: {
-  },
-  settingInfo: {
-    flex: 1,
-  },
-  settingDescription: {
-    marginTop: 4,
   },
 });

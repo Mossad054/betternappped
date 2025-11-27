@@ -23,12 +23,12 @@ import {
   CheckCircle,
   ArrowLeft,
 } from 'lucide-react-native';
-import {
-  HabitLibraryItem,
-  HabitCategory,
-} from '@/constants/mockData';
 import { HabitsService } from '@/services/habits.service';
 import { AuthGuard } from '@/components/AuthGuard';
+import { Database } from '@/lib/supabase';
+
+type HabitLibraryItem = Database['public']['Tables']['habits_library']['Row'];
+type HabitCategory = 'MentalClarity' | 'Health' | 'Sleep' | 'Mood' | 'Intimacy' | 'Anxiety';
 
 export default function HabitLibraryScreen() {
   const insets = useSafeAreaInsets();
@@ -43,6 +43,26 @@ export default function HabitLibraryScreen() {
   const [libraryHabits, setLibraryHabits] = useState<HabitLibraryItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [isFromPrefill, setIsFromPrefill] = useState(false);
+
+  // Helper function to get emoji for habit based on category and name
+  const getHabitEmoji = (habit: HabitLibraryItem): string => {
+    // If habit has an emoji, use it
+    if (habit.emoji && habit.emoji.trim()) {
+      return habit.emoji;
+    }
+
+    // Otherwise, provide category-based fallback
+    const categoryEmojis: Record<string, string> = {
+      'Intimacy': '💕',
+      'Health': '❤️',
+      'Anxiety': '🧘',
+      'Mood': '😊',
+      'Sleep': '🌙',
+      'MentalClarity': '🧠',
+    };
+
+    return categoryEmojis[habit.category] || '⭐';
+  };
 
   useEffect(() => {
     loadHabitsLibrary();
@@ -160,8 +180,8 @@ export default function HabitLibraryScreen() {
         name: habit.name,
         description: habit.description,
         category: habit.category,
-        emoji: habit.emoji,
-        instruction: habit.description,
+        emoji: getHabitEmoji(habit),
+        instruction: habit.instructions || habit.description,
         total_days: 30,
         streak_goal: 30,
         reminder_enabled: false,
@@ -335,7 +355,7 @@ export default function HabitLibraryScreen() {
                 </View>
               )}
 
-              <Text style={styles.habitEmoji}>{habit.emoji}</Text>
+              <Text style={styles.habitEmoji}>{getHabitEmoji(habit)}</Text>
               <Text style={[styles.habitName, { color: theme.colors.text }]}>{habit.name}</Text>
               <Text style={[styles.habitDescription, { color: theme.colors.textSecondary }]}>
                 {habit.description}
@@ -345,16 +365,16 @@ export default function HabitLibraryScreen() {
                 <View style={styles.metaItem}>
                   <Clock size={12} color={theme.colors.textSecondary} />
                   <Text style={[styles.metaText, { color: theme.colors.textSecondary }]}>
-                    {habit.timeRequired}
+                    {habit.time_required || 'N/A'}
                   </Text>
                 </View>
-                <View style={[styles.difficultyBadge, { backgroundColor: getDifficultyColor(habit.difficulty) }]}>
-                  <Text style={styles.difficultyText}>{habit.difficulty}</Text>
+                <View style={[styles.difficultyBadge, { backgroundColor: getDifficultyColor(habit.difficulty || 'Easy') }]}>
+                  <Text style={styles.difficultyText}>{habit.difficulty || 'Easy'}</Text>
                 </View>
               </View>
 
               <View style={styles.benefitsContainer}>
-                {habit.benefits.slice(0, 2).map((benefit, index) => (
+                {(habit.benefits || []).slice(0, 2).map((benefit, index) => (
                   <View key={index} style={styles.benefitChip}>
                     <Text style={[styles.benefitText, { color: theme.colors.primary }]}>
                       {benefit}
@@ -395,7 +415,7 @@ export default function HabitLibraryScreen() {
               <>
                 <View style={styles.modalHeader}>
                   <View style={styles.modalTitleContainer}>
-                    <Text style={styles.habitEmojiLarge}>{selectedHabit.emoji}</Text>
+                    <Text style={styles.habitEmojiLarge}>{getHabitEmoji(selectedHabit)}</Text>
                     <View>
                       <Text style={[styles.modalTitle, { color: theme.colors.text }]}>
                         {selectedHabit.name}
@@ -418,41 +438,45 @@ export default function HabitLibraryScreen() {
                     {selectedHabit.description}
                   </Text>
 
-                  <View style={styles.expectedOutcome}>
-                    <Text style={[styles.outcomeTitle, { color: theme.colors.text }]}>Expected Outcome</Text>
-                    <Text style={[styles.outcomeText, { color: theme.colors.textSecondary }]}>
-                      {selectedHabit.expectedOutcome}
-                    </Text>
-                  </View>
+                  {selectedHabit.expected_outcome && (
+                    <View style={styles.expectedOutcome}>
+                      <Text style={[styles.outcomeTitle, { color: theme.colors.text }]}>Expected Outcome</Text>
+                      <Text style={[styles.outcomeText, { color: theme.colors.textSecondary }]}>
+                        {selectedHabit.expected_outcome}
+                      </Text>
+                    </View>
+                  )}
 
                   <View style={styles.habitDetails}>
                     <View style={styles.detailItem}>
                       <Clock size={16} color={theme.colors.textSecondary} />
                       <Text style={[styles.detailLabel, { color: theme.colors.textSecondary }]}>Time Required</Text>
                       <Text style={[styles.detailValue, { color: theme.colors.text }]}>
-                        {selectedHabit.timeRequired}
+                        {selectedHabit.time_required || 'N/A'}
                       </Text>
                     </View>
                     <View style={styles.detailItem}>
                       <Star size={16} color={theme.colors.textSecondary} />
                       <Text style={[styles.detailLabel, { color: theme.colors.textSecondary }]}>Difficulty</Text>
-                      <Text style={[styles.detailValue, { color: getDifficultyColor(selectedHabit.difficulty) }]}>
-                        {selectedHabit.difficulty}
+                      <Text style={[styles.detailValue, { color: getDifficultyColor(selectedHabit.difficulty || 'Easy') }]}>
+                        {selectedHabit.difficulty || 'Easy'}
                       </Text>
                     </View>
                   </View>
 
-                  <View style={styles.benefitsSection}>
-                    <Text style={[styles.benefitsTitle, { color: theme.colors.text }]}>Benefits</Text>
-                    {selectedHabit.benefits.map((benefit, index) => (
-                      <View key={index} style={styles.benefitItem}>
-                        <View style={[styles.benefitBullet, { backgroundColor: theme.colors.primary }]} />
-                        <Text style={[styles.benefitItemText, { color: theme.colors.textSecondary }]}>
-                          {benefit}
-                        </Text>
-                      </View>
-                    ))}
-                  </View>
+                  {selectedHabit.benefits && selectedHabit.benefits.length > 0 && (
+                    <View style={styles.benefitsSection}>
+                      <Text style={[styles.benefitsTitle, { color: theme.colors.text }]}>Benefits</Text>
+                      {selectedHabit.benefits.map((benefit, index) => (
+                        <View key={index} style={styles.benefitItem}>
+                          <View style={[styles.benefitBullet, { backgroundColor: theme.colors.primary }]} />
+                          <Text style={[styles.benefitItemText, { color: theme.colors.textSecondary }]}>
+                            {benefit}
+                          </Text>
+                        </View>
+                      ))}
+                    </View>
+                  )}
                 </ScrollView>
 
                 <View style={styles.modalFooter}>

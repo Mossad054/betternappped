@@ -1,7 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { SleepService } from '@/services/sleep.service';
+import { SleepWellnessService } from '@/services/sleepWellness.service';
 import { useAuth } from '@/contexts/AuthContext';
 import { AuthGuard } from '@/components/AuthGuard';
+import { LastNightCard } from '@/components/sleep/LastNightCard';
+import { WeeklyOverviewCard } from '@/components/sleep/WeeklyOverviewCard';
+import { ThisWeekSection } from '@/components/sleep/ThisWeekSection';
 import {
   View,
   Text,
@@ -279,6 +283,92 @@ interface SleepStats {
   avgQuality: string;
   wakeUpConsistency: string;
   insights: string[];
+}
+
+// Database-Driven Recommendations Component
+function DBRecommendationsSection({ userId }: { userId: string }) {
+  const { theme } = useTheme();
+  const [recommendations, setRecommendations] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (userId) {
+      loadRecommendations();
+    }
+  }, [userId]);
+
+  const loadRecommendations = async () => {
+    try {
+      setLoading(true);
+      const { data, error } = await SleepWellnessService.getRecommendations(userId, 'week', 3);
+      if (data) {
+        setRecommendations(data);
+      }
+    } catch (err) {
+      console.error('Error loading recommendations:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <View style={{ padding: 20, alignItems: 'center' }}>
+        <ActivityIndicator size="small" color={theme.colors.primary} />
+      </View>
+    );
+  }
+
+  if (recommendations.length === 0) {
+    return (
+      <View style={{ padding: 20 }}>
+        <Text style={{ color: theme.colors.textSecondary, textAlign: 'center' }}>
+          Track your sleep for a few more days to get personalized recommendations.
+        </Text>
+      </View>
+    );
+  }
+
+  return (
+    <>
+      {recommendations.map((rec, index) => (
+        <View
+          key={rec.id}
+          style={{
+            backgroundColor: theme.colors.secondary,
+            padding: 16,
+            borderRadius: 12,
+            marginBottom: 12,
+          }}
+        >
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
+            <Text style={{ color: theme.colors.text, fontSize: 15, fontWeight: '700', flex: 1 }}>
+              {index + 1}. {rec.reason}
+            </Text>
+            <View style={{ backgroundColor: theme.colors.primary + '20', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8 }}>
+              <Text style={{ color: theme.colors.primary, fontSize: 12, fontWeight: '700' }}>
+                {(rec.confidence_score * 100).toFixed(0)}%
+              </Text>
+            </View>
+          </View>
+          <Text style={{ color: theme.colors.text, fontSize: 14, lineHeight: 20 }}>
+            {rec.recommendation_text}
+          </Text>
+          {rec.tags && rec.tags.length > 0 && (
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 8 }}>
+              {rec.tags.map((tag: string) => (
+                <View key={tag} style={{ backgroundColor: theme.colors.border, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 }}>
+                  <Text style={{ color: theme.colors.textSecondary, fontSize: 11, fontWeight: '600' }}>
+                    {tag}
+                  </Text>
+                </View>
+              ))}
+            </View>
+          )}
+        </View>
+      ))}
+    </>
+  );
 }
 
 export default function SleepWellnessHub() {
@@ -667,98 +757,29 @@ export default function SleepWellnessHub() {
           </Text>
         </View>
 
-        <View style={[styles.card, { backgroundColor: theme.colors.card }]}>
-          <View style={styles.cardHeader}>
-            <Moon size={24} color={theme.colors.primary} />
-            <Text style={[styles.cardTitle, { color: theme.colors.text }]}>Your Sleep Stats</Text>
-          </View>
+        {/* Last Night Card - Dynamic DB-driven */}
+        {user && <LastNightCard userId={user.id} targetHours={8} windowDays={7} onRefresh={fetchSleepData} />}
 
-          {isLoading ? (
-            <View style={styles.loadingContainer}>
-              <ActivityIndicator size="large" color={theme.colors.primary} />
-              <Text style={[styles.loadingText, { color: theme.colors.textSecondary }]}>
-                Loading your sleep stats...
-              </Text>
-            </View>
-          ) : error ? (
-            <View style={styles.errorContainer}>
-              <AlertTriangle size={24} color={theme.colors.error} />
-              <Text style={[styles.errorText, { color: theme.colors.error }]}>{error}</Text>
-              <TouchableOpacity style={styles.retryButton} onPress={fetchSleepData}>
-                <RotateCcw size={16} color={theme.colors.primary} />
-                <Text style={[styles.retryText, { color: theme.colors.primary }]}>Retry</Text>
-              </TouchableOpacity>
-            </View>
-          ) : lastNightSleep ? (
-            <>
-              <View style={styles.sleepMetricsGrid}>
-                <View style={[styles.metricBox, { backgroundColor: theme.colors.primary }]}>
-                  <Text style={[styles.metricLabel, { color: '#FFFFFF' }]}>Bedtime</Text>
-                  <Text style={[styles.metricValue, { color: '#FFFFFF' }]}>
-                    {lastNightSleep.bedtime || '--'}
-                  </Text>
-                </View>
-                <View style={[styles.metricBox, { backgroundColor: theme.colors.primary }]}>
-                  <Text style={[styles.metricLabel, { color: '#FFFFFF' }]}>Wake Time</Text>
-                  <Text style={[styles.metricValue, { color: '#FFFFFF' }]}>
-                    {lastNightSleep.wake_time || '--'}
-                  </Text>
-                </View>
-              </View>
+        {/* This Week Section - Dynamic DB-driven */}
+        {user && <ThisWeekSection userId={user.id} onRefresh={fetchSleepData} />}
 
-              <View style={styles.sleepMetricsGrid}>
-                <View style={[styles.metricBox, { backgroundColor: theme.colors.primary }]}>
-                  <Text style={[styles.metricLabel, { color: '#FFFFFF' }]}>Quality</Text>
-                  <Text style={[styles.metricValue, { color: '#FFFFFF' }]}>
-                    {lastNightSleep.quality ? `${lastNightSleep.quality}/5` : '--'}
-                  </Text>
-                </View>
-                <View style={[styles.metricBox, { backgroundColor: theme.colors.primary }]}>
-                  <Text style={[styles.metricLabel, { color: '#FFFFFF' }]}>Hours Slept</Text>
-                  <Text style={[styles.metricValue, { color: '#FFFFFF' }]}>
-                    {lastNightSleep.calculatedHours
-                      ? `${lastNightSleep.calculatedHours}h`
-                      : lastNightSleep.hours
-                        ? `${lastNightSleep.hours}h`
-                        : '--'}
-                  </Text>
-                </View>
-              </View>
-            </>
-          ) : (
-            <View style={styles.noSleepDataContainer}>
-              <Text style={[styles.noSleepDataText, { color: theme.colors.textSecondary }]}>
-                No sleep data recorded yet. Log your first night's sleep to see your stats here!
-              </Text>
-            </View>
-          )}
-
-          {lastNightSleep && sleepStats && (
-            <>
-              <View style={styles.insightsContainer}>
-                <Text style={[styles.insightsTitle, { color: theme.colors.text }]}>AI Insights</Text>
-                {sleepStats?.insights.map((insight, index) => (
-                  <View key={index} style={styles.insightRow}>
-                    <Sparkles size={16} color={theme.colors.primary} />
-                    <Text style={[styles.insightText, { color: theme.colors.textSecondary }]}>
-                      {insight}
-                    </Text>
-                  </View>
-                ))}
-              </View>
-
-              <TouchableOpacity 
-                style={styles.viewReportButton}
-                onPress={() => router.push('/(tabs)/calendar')}
-              >
-                <Text style={[styles.viewReportText, { color: theme.colors.primary }]}>
-                  View Full Sleep Report
-                </Text>
-                <ChevronRight size={18} color={theme.colors.primary} />
-              </TouchableOpacity>
-            </>
-          )}
-        </View>
+        {/* Weekly Overview Calendar - Dynamic DB-driven */}
+        {user && (
+          <WeeklyOverviewCard
+            userId={user.id}
+            startDate={(() => {
+              const today = new Date();
+              const dayOfWeek = today.getDay();
+              const monday = new Date(today);
+              monday.setDate(today.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1));
+              return monday.toISOString().split('T')[0];
+            })()}
+            onDayPress={(date) => {
+              console.log('Day pressed:', date);
+              router.push('/(tabs)/calendar');
+            }}
+          />
+        )}
 
         {/* Quick Actions - Moved up for better navigation */}
         <View style={[styles.card, { backgroundColor: theme.colors.card }]}>
@@ -1089,33 +1110,34 @@ export default function SleepWellnessHub() {
           </View>
         </View>
 
+        {/* Database-Driven Smart Recommendations */}
         <View style={[styles.card, { backgroundColor: theme.colors.card }]}>
           <View style={styles.cardHeader}>
             <Sparkles size={24} color={theme.colors.primary} />
             <Text style={[styles.cardTitle, { color: theme.colors.text }]}>Smart Recommendations</Text>
-          </View>
-
-          {getRecommendations(sleepStats, sleepLogs).map((rec) => (
             <TouchableOpacity
-              key={rec.id}
-              style={[styles.recommendationCard, { backgroundColor: theme.colors.secondary }]}
-              onPress={() => {
-                setSelectedRecommendation(rec);
-                setRecommendationModalVisible(true);
-              }}
+              onPress={() => router.push('/sleep-wellness/trends' as any)}
+              style={styles.viewAllButton}
             >
-              <Text style={[styles.recommendationText, { color: theme.colors.text }]}>{rec.text}</Text>
-              <Text style={[styles.recommendationConfidence, { color: theme.colors.textSecondary }]}>{rec.confidence}</Text>
-              <TouchableOpacity
-                style={[styles.tryButton, { backgroundColor: theme.colors.primary }]}
-                onPress={() => handleTryRecommendation(rec.id)}
-              >
-                <TrendingUp size={16} color="#FFFFFF" />
-                <Text style={styles.tryButtonText}>Try This Tonight</Text>
-              </TouchableOpacity>
+              <Text style={[styles.viewAllText, { color: theme.colors.primary }]}>View All</Text>
             </TouchableOpacity>
-          ))}
+          </View>
+          <Text style={[styles.cardSubtitle, { color: theme.colors.textSecondary }]}>
+            Personalized insights based on your sleep patterns
+          </Text>
+
+          <DBRecommendationsSection userId={user?.id || ''} />
         </View>
+
+        {/* View Trends Button */}
+        <TouchableOpacity
+          style={[styles.viewTrendsButton, { backgroundColor: theme.colors.primary }]}
+          onPress={() => router.push('/sleep-wellness/trends' as any)}
+        >
+          <TrendingUp size={20} color="#FFFFFF" />
+          <Text style={styles.viewTrendsButtonText}>View Complete Sleep Trends & Analytics</Text>
+          <ChevronRight size={20} color="#FFFFFF" />
+        </TouchableOpacity>
       </ScrollView>
 
       {/* Achievement Detail Modal */}
@@ -2047,6 +2069,37 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600' as const,
     textAlign: 'center',
+  },
+  cardSubtitle: {
+    fontSize: 14,
+    marginBottom: 16,
+  },
+  viewAllButton: {
+    marginLeft: 'auto',
+  },
+  viewAllText: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  viewTrendsButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 12,
+    paddingVertical: 16,
+    paddingHorizontal: 24,
+    borderRadius: 16,
+    marginBottom: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  viewTrendsButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '700',
   },
 });
 

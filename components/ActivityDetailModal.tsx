@@ -44,6 +44,7 @@ export default function ActivityDetailModal({
   const [intensity, setIntensity] = useState<number>(3);
   const [notes, setNotes] = useState<string>('');
   const [postActivityFeeling, setPostActivityFeeling] = useState<string | null>(null);
+  const [customDuration, setCustomDuration] = useState<boolean>(false);
 
   const handleSave = () => {
     const details: ActivityDetails = {
@@ -72,13 +73,14 @@ export default function ActivityDetailModal({
       justifyContent: 'flex-end',
     },
     modalContainer: {
-      backgroundColor: theme.colors.background,
+      backgroundColor: theme.colors.card,
       borderTopLeftRadius: 24,
       borderTopRightRadius: 24,
       paddingHorizontal: 24,
       paddingTop: 20,
       paddingBottom: 32,
-      maxHeight: '80%',
+      maxHeight: '85%',
+      minHeight: 300,
     },
     header: {
       flexDirection: 'row',
@@ -87,8 +89,8 @@ export default function ActivityDetailModal({
       marginBottom: 24,
     },
     title: {
-      fontSize: 20,
-      fontWeight: '600',
+      fontSize: 24,
+      fontWeight: '700',
       color: theme.colors.textPrimary,
     },
     closeButton: {
@@ -98,9 +100,9 @@ export default function ActivityDetailModal({
       marginBottom: 24,
     },
     fieldLabel: {
-      fontSize: 14,
-      fontWeight: '500',
-      color: theme.colors.textSecondary,
+      fontSize: 18,
+      fontWeight: '600',
+      color: theme.colors.textPrimary,
       marginBottom: 12,
     },
     durationControls: {
@@ -135,6 +137,45 @@ export default function ActivityDetailModal({
       fontWeight: '600',
       color: theme.colors.textPrimary,
       textAlign: 'center',
+    },
+    presetButtonsContainer: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: 10,
+      justifyContent: 'center',
+    },
+    presetButton: {
+      minWidth: 80,
+      paddingVertical: 12,
+      paddingHorizontal: 16,
+      borderRadius: 12,
+      backgroundColor: theme.colors.surfaceVariant,
+      borderWidth: 2,
+      borderColor: theme.colors.border,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    presetButtonActive: {
+      backgroundColor: theme.colors.primary + '20' || 'rgba(77, 212, 172, 0.2)',
+      borderColor: theme.colors.primary || '#4DD4AC',
+    },
+    presetButtonText: {
+      fontSize: 16,
+      fontWeight: '600',
+      color: theme.colors.textPrimary,
+    },
+    presetButtonTextActive: {
+      color: theme.colors.primary || '#4DD4AC',
+    },
+    customLinkContainer: {
+      marginTop: 12,
+      alignItems: 'center',
+    },
+    customLink: {
+      fontSize: 14,
+      fontWeight: '500',
+      color: theme.colors.primary || '#4DD4AC',
+      textDecorationLine: 'underline',
     },
     intensitySlider: {
       flexDirection: 'row',
@@ -178,7 +219,7 @@ export default function ActivityDetailModal({
       borderWidth: 1,
       borderColor: theme.colors.border,
       padding: 12,
-      fontSize: 14,
+      fontSize: 16,
       color: theme.colors.textPrimary,
       minHeight: 80,
     },
@@ -244,7 +285,12 @@ export default function ActivityDetailModal({
             activeOpacity={1}
             onPress={(e) => e.stopPropagation()}
           >
-            <ScrollView showsVerticalScrollIndicator={false}>
+            <ScrollView
+              showsVerticalScrollIndicator={false}
+              bounces={true}
+              keyboardShouldPersistTaps="handled"
+              contentContainerStyle={{ paddingBottom: 20 }}
+            >
               {/* Header */}
               <View style={styles.header}>
                 <Text style={styles.title}>{activityName}</Text>
@@ -263,28 +309,74 @@ export default function ActivityDetailModal({
               {/* Duration - Only for relevant activities */}
               {showDuration && (
                 <View style={styles.fieldContainer}>
-                  <Text style={styles.fieldLabel}>Duration (minutes)</Text>
-                  <View style={styles.durationControls}>
-                    <TouchableOpacity
-                      style={styles.durationButton}
-                      onPress={() => setDuration(Math.max(30, duration - 30))}
-                    >
-                      <Text style={styles.durationButtonText}>−</Text>
-                    </TouchableOpacity>
-                    <TextInput
-                      style={styles.durationInput}
-                      value={duration.toString()}
-                      onChangeText={(text) => setDuration(parseInt(text) || 30)}
-                      keyboardType="numeric"
-                      placeholderTextColor={theme.colors.textTertiary}
-                    />
-                    <TouchableOpacity
-                      style={styles.durationButton}
-                      onPress={() => setDuration(duration + 30)}
-                    >
-                      <Text style={styles.durationButtonText}>+</Text>
-                    </TouchableOpacity>
-                  </View>
+                  <Text style={styles.fieldLabel}>Duration</Text>
+
+                  {!customDuration ? (
+                    <>
+                      <View style={styles.presetButtonsContainer}>
+                        {[
+                          { label: '30 mins', value: 30 },
+                          { label: '1 hr', value: 60 },
+                          { label: '2 hrs', value: 120 },
+                          { label: '3 hrs', value: 180 },
+                          { label: '3+ hrs', value: 240 },
+                        ].map((preset) => (
+                          <TouchableOpacity
+                            key={preset.value}
+                            style={[
+                              styles.presetButton,
+                              duration === preset.value && styles.presetButtonActive,
+                            ]}
+                            onPress={() => setDuration(preset.value)}
+                            activeOpacity={0.7}
+                          >
+                            <Text
+                              style={[
+                                styles.presetButtonText,
+                                duration === preset.value && styles.presetButtonTextActive,
+                              ]}
+                            >
+                              {preset.label}
+                            </Text>
+                          </TouchableOpacity>
+                        ))}
+                      </View>
+                      <View style={styles.customLinkContainer}>
+                        <TouchableOpacity onPress={() => setCustomDuration(true)}>
+                          <Text style={styles.customLink}>Custom duration</Text>
+                        </TouchableOpacity>
+                      </View>
+                    </>
+                  ) : (
+                    <>
+                      <View style={styles.durationControls}>
+                        <TouchableOpacity
+                          style={styles.durationButton}
+                          onPress={() => setDuration(Math.max(30, duration - 30))}
+                        >
+                          <Text style={styles.durationButtonText}>−</Text>
+                        </TouchableOpacity>
+                        <TextInput
+                          style={styles.durationInput}
+                          value={duration.toString()}
+                          onChangeText={(text) => setDuration(parseInt(text) || 30)}
+                          keyboardType="numeric"
+                          placeholderTextColor={theme.colors.textTertiary}
+                        />
+                        <TouchableOpacity
+                          style={styles.durationButton}
+                          onPress={() => setDuration(duration + 30)}
+                        >
+                          <Text style={styles.durationButtonText}>+</Text>
+                        </TouchableOpacity>
+                      </View>
+                      <View style={styles.customLinkContainer}>
+                        <TouchableOpacity onPress={() => setCustomDuration(false)}>
+                          <Text style={styles.customLink}>Use presets</Text>
+                        </TouchableOpacity>
+                      </View>
+                    </>
+                  )}
                 </View>
               )}
 

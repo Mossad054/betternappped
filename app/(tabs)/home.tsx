@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import ModernTimePicker, { TimeValue } from '@/components/ModernTimePicker';
 import {
   StyleSheet,
   ScrollView,
@@ -2164,31 +2165,28 @@ export default function HomeScreen() {
                 </TouchableOpacity>
               )}
             </View>
-            {showTimePicker && (
-              <DateTimePicker
-                value={(() => {
-                  const [hours, minutes] = customHabitForm.reminderTime.split(':');
-                  const date = new Date();
-                  date.setHours(parseInt(hours, 10));
-                  date.setMinutes(parseInt(minutes, 10));
-                  return date;
-                })()}
-                mode="time"
-                is24Hour={true}
-                display="default"
-                onChange={(event, selectedDate) => {
-                  setShowTimePicker(false);
-                  if (selectedDate) {
-                    const hours = selectedDate.getHours().toString().padStart(2, '0');
-                    const minutes = selectedDate.getMinutes().toString().padStart(2, '0');
-                    setCustomHabitForm(prev => ({
-                      ...prev,
-                      reminderTime: `${hours}:${minutes}`
-                    }));
-                  }
-                }}
-              />
-            )}
+            <ModernTimePicker
+              visible={showTimePicker}
+              onClose={() => setShowTimePicker(false)}
+              onConfirm={(time) => {
+                const hours = time.hour.toString().padStart(2, '0');
+                const minutes = time.minute.toString().padStart(2, '0');
+                setCustomHabitForm(prev => ({
+                  ...prev,
+                  reminderTime: `${hours}:${minutes}`
+                }));
+                setShowTimePicker(false);
+              }}
+              initialTime={(() => {
+                const [hours, minutes] = customHabitForm.reminderTime.split(':');
+                return {
+                  hour: parseInt(hours, 10),
+                  minute: parseInt(minutes, 10)
+                };
+              })()}
+              is24Hour={false}
+              title="Set Reminder Time"
+            />
 
             <TouchableOpacity
               style={[styles.saveButton, { backgroundColor: theme.colors.primary }]}

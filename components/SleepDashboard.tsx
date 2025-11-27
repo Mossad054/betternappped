@@ -13,6 +13,7 @@ import { useTheme } from '@/contexts/ThemeContext';
 import { AnalyticsService } from '@/services/analytics.service';
 import { CorrelationService, CorrelationResult } from '@/services/analytics/correlation.service';
 import Svg, { Circle, Path, Defs, LinearGradient, Stop } from 'react-native-svg';
+import { Typography } from '@/constants/Typography';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -407,7 +408,16 @@ export default function SleepDashboard({
 
     return (
       <View style={styles.chartContainer}>
-        <Svg width={chartWidth} height={chartHeight}>
+        {/* Y-axis labels */}
+        <View style={[styles.yAxisContainer, { left: 0 }]}>
+          <Text style={[styles.yAxisLabel, { color: theme.colors.textSecondary }]}>10h</Text>
+          <Text style={[styles.yAxisLabel, { color: theme.colors.textSecondary }]}>7.5h</Text>
+          <Text style={[styles.yAxisLabel, { color: theme.colors.textSecondary }]}>5h</Text>
+          <Text style={[styles.yAxisLabel, { color: theme.colors.textSecondary }]}>2.5h</Text>
+          <Text style={[styles.yAxisLabel, { color: theme.colors.textSecondary }]}>0h</Text>
+        </View>
+
+        <Svg width={chartWidth} height={chartHeight} style={{ marginLeft: 35 }}>
           <Defs>
             <LinearGradient id="areaGradient" x1="0%" y1="0%" x2="0%" y2="100%">
               <Stop offset="0%" stopColor="#60A5FA" stopOpacity="0.5" />
@@ -423,7 +433,7 @@ export default function SleepDashboard({
         </Svg>
 
         {/* X-axis labels */}
-        <View style={styles.xAxisLabels}>
+        <View style={[styles.xAxisLabels, { marginLeft: 35 }]}>
           {dailyData.map((day: any, index: number) => {
             // Show labels based on period
             let label = '';
@@ -437,14 +447,14 @@ export default function SleepDashboard({
               // Show day number for week/month view
               label = String(index + 1);
             }
-            
+
             // Only show some labels to avoid crowding
-            const shouldShow = period === 'year' 
+            const shouldShow = period === 'year'
               ? index % Math.ceil(dailyData.length / 6) === 0
               : period === 'month'
               ? index % 5 === 0
               : true;
-            
+
             return shouldShow ? (
               <Text
                 key={index}
@@ -458,6 +468,11 @@ export default function SleepDashboard({
             ) : null;
           })}
         </View>
+
+        {/* Axis titles */}
+        <Text style={[styles.axisTitle, { color: theme.colors.textSecondary, marginTop: 8 }]}>
+          {period === 'today' ? 'Time' : period === 'year' ? 'Months' : 'Days'}
+        </Text>
       </View>
     );
   };
@@ -486,27 +501,43 @@ export default function SleepDashboard({
           </Text>
         </View>
 
-        <View style={styles.barChartContainer}>
-          {dailyData.slice(0, 7).map((day: any, index: number) => {
-            const height = Math.max((day.duration / 10) * maxHeight, 20);
-            // Alternate between blue and purple
-            const color = index % 2 === 0 ? '#60A5FA' : '#A78BFA';
-            
-            const date = new Date(day.date);
-            const dayLabel = days[date.getDay()];
+        <View style={{ flexDirection: 'row' }}>
+          {/* Y-axis labels */}
+          <View style={[styles.yAxisContainer, { width: 35, marginRight: 8 }]}>
+            <Text style={[styles.yAxisLabel, { color: theme.colors.textSecondary }]}>10h</Text>
+            <Text style={[styles.yAxisLabel, { color: theme.colors.textSecondary }]}>7.5h</Text>
+            <Text style={[styles.yAxisLabel, { color: theme.colors.textSecondary }]}>5h</Text>
+            <Text style={[styles.yAxisLabel, { color: theme.colors.textSecondary }]}>2.5h</Text>
+            <Text style={[styles.yAxisLabel, { color: theme.colors.textSecondary }]}>0h</Text>
+          </View>
 
-            return (
-              <View key={index} style={styles.barWrapper}>
-                <View style={styles.barColumn}>
-                  <View style={[styles.bar, { height, backgroundColor: color, width: barWidth }]} />
+          <View style={[styles.barChartContainer, { flex: 1 }]}>
+            {dailyData.slice(0, 7).map((day: any, index: number) => {
+              const height = Math.max((day.duration / 10) * maxHeight, 20);
+              // Alternate between blue and purple
+              const color = index % 2 === 0 ? '#60A5FA' : '#A78BFA';
+
+              const date = new Date(day.date);
+              const dayLabel = days[date.getDay()];
+
+              return (
+                <View key={index} style={styles.barWrapper}>
+                  <View style={styles.barColumn}>
+                    <View style={[styles.bar, { height, backgroundColor: color, width: barWidth }]} />
+                  </View>
+                  <Text style={[styles.barLabel, { color: theme.colors.textSecondary }]}>
+                    {dayLabel}
+                  </Text>
                 </View>
-                <Text style={[styles.barLabel, { color: theme.colors.textSecondary }]}>
-                  {dayLabel}
-                </Text>
-              </View>
-            );
-          })}
+              );
+            })}
+          </View>
         </View>
+
+        {/* X-axis title */}
+        <Text style={[styles.axisTitle, { color: theme.colors.textSecondary, marginTop: 12 }]}>
+          Days of Week
+        </Text>
       </View>
     );
   };
@@ -943,8 +974,7 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   title: {
-    fontSize: 24,
-    fontWeight: '800',
+    ...Typography.analytics.cardTitle,
   },
   loadingContainer: {
     padding: 40,
@@ -952,25 +982,25 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     marginTop: 12,
-    fontSize: 14,
+    fontSize: 16,
   },
   emptyContainer: {
     padding: 40,
     alignItems: 'center',
   },
   emptyEmoji: {
-    fontSize: 48,
+    fontSize: 64,
     marginBottom: 12,
   },
   emptyTitle: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: '600',
     marginBottom: 8,
   },
   emptyText: {
-    fontSize: 14,
+    fontSize: 16,
     textAlign: 'center',
-    lineHeight: 20,
+    lineHeight: 24,
   },
   mainChartSection: {
     alignItems: 'center',
@@ -987,12 +1017,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   donutPercentage: {
-    fontSize: 36,
-    fontWeight: '700',
+    ...Typography.analytics.kpiValue,
   },
   donutLabel: {
-    fontSize: 14,
-    fontWeight: '500',
+    ...Typography.analytics.kpiLabel,
     marginTop: 4,
   },
   miniDonutContainer: {
@@ -1006,8 +1034,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   miniDonutHours: {
-    fontSize: 20,
-    fontWeight: '700',
+    fontSize: 24,
+    fontWeight: '800',
   },
   statsCards: {
     flexDirection: 'row',
@@ -1021,13 +1049,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   statValue: {
-    fontSize: 14,
-    fontWeight: '700',
+    fontSize: 18,
+    fontWeight: '800',
     marginBottom: 4,
   },
   statLabel: {
-    fontSize: 11,
-    fontWeight: '500',
+    fontSize: 13,
+    fontWeight: '600',
     textAlign: 'center',
   },
   section: {
@@ -1040,7 +1068,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   sectionTitle: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: '700',
   },
   chartContainer: {
@@ -1054,7 +1082,7 @@ const styles = StyleSheet.create({
   },
   xAxisLabel: {
     position: 'absolute',
-    fontSize: 10,
+    fontSize: 12,
     fontWeight: '500',
     width: 20,
     textAlign: 'center',
@@ -1066,7 +1094,7 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   chartLabel: {
-    fontSize: 10,
+    fontSize: 12,
     fontWeight: '500',
   },
   barChartSection: {
@@ -1076,13 +1104,11 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   barChartTitle: {
-    fontSize: 16,
-    fontWeight: '600',
+    ...Typography.analytics.sectionTitle,
     marginBottom: 4,
   },
   barChartSubtitle: {
-    fontSize: 11,
-    fontWeight: '400',
+    ...Typography.analytics.caption,
   },
   barChartContainer: {
     flexDirection: 'row',
@@ -1104,8 +1130,8 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 8,
   },
   barLabel: {
-    fontSize: 11,
-    fontWeight: '500',
+    fontSize: 13,
+    fontWeight: '600',
     marginTop: 8,
   },
   insightsSection: {
@@ -1116,16 +1142,16 @@ const styles = StyleSheet.create({
     borderRadius: 12,
   },
   insightText: {
-    fontSize: 13,
-    lineHeight: 18,
+    fontSize: 15,
+    lineHeight: 22,
   },
   correlationsSection: {
     marginTop: 24,
   },
   correlationsSubtitle: {
-    fontSize: 13,
+    fontSize: 15,
     marginBottom: 16,
-    lineHeight: 18,
+    lineHeight: 22,
   },
   correlationsGrid: {
     gap: 16,
@@ -1141,15 +1167,15 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   correlationIcon: {
-    fontSize: 24,
+    fontSize: 28,
     marginRight: 8,
   },
   correlationTitle: {
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: 18,
+    fontWeight: '700',
   },
   correlationNoData: {
-    fontSize: 13,
+    fontSize: 15,
     fontStyle: 'italic',
   },
   correlationMetrics: {
@@ -1162,13 +1188,13 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   correlationCoefficient: {
-    fontSize: 32,
-    fontWeight: '700',
+    fontSize: 36,
+    fontWeight: '800',
     marginBottom: 4,
   },
   correlationStrength: {
-    fontSize: 13,
-    fontWeight: '500',
+    fontSize: 15,
+    fontWeight: '600',
   },
   significanceBadge: {
     paddingHorizontal: 12,
@@ -1176,8 +1202,8 @@ const styles = StyleSheet.create({
     borderRadius: 12,
   },
   significanceText: {
-    fontSize: 11,
-    fontWeight: '600',
+    fontSize: 13,
+    fontWeight: '700',
     textTransform: 'uppercase',
   },
   correlationStats: {
@@ -1192,13 +1218,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   correlationStatLabel: {
-    fontSize: 11,
+    fontSize: 13,
     marginBottom: 4,
     textTransform: 'uppercase',
   },
   correlationStatValue: {
-    fontSize: 13,
-    fontWeight: '600',
+    fontSize: 15,
+    fontWeight: '700',
   },
   correlationInterpretation: {
     marginTop: 12,
@@ -1206,8 +1232,8 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   interpretationText: {
-    fontSize: 12,
-    lineHeight: 18,
+    fontSize: 14,
+    lineHeight: 20,
   },
   correlationLegend: {
     marginTop: 16,
@@ -1215,13 +1241,13 @@ const styles = StyleSheet.create({
     borderRadius: 12,
   },
   legendTitle: {
-    fontSize: 13,
-    fontWeight: '600',
+    fontSize: 15,
+    fontWeight: '700',
     marginBottom: 8,
   },
   legendText: {
-    fontSize: 11,
-    lineHeight: 18,
+    fontSize: 13,
+    lineHeight: 20,
   },
   simplifiedCorrelationCard: {
     padding: 16,
@@ -1242,9 +1268,9 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
   correlationBarLabel: {
-    fontSize: 11,
+    fontSize: 13,
     marginTop: 4,
-    fontWeight: '500',
+    fontWeight: '600',
   },
   comparisonContainer: {
     marginTop: 12,
@@ -1270,12 +1296,12 @@ const styles = StyleSheet.create({
     marginRight: 6,
   },
   comparisonLabel: {
-    fontSize: 10,
+    fontSize: 12,
     marginRight: 4,
   },
   comparisonValue: {
-    fontSize: 14,
-    fontWeight: '600',
+    fontSize: 16,
+    fontWeight: '700',
   },
   changeIndicator: {
     padding: 8,
@@ -1284,11 +1310,11 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   changeText: {
-    fontSize: 12,
-    fontWeight: '600',
+    fontSize: 14,
+    fontWeight: '700',
   },
   sampleText: {
-    fontSize: 11,
+    fontSize: 13,
     fontStyle: 'italic',
     marginTop: 8,
   },
@@ -1303,25 +1329,25 @@ const styles = StyleSheet.create({
     minWidth: 80,
   },
   impactScore: {
-    fontSize: 32,
-    fontWeight: '700',
+    fontSize: 36,
+    fontWeight: '800',
     marginBottom: 4,
   },
   impactLabel: {
-    fontSize: 11,
-    fontWeight: '500',
+    fontSize: 13,
+    fontWeight: '600',
     textTransform: 'uppercase',
   },
   impactDescription: {
     flex: 1,
   },
   impactText: {
-    fontSize: 13,
-    lineHeight: 18,
+    fontSize: 15,
+    lineHeight: 22,
     marginBottom: 4,
   },
   noImpactText: {
-    fontSize: 13,
+    fontSize: 15,
     fontStyle: 'italic',
     marginTop: 8,
   },
@@ -1330,7 +1356,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   noDataText: {
-    fontSize: 13,
+    fontSize: 15,
     fontStyle: 'italic',
   },
   recommendationsBox: {
@@ -1339,8 +1365,8 @@ const styles = StyleSheet.create({
     borderRadius: 12,
   },
   recommendationsTitle: {
-    fontSize: 15,
-    fontWeight: '600',
+    fontSize: 17,
+    fontWeight: '700',
     marginBottom: 12,
   },
   recommendationItem: {
@@ -1348,7 +1374,27 @@ const styles = StyleSheet.create({
     paddingLeft: 4,
   },
   recommendationText: {
-    fontSize: 13,
-    lineHeight: 20,
+    fontSize: 15,
+    lineHeight: 22,
+  },
+  yAxisContainer: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    bottom: 20,
+    width: 30,
+    justifyContent: 'space-between',
+    paddingVertical: 10,
+  },
+  yAxisLabel: {
+    fontSize: 11,
+    fontWeight: '500',
+    textAlign: 'right',
+  },
+  axisTitle: {
+    fontSize: 12,
+    fontWeight: '600',
+    textAlign: 'center',
+    marginTop: 4,
   },
 });

@@ -1,12 +1,9 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, Modal, ScrollView, TouchableOpacity, ActivityIndicator, Alert } from 'react-native';
-import { X, Clock, Moon, Brain, CheckCircle, XCircle, TrendingUp, TrendingDown, FlaskConical, AlertCircle, Plus, Circle, Target } from 'lucide-react-native';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, Modal, ScrollView, TouchableOpacity } from 'react-native';
+import { X, Clock, Moon, Brain, CheckCircle, XCircle, TrendingUp, TrendingDown, FlaskConical, AlertCircle, Plus } from 'lucide-react-native';
 import { useTheme } from '@/contexts/ThemeContext';
-import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'expo-router';
 import PastDateHabitModal from './PastDateHabitModal';
-import { HabitsService } from '@/services/habits.service';
-import { ExperimentsService } from '@/services/experiments.service';
 
 export interface DailyDetailData {
   date: string;
@@ -34,20 +31,9 @@ export interface DailyDetailData {
     factors: string[];
   };
   habits?: Array<{
-    id?: string;
-    habit_id?: string;
     name: string;
-    habit_name?: string;
     emoji: string;
-    habit_emoji?: string;
     completed: boolean;
-    streak?: number;
-    habit_streak?: number;
-    total_days?: number;
-    habit_total_days?: number;
-    cycle_day?: number;
-    category?: string;
-    habit_category?: string;
   }>;
   experiments?: Array<{
     id: string;
@@ -68,183 +54,11 @@ interface DayDetailModalProps {
   data: DailyDetailData | null;
 }
 
-interface ActiveHabit {
-  habit_id: string;
-  habit_name: string;
-  habit_emoji: string;
-  habit_description: string;
-  habit_category: string;
-  habit_streak: number;
-  habit_total_days: number;
-  completed: boolean;
-  feedback: string | null;
-  cycle_day: number;
-}
-
-interface ActiveExperiment {
-  experiment_id: string;
-  experiment_name: string;
-  experiment_emoji: string;
-  experiment_description: string;
-  experiment_category: string;
-  experiment_status: string;
-  current_day: number;
-  total_days: number;
-  logged: boolean;
-  log_data: any;
-  created_at: string;
-}
-
 export default function DayDetailModal({ visible, onClose, data }: DayDetailModalProps) {
   const { theme } = useTheme();
-  const { user } = useAuth();
   const router = useRouter();
   const [habitModalVisible, setHabitModalVisible] = useState(false);
-  const [activeHabits, setActiveHabits] = useState<ActiveHabit[]>([]);
-  const [habitsLoading, setHabitsLoading] = useState(false);
-  const [savingHabitId, setSavingHabitId] = useState<string | null>(null);
-  const [activeExperiments, setActiveExperiments] = useState<ActiveExperiment[]>([]);
-  const [experimentsLoading, setExperimentsLoading] = useState(false);
-
-  // Fetch active habits and experiments when modal opens
-  useEffect(() => {
-    if (visible && data?.date && user) {
-      fetchActiveHabits();
-      fetchActiveExperiments();
-    }
-  }, [visible, data?.date, user]);
-
-  const fetchActiveHabits = async () => {
-    if (!user || !data?.date) return;
-
-    setHabitsLoading(true);
-    try {
-      const { data: habitsData, error } = await HabitsService.getHabitsForDate(user.id, data.date);
-
-      if (error) {
-        console.error('Error fetching habits for date:', error);
-        setActiveHabits([]);
-      } else {
-        setActiveHabits(habitsData || []);
-      }
-    } catch (error) {
-      console.error('Error in fetchActiveHabits:', error);
-      setActiveHabits([]);
-    } finally {
-      setHabitsLoading(false);
-    }
-  };
-
-  const fetchActiveExperiments = async () => {
-    if (!user || !data?.date) return;
-
-    setExperimentsLoading(true);
-    try {
-      const { data: experimentsData, error } = await ExperimentsService.getExperimentsForDate(user.id, data.date);
-
-      if (error) {
-        console.error('Error fetching experiments for date:', error);
-        setActiveExperiments([]);
-      } else {
-        setActiveExperiments(experimentsData || []);
-      }
-    } catch (error) {
-      console.error('Error in fetchActiveExperiments:', error);
-      setActiveExperiments([]);
-    } finally {
-      setExperimentsLoading(false);
-    }
-  };
-
-  const handleLogExperiment = (experimentId: string, experimentName: string) => {
-    if (!data?.date) return;
-
-    const today = new Date().toISOString().split('T')[0];
-
-    // Prevent logging for future dates
-    if (data.date > today) {
-      Alert.alert(
-        'Future Date',
-        'You cannot log experiments for future dates.',
-        [{ text: 'OK' }]
-      );
-      return;
-    }
-
-    // Close this modal and navigate to experiments hub with experiment ID and date
-    onClose();
-    router.push(`/experiments-hub?experimentId=${experimentId}&logDate=${data.date}`);
-  };
-
-  const handleMarkComplete = async (habitId: string, currentCompleted: boolean) => {
-    if (!user || !data?.date) return;
-
-    const today = new Date().toISOString().split('T')[0];
-    const isFutureDate = data.date > today;
-
-    // Prevent completion for future dates
-    if (isFutureDate) {
-      Alert.alert(
-        'Future Date',
-        'You cannot mark habits complete for future dates.',
-        [{ text: 'OK' }]
-      );
-      return;
-    }
-
-    const newCompletedState = !currentCompleted;
-
-    // Optimistic update
-    setActiveHabits(prev =>
-      prev.map(habit =>
-        habit.habit_id === habitId
-          ? { ...habit, completed: newCompletedState }
-          : habit
-      )
-    );
-
-    setSavingHabitId(habitId);
-
-    try {
-      const { error } = await HabitsService.logHabitForDate(
-        habitId,
-        user.id,
-        data.date,
-        newCompletedState
-      );
-
-      if (error) {
-        // Revert on error
-        setActiveHabits(prev =>
-          prev.map(habit =>
-            habit.habit_id === habitId
-              ? { ...habit, completed: currentCompleted }
-              : habit
-          )
-        );
-        Alert.alert('Error', 'Failed to update habit. Please try again.');
-      } else {
-        // Refresh to get updated streak/cycle data
-        await fetchActiveHabits();
-      }
-    } catch (error) {
-      // Revert on error
-      setActiveHabits(prev =>
-        prev.map(habit =>
-          habit.habit_id === habitId
-            ? { ...habit, completed: currentCompleted }
-            : habit
-        )
-      );
-      Alert.alert('Error', 'Failed to update habit. Please try again.');
-    } finally {
-      setSavingHabitId(null);
-    }
-  };
-
-  const isFutureDate = data ? data.date > new Date().toISOString().split('T')[0] : false;
-  const isToday = data ? data.date === new Date().toISOString().split('T')[0] : false;
-
+  
   if (!data) return null;
 
   const formatDate = (dateString: string) => {
@@ -280,8 +94,8 @@ export default function DayDetailModal({ visible, onClose, data }: DayDetailModa
     const hasPoorMood = moodScore <= 2;
     const hasGoodSleep = sleepHours >= 7 && (sleepQuality === 'good' || sleepQuality === 'very good' || sleepQuality === 'excellent');
     const hasPoorSleep = sleepHours > 0 && sleepHours < 6;
-    const hasHighClarity = mentalClarityScore >= 70; // Out of 100
-    const hasLowClarity = mentalClarityScore > 0 && mentalClarityScore <= 40; // Out of 100
+    const hasHighClarity = mentalClarityScore >= 7;
+    const hasLowClarity = mentalClarityScore > 0 && mentalClarityScore <= 4;
     
     // OPENING STATEMENT - Set the tone based on overall wellbeing
     if (hasGoodMood && hasGoodSleep) {
@@ -341,12 +155,12 @@ export default function DayDetailModal({ visible, onClose, data }: DayDetailModa
     // MENTAL CLARITY - Connect to productivity
     if (mentalClarityScore > 0) {
       if (hasHighClarity) {
-        analysis += `Your mental clarity was strong (${mentalClarityScore}/100), indicating high focus and productivity. `;
+        analysis += `Your mental clarity was strong (${mentalClarityScore}/10), indicating high focus and productivity. `;
         if (data.mentalClarity?.factors && data.mentalClarity.factors.length > 0) {
           analysis += `Factors included: ${data.mentalClarity.factors.join(', ')}. `;
         }
       } else if (hasLowClarity) {
-        analysis += `Mental clarity was lower (${mentalClarityScore}/100), which may have affected your productivity. `;
+        analysis += `Mental clarity was lower (${mentalClarityScore}/10), which may have affected your productivity. `;
       }
     }
     
@@ -503,15 +317,15 @@ export default function DayDetailModal({ visible, onClose, data }: DayDetailModa
             )}
 
             {/* Mental Clarity */}
-            {data.mentalClarity && data.mentalClarity.score > 0 && (
+            {data.mentalClarity && (
               <View style={styles.section}>
               <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Mental Clarity</Text>
               <View style={[styles.clarityCard, { backgroundColor: theme.colors.background }]}>
                 <View style={styles.clarityHeader}>
                   <Brain size={20} color={theme.colors.primary} />
-                  <Text style={[styles.clarityScore, { color: theme.colors.text }]}>{data.mentalClarity.score}/100</Text>
+                  <Text style={[styles.clarityScore, { color: theme.colors.text }]}>{data.mentalClarity.score}/5</Text>
                 </View>
-                {data.mentalClarity.factors && data.mentalClarity.factors.length > 0 && (
+                {data.mentalClarity.factors.length > 0 && (
                   <View style={styles.clarityFactors}>
                     <Text style={[styles.clarityFactorsTitle, { color: theme.colors.textSecondary }]}>Contributing factors:</Text>
                     {data.mentalClarity.factors.map((factor, index) => (
@@ -527,262 +341,63 @@ export default function DayDetailModal({ visible, onClose, data }: DayDetailModa
             <View style={styles.section}>
               <View style={styles.habitsHeader}>
                 <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Habits Tracking</Text>
-                {!isFutureDate && (
-                  <TouchableOpacity
-                    style={[styles.addHabitButton, { backgroundColor: theme.colors.primary }]}
-                    onPress={() => setHabitModalVisible(true)}
-                  >
-                    <Plus size={16} color="#FFFFFF" />
-                    <Text style={styles.addHabitButtonText}>Bulk Edit</Text>
-                  </TouchableOpacity>
-                )}
+                <TouchableOpacity
+                  style={[styles.addHabitButton, { backgroundColor: theme.colors.primary }]}
+                  onPress={() => setHabitModalVisible(true)}
+                >
+                  <Plus size={16} color="#FFFFFF" />
+                  <Text style={styles.addHabitButtonText}>Mark Complete</Text>
+                </TouchableOpacity>
               </View>
-
-              {habitsLoading ? (
-                <View style={styles.habitsLoadingContainer}>
-                  <ActivityIndicator size="small" color={theme.colors.primary} />
-                  <Text style={[styles.habitsLoadingText, { color: theme.colors.textSecondary }]}>
-                    Loading habits...
-                  </Text>
-                </View>
-              ) : activeHabits.length > 0 ? (
-                <View style={styles.habitsListContainer}>
-                  {activeHabits.map((habit) => {
-                    const isSaving = savingHabitId === habit.habit_id;
-
-                    return (
-                      <View
-                        key={habit.habit_id}
-                        style={[
-                          styles.habitCardInline,
-                          {
-                            backgroundColor: theme.colors.background,
-                            borderColor: habit.completed ? theme.colors.primary : theme.colors.border
-                          },
-                          habit.completed && styles.habitCardCompleted
-                        ]}
-                      >
-                        <View style={styles.habitCardTop}>
-                          <View style={styles.habitCardLeft}>
-                            <Text style={styles.habitEmojiLarge}>{habit.habit_emoji}</Text>
-                            <View style={styles.habitCardInfo}>
-                              <Text style={[styles.habitCardName, { color: theme.colors.text }]}>
-                                {habit.habit_name}
-                              </Text>
-                              <Text style={[styles.habitCardCategory, { color: theme.colors.textSecondary }]}>
-                                {habit.habit_category}
-                              </Text>
-                            </View>
-                          </View>
-
-                          {/* Mark Complete Button */}
-                          <TouchableOpacity
-                            style={[
-                              styles.markCompleteButton,
-                              {
-                                backgroundColor: habit.completed
-                                  ? theme.colors.primary
-                                  : isFutureDate
-                                    ? theme.colors.surfaceVariant
-                                    : theme.colors.background,
-                                borderColor: habit.completed
-                                  ? theme.colors.primary
-                                  : theme.colors.border
-                              }
-                            ]}
-                            onPress={() => handleMarkComplete(habit.habit_id, habit.completed)}
-                            disabled={isSaving || isFutureDate}
-                          >
-                            {isSaving ? (
-                              <ActivityIndicator size="small" color={habit.completed ? '#FFFFFF' : theme.colors.primary} />
-                            ) : habit.completed ? (
-                              <>
-                                <CheckCircle size={16} color="#FFFFFF" />
-                                <Text style={styles.markCompleteTextDone}>Done</Text>
-                              </>
-                            ) : (
-                              <>
-                                <Circle size={16} color={isFutureDate ? theme.colors.textSecondary : theme.colors.primary} />
-                                <Text style={[
-                                  styles.markCompleteText,
-                                  { color: isFutureDate ? theme.colors.textSecondary : theme.colors.primary }
-                                ]}>
-                                  {isFutureDate ? 'Future' : 'Mark'}
-                                </Text>
-                              </>
-                            )}
-                          </TouchableOpacity>
-                        </View>
-
-                        {/* Habit Stats */}
-                        <View style={styles.habitCardStats}>
-                          <View style={styles.habitStatItem}>
-                            <TrendingUp size={12} color={theme.colors.primary} />
-                            <Text style={[styles.habitStatText, { color: theme.colors.textSecondary }]}>
-                              {habit.habit_streak} day streak
-                            </Text>
-                          </View>
-                          <View style={styles.habitStatItem}>
-                            <Target size={12} color={theme.colors.primary} />
-                            <Text style={[styles.habitStatText, { color: theme.colors.textSecondary }]}>
-                              Day {habit.cycle_day}/{habit.habit_total_days}
-                            </Text>
-                          </View>
-                        </View>
-                      </View>
-                    );
-                  })}
-                </View>
-              ) : (
-                <View style={[styles.emptyHabitsState, { backgroundColor: theme.colors.background }]}>
-                  <Text style={styles.emptyHabitsEmoji}>🎯</Text>
-                  <Text style={[styles.emptyHabitsTitle, { color: theme.colors.text }]}>
-                    No Active Habits
-                  </Text>
-                  <Text style={[styles.emptyHabitsText, { color: theme.colors.textSecondary }]}>
-                    {isFutureDate
-                      ? 'Habits cannot be tracked for future dates'
-                      : 'Create habits in the Habit Library to start tracking!'}
-                  </Text>
-                </View>
-              )}
-            </View>
-
-            {/* Experiments Logging */}
-            <View style={styles.section}>
-              <View style={styles.experimentsHeader}>
-                <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Experiments for This Day</Text>
-                {!isFutureDate && activeExperiments.length > 0 && (
-                  <TouchableOpacity
-                    style={[styles.viewAllButton, { backgroundColor: theme.colors.primary }]}
-                    onPress={() => {
-                      onClose();
-                      router.push('/experiments-hub');
-                    }}
-                  >
-                    <FlaskConical size={14} color="#FFFFFF" />
-                    <Text style={styles.viewAllButtonText}>View All</Text>
-                  </TouchableOpacity>
-                )}
-              </View>
-
-              {experimentsLoading ? (
-                <View style={styles.habitsLoadingContainer}>
-                  <ActivityIndicator size="small" color={theme.colors.primary} />
-                  <Text style={[styles.habitsLoadingText, { color: theme.colors.textSecondary }]}>
-                    Loading experiments...
-                  </Text>
-                </View>
-              ) : activeExperiments.length > 0 ? (
-                <View style={styles.habitsListContainer}>
-                  {activeExperiments.map((experiment) => (
-                    <View
-                      key={experiment.experiment_id}
-                      style={[
-                        styles.experimentCardInline,
-                        {
-                          backgroundColor: theme.colors.background,
-                          borderColor: experiment.logged ? theme.colors.success : theme.colors.border
-                        },
-                        experiment.logged && styles.experimentCardLogged
-                      ]}
-                    >
-                      <View style={styles.experimentCardTop}>
-                        <View style={styles.experimentCardLeft}>
-                          <Text style={styles.experimentEmojiLarge}>{experiment.experiment_emoji}</Text>
-                          <View style={styles.experimentCardInfo}>
-                            <Text style={[styles.experimentCardName, { color: theme.colors.text }]}>
-                              {experiment.experiment_name}
-                            </Text>
-                            <Text style={[styles.experimentCardCategory, { color: theme.colors.textSecondary }]}>
-                              Day {experiment.current_day}/{experiment.total_days}
-                            </Text>
-                          </View>
-                        </View>
-
-                        {/* Log Experiment Button */}
-                        <TouchableOpacity
-                          style={[
-                            styles.logExperimentBtn,
-                            {
-                              backgroundColor: experiment.logged
-                                ? theme.colors.success
-                                : isFutureDate
-                                  ? theme.colors.surfaceVariant
-                                  : theme.colors.primary,
-                              borderColor: experiment.logged
-                                ? theme.colors.success
-                                : theme.colors.primary
-                            }
-                          ]}
-                          onPress={() => handleLogExperiment(experiment.experiment_id, experiment.experiment_name)}
-                          disabled={isFutureDate}
-                        >
-                          {experiment.logged ? (
-                            <>
-                              <CheckCircle size={16} color="#FFFFFF" />
-                              <Text style={styles.logExperimentBtnTextDone}>Logged</Text>
-                            </>
-                          ) : (
-                            <>
-                              <FlaskConical size={16} color={isFutureDate ? theme.colors.textSecondary : '#FFFFFF'} />
-                              <Text style={[
-                                styles.logExperimentBtnText,
-                                { color: isFutureDate ? theme.colors.textSecondary : '#FFFFFF' }
-                              ]}>
-                                {isFutureDate ? 'Future' : 'Log'}
-                              </Text>
-                            </>
-                          )}
-                        </TouchableOpacity>
-                      </View>
-
-                      {/* Experiment Status */}
-                      <View style={styles.experimentCardStats}>
-                        <View style={styles.experimentStatItem}>
-                          {experiment.experiment_status === 'active' ? (
-                            <AlertCircle size={12} color={theme.colors.warning} />
-                          ) : (
-                            <CheckCircle size={12} color={theme.colors.success} />
-                          )}
-                          <Text style={[styles.experimentStatText, { color: theme.colors.textSecondary }]}>
-                            {experiment.experiment_status === 'active' ? 'In Progress' : 'Completed'}
-                          </Text>
-                        </View>
-                        {experiment.logged && experiment.log_data && (
-                          <View style={styles.experimentStatItem}>
-                            <CheckCircle size={12} color={theme.colors.success} />
-                            <Text style={[styles.experimentStatText, { color: theme.colors.success }]}>
-                              Logged for this day
-                            </Text>
-                          </View>
-                        )}
-                      </View>
+              
+              {data.habits && data.habits.length > 0 ? (
+                <View style={styles.habitsGrid}>
+                  {data.habits.map((habit, index) => (
+                    <View key={index} style={styles.habitItem}>
+                      {habit.completed ? (
+                        <CheckCircle size={16} color={theme.colors.primary} />
+                      ) : (
+                        <XCircle size={16} color={theme.colors.error} />
+                      )}
+                      <Text style={styles.habitEmoji}>{habit.emoji}</Text>
+                      <Text style={[
+                        styles.habitName,
+                        { color: habit.completed ? theme.colors.primary : theme.colors.textSecondary }
+                      ]}>
+                        {habit.name}
+                      </Text>
                     </View>
                   ))}
                 </View>
               ) : (
                 <View style={[styles.emptyHabitsState, { backgroundColor: theme.colors.background }]}>
-                  <Text style={styles.emptyHabitsEmoji}>🧪</Text>
-                  <Text style={[styles.emptyHabitsTitle, { color: theme.colors.text }]}>
-                    No Active Experiments
-                  </Text>
                   <Text style={[styles.emptyHabitsText, { color: theme.colors.textSecondary }]}>
-                    {isFutureDate
-                      ? 'Experiments cannot be logged for future dates'
-                      : 'Create experiments in the Experiments Hub to start tracking!'}
+                    No habits tracked for this day yet
                   </Text>
                 </View>
               )}
             </View>
 
-            {/* Legacy Experiments Section - kept for backwards compatibility */}
-            {data.experiments && data.experiments.length > 0 && activeExperiments.length === 0 && (
+            {/* Experiments */}
+            {data.experiments && data.experiments.length > 0 && (
               <View style={styles.section}>
                 <View style={styles.experimentsHeader}>
                   <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Ongoing Experiments</Text>
+                  {data.experiments.filter(exp => exp.status === 'pending').length > 0 && (
+                    <TouchableOpacity 
+                      style={[styles.viewAllButton, { backgroundColor: theme.colors.primary }]}
+                      onPress={() => {
+                        onClose();
+                        router.push('/experiments-hub');
+                      }}
+                    >
+                      <FlaskConical size={14} color="#FFFFFF" />
+                      <Text style={styles.viewAllButtonText}>Log Experiments</Text>
+                    </TouchableOpacity>
+                  )}
                 </View>
-
+                
+                {/* Only show pending (ongoing) experiments */}
                 {data.experiments.filter(exp => exp.status === 'pending').map((experiment, index) => (
                   <View
                     key={experiment.id || index}
@@ -802,15 +417,16 @@ export default function DayDetailModal({ visible, onClose, data }: DayDetailModa
                         <Text style={[styles.statusText, { color: theme.colors.warning }]}>Pending</Text>
                       </View>
                     </View>
-
-                    <TouchableOpacity
-                      style={[styles.logExperimentButton, {
+                    
+                    <TouchableOpacity 
+                      style={[styles.logExperimentButton, { 
                         backgroundColor: theme.colors.primary,
-                        borderColor: theme.colors.primary
+                        borderColor: theme.colors.primary 
                       }]}
                       onPress={() => {
                         onClose();
-                        router.push(`/experiments-hub?experimentId=${experiment.id}&logDate=${data.date}`);
+                        // Navigate to experiments-hub with specific experiment id
+                        router.push(`/experiments-hub?experimentId=${experiment.id}`);
                       }}
                     >
                       <FlaskConical size={16} color="#FFFFFF" />
@@ -1088,111 +704,17 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#FFFFFF',
   },
-  habitsLoadingContainer: {
-    paddingVertical: 30,
-    alignItems: 'center',
-  },
-  habitsLoadingText: {
-    marginTop: 8,
-    fontSize: 13,
-    color: '#6B7280',
-  },
-  habitsListContainer: {
-    gap: 12,
-  },
-  habitCardInline: {
-    borderRadius: 12,
-    padding: 14,
-    borderWidth: 2,
-    borderColor: '#E5E7EB',
-  },
-  habitCardCompleted: {
-    backgroundColor: '#EFF6FF',
-  },
-  habitCardTop: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 10,
-  },
-  habitCardLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-  },
-  habitEmojiLarge: {
-    fontSize: 24,
-    marginRight: 12,
-  },
-  habitCardInfo: {
-    flex: 1,
-  },
-  habitCardName: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#1F2937',
-    marginBottom: 2,
-  },
-  habitCardCategory: {
-    fontSize: 12,
-    color: '#6B7280',
-    textTransform: 'capitalize',
-  },
-  markCompleteButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 8,
-    borderWidth: 1.5,
-    gap: 6,
-    minWidth: 70,
-    justifyContent: 'center',
-  },
-  markCompleteText: {
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  markCompleteTextDone: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#FFFFFF',
-  },
-  habitCardStats: {
-    flexDirection: 'row',
-    gap: 16,
-    paddingLeft: 36,
-  },
-  habitStatItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  habitStatText: {
-    fontSize: 11,
-    color: '#6B7280',
-    fontWeight: '500',
-  },
   emptyHabitsState: {
     backgroundColor: '#F9FAFB',
     borderRadius: 12,
-    padding: 24,
+    padding: 20,
     alignItems: 'center',
-  },
-  emptyHabitsEmoji: {
-    fontSize: 40,
-    marginBottom: 12,
-  },
-  emptyHabitsTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 8,
   },
   emptyHabitsText: {
     fontSize: 13,
     color: '#6B7280',
     textAlign: 'center',
-    lineHeight: 18,
+    fontStyle: 'italic',
   },
   habitItem: {
     flexDirection: 'row',
@@ -1341,78 +863,5 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
     color: '#10B981',
-  },
-  // New experiment card styles
-  experimentCardInline: {
-    borderRadius: 12,
-    padding: 14,
-    borderWidth: 2,
-    borderColor: '#E5E7EB',
-  },
-  experimentCardLogged: {
-    backgroundColor: '#F0FDF4',
-  },
-  experimentCardTop: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 10,
-  },
-  experimentCardLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-  },
-  experimentEmojiLarge: {
-    fontSize: 24,
-    marginRight: 12,
-  },
-  experimentCardInfo: {
-    flex: 1,
-  },
-  experimentCardName: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#1F2937',
-    marginBottom: 2,
-  },
-  experimentCardCategory: {
-    fontSize: 12,
-    color: '#6B7280',
-  },
-  logExperimentBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 8,
-    borderWidth: 1.5,
-    gap: 6,
-    minWidth: 70,
-    justifyContent: 'center',
-  },
-  logExperimentBtnText: {
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  logExperimentBtnTextDone: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#FFFFFF',
-  },
-  experimentCardStats: {
-    flexDirection: 'row',
-    gap: 16,
-    paddingLeft: 36,
-  },
-  experimentStatItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  experimentStatText: {
-    fontSize: 11,
-    color: '#6B7280',
-    fontWeight: '500',
   },
 });

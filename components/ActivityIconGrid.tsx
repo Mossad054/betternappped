@@ -64,14 +64,15 @@ export default function ActivityIconGrid({
       justifyContent: 'center',
     },
     label: {
-      fontSize: 11,
-      color: theme.colors.textTertiary,
+      fontSize: 13,
+      fontWeight: '500',
+      color: theme.colors.textSecondary,
       textAlign: 'center',
-      lineHeight: 14,
+      lineHeight: 16,
     },
     labelSelected: {
       color: theme.colors.primary || '#4DD4AC',
-      fontWeight: '600',
+      fontWeight: '700',
     },
   });
   
@@ -89,10 +90,10 @@ export default function ActivityIconGrid({
             activeOpacity={0.7}
           >
             <View style={[styles.iconCircle, isSelected && styles.iconCircleSelected]}>
-              <IconComponent 
-                size={28} 
-                color={isSelected ? (theme.colors.primary || "#4DD4AC") : theme.colors.textSecondary} 
-                strokeWidth={2}
+              <IconComponent
+                size={32}
+                color={isSelected ? (theme.colors.primary || "#4DD4AC") : theme.colors.textSecondary}
+                strokeWidth={2.5}
               />
               {isSelected && (
                 <View style={styles.checkmark}>

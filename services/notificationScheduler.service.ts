@@ -6,7 +6,7 @@
 
 import * as Notifications from 'expo-notifications';
 import { NotificationService } from './notifications.service';
-import { NotificationTriggerService } from './notificationTrigger.service';
+import { NotificationEngineService, NotificationRequest } from './notificationEngine.service';
 import { HabitsService } from './habits.service';
 import { ExperimentsService } from './experiments.service';
 import { MoodsService } from './moods.service';
@@ -15,8 +15,7 @@ import { IntimacyCheckInService } from './intimacyCheckIn.service';
 import { UserPreferencesService } from './userPreferences.service';
 import {
   NotificationType,
-  NotificationChannel,
-  NotificationFrequency,
+  NotificationPriority,
 } from '@/lib/notificationConstants';
 
 interface ScheduledNotification {
@@ -155,11 +154,13 @@ export class NotificationSchedulerService {
 
   /**
    * Schedule daily reminder for a habit
+   * Now uses unified NotificationEngineService
    */
   static async scheduleHabitReminder(
     userId: string,
     habitId: string,
     habitName: string,
+    habitEmoji: string,
     reminderTime: ReminderTime
   ): Promise<void> {
     try {
@@ -168,18 +169,34 @@ export class NotificationSchedulerService {
       // Cancel existing reminder for this habit
       await this.cancelScheduledNotification(key);
 
-      // Schedule new reminder
-      const notificationId = await this.scheduleLocalNotification(
-        `Time for ${habitName}! 🎯`,
-        `Don't forget to complete your ${habitName} habit today.`,
-        { ...reminderTime, repeats: true },
-        {
-          type: 'habit_reminder',
-          habitId,
-          userId,
-          action: { type: 'navigate', target: '/habits' },
-        }
-      );
+      // Create scheduled date
+      const scheduledDate = new Date();
+      scheduledDate.setHours(reminderTime.hour, reminderTime.minute, 0, 0);
+
+      // If time is in the past today, schedule for tomorrow
+      if (scheduledDate < new Date()) {
+        scheduledDate.setDate(scheduledDate.getDate() + 1);
+      }
+
+      // Schedule through unified engine (handles quiet hours, settings, etc.)
+      const notificationId = await NotificationEngineService.schedule({
+        userId,
+        type: NotificationType.DAILY_REMINDER,
+        priority: NotificationPriority.NORMAL,
+        payload: {
+          title: `Time for ${habitEmoji} ${habitName}`,
+          body: `Don't forget to complete your ${habitName} habit today.`,
+          action: {
+            type: 'navigate',
+            target: '/habits',
+            params: { habitId },
+          },
+          data: { habitId, habitName },
+        },
+        itemId: habitId,
+        itemType: 'habit',
+        scheduledFor: scheduledDate,
+      });
 
       if (notificationId) {
         this.scheduledNotifications.set(key, notificationId);

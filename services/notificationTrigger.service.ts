@@ -2,104 +2,39 @@
  * Notification Trigger Service
  * Handles automatic notification creation based on user preferences and app events
  * Respects user settings for channels (push, in-app, email) and frequency
+ *
+ * UPDATED: Now uses unified NotificationEngineService for all dispatching
  */
 
-import { NotificationService } from './notifications.service';
-import { PushNotificationService } from './pushNotification.service';
+import { NotificationEngineService, NotificationPayload, NotificationRequest } from './notificationEngine.service';
 import {
   NotificationType,
-  NotificationChannel,
-  NotificationFrequency,
   NotificationPriority,
 } from '@/lib/notificationConstants';
 
-export interface NotificationPayload {
-  title: string;
-  body: string;
-  action?: {
-    type: 'navigate' | 'deeplink';
-    target: string;
-  };
-  data?: Record<string, any>;
-}
-
 export class NotificationTriggerService {
   /**
-   * Check if notification should be sent based on user preferences
+   * Send notification through unified engine
+   * This ensures all settings, quiet hours, and preferences are respected
    */
-  private static async shouldSendNotification(
-    userId: string,
-    type: NotificationType,
-    channel: NotificationChannel
-  ): Promise<boolean> {
-    const { data: pref } = await NotificationService.getPreference(userId, type);
-    
-    if (!pref) {
-      // No preference set, use defaults
-      return channel === NotificationChannel.IN_APP;
-    }
-
-    // Check if notifications are enabled for this type
-    if (!pref.enabled) {
-      return false;
-    }
-
-    // Check if this channel is enabled
-    if (!pref.channels.includes(channel)) {
-      return false;
-    }
-
-    return true;
-  }
-
-  /**
-   * Send notification through appropriate channels based on user preferences
-   */
-  private static async sendThroughChannels(
+  private static async sendThroughEngine(
     userId: string,
     type: NotificationType,
     priority: NotificationPriority,
-    payload: NotificationPayload
-  ): Promise<void> {
-    // Check each channel and send if enabled
-    const channels = [
-      NotificationChannel.IN_APP,
-      NotificationChannel.PUSH,
-      NotificationChannel.EMAIL,
-    ];
+    payload: NotificationPayload,
+    itemId?: string,
+    itemType?: 'habit' | 'experiment' | 'activity' | 'program' | 'sleep' | 'mood'
+  ): Promise<boolean> {
+    const request: NotificationRequest = {
+      userId,
+      type,
+      priority,
+      payload,
+      itemId,
+      itemType,
+    };
 
-    for (const channel of channels) {
-      const shouldSend = await this.shouldSendNotification(userId, type, channel);
-      
-      if (shouldSend) {
-        await NotificationService.createNotification(userId, {
-          type,
-          channel,
-          payload,
-        });
-
-        // If it's a push notification, send it immediately
-        if (channel === NotificationChannel.PUSH) {
-          try {
-            const pushPriority = priority === NotificationPriority.HIGH ? 'high' : 'normal';
-            await PushNotificationService.sendWithPriority(
-              userId,
-              payload.title,
-              payload.body,
-              pushPriority,
-              {
-                ...payload.data,
-                action: payload.action,
-                notificationType: type,
-              }
-            );
-            console.log('✅ Push notification sent:', payload.title);
-          } catch (error) {
-            console.error('❌ Failed to send push notification:', error);
-          }
-        }
-      }
-    }
+    return NotificationEngineService.send(request);
   }
 
   // =============================================================================
@@ -111,6 +46,7 @@ export class NotificationTriggerService {
    */
   static async onHabitCompleted(
     userId: string,
+    habitId: string,
     habitName: string,
     streak: number,
     currentDay: number,
@@ -125,7 +61,7 @@ export class NotificationTriggerService {
     ];
     const randomEncouragement = encouragements[Math.floor(Math.random() * encouragements.length)];
 
-    await this.sendThroughChannels(
+    await this.sendThroughEngine(
       userId,
       NotificationType.DAILY_REMINDER,
       NotificationPriority.NORMAL,
@@ -134,10 +70,13 @@ export class NotificationTriggerService {
         body: `${randomEncouragement} Day ${currentDay}/${totalDays} • ${streak} day streak`,
         action: {
           type: 'navigate',
-          target: '/home',
+          target: '/habits',
+          params: { habitId },
         },
         data: { habitName, streak, currentDay, totalDays },
-      }
+      },
+      habitId,
+      'habit'
     );
   }
 
@@ -146,11 +85,12 @@ export class NotificationTriggerService {
    */
   static async onStreakAtRisk(
     userId: string,
+    habitId: string,
     habitName: string,
     streak: number,
     hoursRemaining: number
   ): Promise<void> {
-    await this.sendThroughChannels(
+    await this.sendThroughEngine(
       userId,
       NotificationType.STREAK_ALERT,
       NotificationPriority.HIGH,
@@ -159,10 +99,13 @@ export class NotificationTriggerService {
         body: `${habitName} - ${streak} day streak. Log within ${hoursRemaining} hours!`,
         action: {
           type: 'navigate',
-          target: '/home',
+          target: '/habits',
+          params: { habitId },
         },
         data: { habitName, streak, hoursRemaining },
-      }
+      },
+      habitId,
+      'habit'
     );
   }
 
@@ -183,7 +126,7 @@ export class NotificationTriggerService {
       ? `Don't forget to log ${habitNames[0]} today!`
       : `You haven't logged ${habitNames.length} habits today: ${habitNames.join(', ')}`;
 
-    await this.sendThroughChannels(
+    await this.sendThroughEngine(
       userId,
       NotificationType.MISSED_LOG,
       NotificationPriority.NORMAL,
@@ -192,7 +135,7 @@ export class NotificationTriggerService {
         body,
         action: {
           type: 'navigate',
-          target: '/home',
+          target: '/habits',
         },
         data: { habitNames },
       }
@@ -204,11 +147,12 @@ export class NotificationTriggerService {
    */
   static async sendHabitReminder(
     userId: string,
+    habitId: string,
     habitName: string,
     habitEmoji: string,
     streak: number
   ): Promise<void> {
-    await this.sendThroughChannels(
+    await this.sendThroughEngine(
       userId,
       NotificationType.DAILY_REMINDER,
       NotificationPriority.NORMAL,
@@ -217,10 +161,13 @@ export class NotificationTriggerService {
         body: streak > 0 ? `Keep your ${streak} day streak alive! 🔥` : 'Start building your habit streak today!',
         action: {
           type: 'navigate',
-          target: '/home',
+          target: '/habits',
+          params: { habitId },
         },
         data: { habitName, streak },
-      }
+      },
+      habitId,
+      'habit'
     );
   }
 
@@ -239,7 +186,7 @@ export class NotificationTriggerService {
   ): Promise<void> {
     const progress = Math.round((currentDay / totalDays) * 100);
 
-    await this.sendThroughChannels(
+    await this.sendThroughEngine(
       userId,
       NotificationType.EXPERIMENT_REMINDER,
       NotificationPriority.NORMAL,
@@ -248,10 +195,13 @@ export class NotificationTriggerService {
         body: `${progress}% complete • ${totalDays - currentDay} days remaining`,
         action: {
           type: 'navigate',
-          target: '/experiments-hub',
+          target: '/create-experiment',
+          params: { experimentId: experimentName },
         },
         data: { experimentName, currentDay, totalDays, progress },
-      }
+      },
+      experimentName,
+      'experiment'
     );
   }
 
@@ -264,7 +214,7 @@ export class NotificationTriggerService {
     duration: number,
     insights: string
   ): Promise<void> {
-    await this.sendThroughChannels(
+    await this.sendThroughEngine(
       userId,
       NotificationType.ACTIVITY_INSIGHT,
       NotificationPriority.HIGH,
@@ -290,7 +240,7 @@ export class NotificationTriggerService {
     currentDay: number,
     totalDays: number
   ): Promise<void> {
-    await this.sendThroughChannels(
+    await this.sendThroughEngine(
       userId,
       NotificationType.EXPERIMENT_REMINDER,
       NotificationPriority.NORMAL,
@@ -319,7 +269,7 @@ export class NotificationTriggerService {
     insightBody: string,
     data?: Record<string, any>
   ): Promise<void> {
-    await this.sendThroughChannels(
+    await this.sendThroughEngine(
       userId,
       NotificationType.ACTIVITY_INSIGHT,
       NotificationPriority.NORMAL,
@@ -343,7 +293,7 @@ export class NotificationTriggerService {
     tipTitle: string,
     tipBody: string
   ): Promise<void> {
-    await this.sendThroughChannels(
+    await this.sendThroughEngine(
       userId,
       NotificationType.SLEEP_TIP,
       NotificationPriority.NORMAL,
@@ -367,7 +317,7 @@ export class NotificationTriggerService {
     suggestionBody: string,
     habitCategory: string
   ): Promise<void> {
-    await this.sendThroughChannels(
+    await this.sendThroughEngine(
       userId,
       NotificationType.HABIT_SUGGESTION,
       NotificationPriority.NORMAL,
@@ -396,7 +346,7 @@ export class NotificationTriggerService {
     description: string,
     emoji: string
   ): Promise<void> {
-    await this.sendThroughChannels(
+    await this.sendThroughEngine(
       userId,
       NotificationType.STREAK_ALERT,
       NotificationPriority.HIGH,
@@ -421,7 +371,7 @@ export class NotificationTriggerService {
     longestStreak: number,
     habitsCompleted: number
   ): Promise<void> {
-    await this.sendThroughChannels(
+    await this.sendThroughEngine(
       userId,
       NotificationType.ACTIVITY_INSIGHT,
       NotificationPriority.NORMAL,
@@ -445,7 +395,7 @@ export class NotificationTriggerService {
    * Send mood check-in reminder
    */
   static async sendMoodReminder(userId: string): Promise<void> {
-    await this.sendThroughChannels(
+    await this.sendThroughEngine(
       userId,
       NotificationType.DAILY_REMINDER,
       NotificationPriority.NORMAL,
@@ -468,7 +418,7 @@ export class NotificationTriggerService {
     insight: string,
     recommendation: string
   ): Promise<void> {
-    await this.sendThroughChannels(
+    await this.sendThroughEngine(
       userId,
       NotificationType.ACTIVITY_INSIGHT,
       NotificationPriority.NORMAL,

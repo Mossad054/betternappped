@@ -16,6 +16,7 @@ import Svg, { Circle, Path, Defs, LinearGradient as SvgGradient, Stop } from 're
 import { useTheme } from '../contexts/ThemeContext';
 import { AnalyticsService } from '../services/analytics.service';
 import { HabitsService } from '../services/habits.service';
+import { Typography } from '@/constants/Typography';
 
 const { width } = Dimensions.get('window');
 
@@ -549,8 +550,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   header: {
-    fontSize: 20,
-    fontWeight: '700',
+    ...Typography.analytics.cardTitle,
     flex: 1,
   },
   donutContainer: {
@@ -649,8 +649,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   habitName: {
-    fontSize: 16,
-    fontWeight: '700',
+    ...Typography.analytics.subsectionTitle,
     marginBottom: 2,
   },
   habitCategory: {
@@ -670,8 +669,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   statValue: {
-    fontSize: 18,
-    fontWeight: '700',
+    ...Typography.analytics.statValue,
     marginBottom: 2,
   },
   statLabel: {
@@ -726,8 +724,7 @@ const styles = StyleSheet.create({
     marginRight: 12,
   },
   modalTitle: {
-    fontSize: 22,
-    fontWeight: '700',
+    ...Typography.analytics.modalTitle,
   },
   modalClose: {
     fontSize: 28,

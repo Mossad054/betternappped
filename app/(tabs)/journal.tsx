@@ -40,6 +40,7 @@ import {
   ChevronRight,
 } from 'lucide-react-native';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
+import ModernTimePicker, { TimeValue } from '@/components/ModernTimePicker';
 import { showSuccess, showError, ValidationError } from '@/lib/userFeedback';
 
 interface MoodOption {
@@ -168,10 +169,6 @@ const defaultActivityCategories: ActivityCategory[] = [
       { id: 'laundry', name: 'laundry', selected: false },
       { id: 'dust-removal', name: 'dust removal', selected: false },
       { id: 'empty-trash', name: 'empty trash', selected: false },
-      { id: 'handwashing', name: 'handwashing', selected: false },
-      { id: 'wipe-off', name: 'wipe off', selected: false },
-      { id: 'set-schedule', name: 'set a schedule', selected: false },
-      { id: 'maximize-storage', name: 'maximize storage', selected: false },
     ],
   },
   {
@@ -268,7 +265,6 @@ const defaultActivityCategories: ActivityCategory[] = [
       { id: 'period', name: 'period', selected: false },
       { id: 'checkup', name: 'check-up', selected: false },
       { id: 'pain', name: 'pain', selected: false },
-      { id: 'put-it-off', name: 'put it off', selected: false },
     ],
   },
   {
@@ -281,7 +277,6 @@ const defaultActivityCategories: ActivityCategory[] = [
       { id: 'kindness', name: 'kindness', selected: false },
       { id: 'listen', name: 'listen', selected: false },
       { id: 'donate', name: 'donate', selected: false },
-      { id: 'practice-force', name: 'practice the Force', selected: false },
     ],
   },
 ];
@@ -705,7 +700,7 @@ export default function AddEntryScreen() {
       }
 
       // Save activities (use upsert to prevent duplicates for the same date)
-      const selectedActivities = activityCategories.flatMap(category => 
+      const selectedActivities = activityCategories.flatMap(category =>
         category.items.filter(item => item.selected).map(item => {
           // Parse duration from stored details if it exists
           let parsedDetails: any = {};
@@ -724,7 +719,10 @@ export default function AddEntryScreen() {
             name: item.name,
             duration: parsedDetails.duration || undefined,
             emoji: category.emoji,
-            follow_up_answer: item.followUpAnswer
+            follow_up_answer: item.followUpAnswer,
+            notes: parsedDetails.notes || undefined,
+            intensity: parsedDetails.intensity || undefined,
+            post_activity_feeling: parsedDetails.postActivityFeeling || undefined
           };
         })
       );
@@ -978,8 +976,8 @@ export default function AddEntryScreen() {
       alignItems: 'center',
     },
     cardTitle: {
-      fontSize: 18,
-      fontWeight: '600',
+      fontSize: 20,
+      fontWeight: '700',
       color: theme.colors.textPrimary,
       marginLeft: 8,
     },
@@ -1062,7 +1060,7 @@ export default function AddEntryScreen() {
       alignItems: 'center',
     },
     categoryEmoji: {
-      fontSize: 20,
+      fontSize: 24,
       marginRight: 8,
     },
     categoryName: {
@@ -1859,8 +1857,8 @@ export default function AddEntryScreen() {
       borderBottomColor: theme.colors.border,
     },
     modalTitle: {
-      fontSize: 18,
-      fontWeight: '600',
+      fontSize: 20,
+      fontWeight: '700',
       color: theme.colors.textPrimary,
     },
     modalBody: {
@@ -1911,13 +1909,13 @@ export default function AddEntryScreen() {
       color: theme.colors.textTertiary,
     },
     triggerChipText: {
-      fontSize: 12,
+      fontSize: 14,
       color: theme.colors.textSecondary,
-      fontWeight: '500',
+      fontWeight: '600',
     },
     selectedTriggerChipText: {
       color: theme.colors.textPrimary,
-      fontWeight: '600',
+      fontWeight: '700',
     },
     triggerInputCompact: {
       marginTop: 16,
@@ -1928,7 +1926,7 @@ export default function AddEntryScreen() {
       paddingVertical: 12,
       paddingHorizontal: 14,
       borderRadius: 10,
-      fontSize: 14,
+      fontSize: 16,
       color: theme.colors.textPrimary,
       borderWidth: 1,
       borderColor: theme.colors.border,
@@ -1954,15 +1952,15 @@ export default function AddEntryScreen() {
     },
     addCustomButtonText: {
       color: '#FFFFFF',
-      fontSize: 13,
-      fontWeight: '600',
+      fontSize: 14,
+      fontWeight: '700',
     },
     customActivityInput: {
       backgroundColor: theme.colors.surfaceVariant,
       paddingVertical: 12,
       paddingHorizontal: 14,
       borderRadius: 10,
-      fontSize: 14,
+      fontSize: 16,
       color: theme.colors.textPrimary,
       borderWidth: 1,
       borderColor: theme.colors.border,
@@ -3039,33 +3037,41 @@ export default function AddEntryScreen() {
         />
       )}
 
-      {/* Bedtime Picker */}
-      {showBedtimePicker && (
-        <DateTimePicker
-          value={sleepData.bedtime}
-          mode="time"
-          is24Hour={false}
-          display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-          onChange={(event: DateTimePickerEvent, time?: Date) => {
-            setShowBedtimePicker(false);
-            if (time) setSleepData(prev => ({ ...prev, bedtime: time }));
-          }}
-        />
-      )}
+      {/* Bedtime Picker - Modern UI */}
+      <ModernTimePicker
+        visible={showBedtimePicker}
+        onClose={() => setShowBedtimePicker(false)}
+        onConfirm={(time) => {
+          const bedtimeDate = new Date(sleepData.bedtime);
+          bedtimeDate.setHours(time.hour, time.minute);
+          setSleepData(prev => ({ ...prev, bedtime: bedtimeDate }));
+          setShowBedtimePicker(false);
+        }}
+        initialTime={{
+          hour: sleepData.bedtime.getHours(),
+          minute: sleepData.bedtime.getMinutes(),
+        }}
+        is24Hour={false}
+        title="Select Bedtime"
+      />
 
-      {/* Wake Time Picker */}
-      {showWakeTimePicker && (
-        <DateTimePicker
-          value={sleepData.wakeTime}
-          mode="time"
-          is24Hour={false}
-          display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-          onChange={(event: DateTimePickerEvent, time?: Date) => {
-            setShowWakeTimePicker(false);
-            if (time) setSleepData(prev => ({ ...prev, wakeTime: time }));
-          }}
-        />
-      )}
+      {/* Wake Time Picker - Modern UI */}
+      <ModernTimePicker
+        visible={showWakeTimePicker}
+        onClose={() => setShowWakeTimePicker(false)}
+        onConfirm={(time) => {
+          const wakeTimeDate = new Date(sleepData.wakeTime);
+          wakeTimeDate.setHours(time.hour, time.minute);
+          setSleepData(prev => ({ ...prev, wakeTime: wakeTimeDate }));
+          setShowWakeTimePicker(false);
+        }}
+        initialTime={{
+          hour: sleepData.wakeTime.getHours(),
+          minute: sleepData.wakeTime.getMinutes(),
+        }}
+        is24Hour={false}
+        title="Select Wake Time"
+      />
 
       {/* Activity Detail Modal */}
       {selectedActivityForModal && (

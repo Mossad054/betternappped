@@ -192,6 +192,87 @@ export const Typography = {
     fontWeight: FONT_WEIGHTS.semibold,
     lineHeight: FONT_SIZES.xl * LINE_HEIGHTS.tight,
   } as TextStyle,
+
+  // Analytics Page - Enhanced Readability
+  analytics: {
+    pageTitle: {
+      fontSize: FONT_SIZES['4xl'],
+      fontWeight: '800' as const,
+      lineHeight: FONT_SIZES['4xl'] * LINE_HEIGHTS.tight,
+    } as TextStyle,
+
+    cardTitle: {
+      fontSize: FONT_SIZES['3xl'],
+      fontWeight: FONT_WEIGHTS.bold,
+      lineHeight: FONT_SIZES['3xl'] * LINE_HEIGHTS.tight,
+    } as TextStyle,
+
+    sectionTitle: {
+      fontSize: FONT_SIZES['2xl'],
+      fontWeight: FONT_WEIGHTS.bold,
+      lineHeight: FONT_SIZES['2xl'] * LINE_HEIGHTS.tight,
+    } as TextStyle,
+
+    subsectionTitle: {
+      fontSize: FONT_SIZES.xl,
+      fontWeight: FONT_WEIGHTS.semibold,
+      lineHeight: FONT_SIZES.xl * LINE_HEIGHTS.normal,
+    } as TextStyle,
+
+    kpiValue: {
+      fontSize: FONT_SIZES.display,
+      fontWeight: '800' as const,
+      lineHeight: FONT_SIZES.display * LINE_HEIGHTS.tight,
+    } as TextStyle,
+
+    kpiLabel: {
+      fontSize: FONT_SIZES.lg,
+      fontWeight: FONT_WEIGHTS.medium,
+      lineHeight: FONT_SIZES.lg * LINE_HEIGHTS.normal,
+    } as TextStyle,
+
+    statValue: {
+      fontSize: FONT_SIZES['3xl'],
+      fontWeight: FONT_WEIGHTS.bold,
+      lineHeight: FONT_SIZES['3xl'] * LINE_HEIGHTS.tight,
+    } as TextStyle,
+
+    statLabel: {
+      fontSize: FONT_SIZES.base,
+      fontWeight: FONT_WEIGHTS.medium,
+      lineHeight: FONT_SIZES.base * LINE_HEIGHTS.normal,
+    } as TextStyle,
+
+    bodyText: {
+      fontSize: FONT_SIZES.lg,
+      fontWeight: FONT_WEIGHTS.regular,
+      lineHeight: FONT_SIZES.lg * LINE_HEIGHTS.relaxed,
+    } as TextStyle,
+
+    caption: {
+      fontSize: FONT_SIZES.md,
+      fontWeight: FONT_WEIGHTS.regular,
+      lineHeight: FONT_SIZES.md * LINE_HEIGHTS.normal,
+    } as TextStyle,
+
+    pillButton: {
+      fontSize: FONT_SIZES.lg,
+      fontWeight: FONT_WEIGHTS.semibold,
+      lineHeight: FONT_SIZES.lg * LINE_HEIGHTS.tight,
+    } as TextStyle,
+
+    modalTitle: {
+      fontSize: FONT_SIZES['3xl'],
+      fontWeight: FONT_WEIGHTS.bold,
+      lineHeight: FONT_SIZES['3xl'] * LINE_HEIGHTS.tight,
+    } as TextStyle,
+
+    modalBody: {
+      fontSize: FONT_SIZES.xl,
+      fontWeight: FONT_WEIGHTS.regular,
+      lineHeight: FONT_SIZES.xl * LINE_HEIGHTS.relaxed,
+    } as TextStyle,
+  },
 };
 
 // Helper function to add color to typography

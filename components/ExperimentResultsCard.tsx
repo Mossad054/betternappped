@@ -18,6 +18,7 @@ import { ExperimentsService } from '../services/experiments.service';
 import { HabitsService } from '../services/habits.service';
 import { useAuth } from '../contexts/AuthContext';
 import { useRouter } from 'expo-router';
+import { Typography } from '@/constants/Typography';
 
 const { width } = Dimensions.get('window');
 
@@ -591,13 +592,11 @@ const styles = StyleSheet.create({
     marginRight: 16,
   },
   header: {
-    fontSize: 20,
-    fontWeight: '700',
+    ...Typography.analytics.cardTitle,
     marginBottom: 4,
   },
   subtitle: {
-    fontSize: 13,
-    fontWeight: '400',
+    ...Typography.analytics.caption,
     lineHeight: 18,
   },
   donutContainer: {
@@ -700,8 +699,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   experimentName: {
-    fontSize: 16,
-    fontWeight: '700',
+    ...Typography.analytics.subsectionTitle,
     marginBottom: 4,
   },
   experimentMeta: {
@@ -793,8 +791,7 @@ const styles = StyleSheet.create({
     marginRight: 12,
   },
   modalTitle: {
-    fontSize: 22,
-    fontWeight: '700',
+    ...Typography.analytics.modalTitle,
   },
   modalClose: {
     fontSize: 28,

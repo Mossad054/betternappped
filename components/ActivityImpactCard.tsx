@@ -1,17 +1,18 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  View, 
-  Text, 
-  StyleSheet, 
-  TouchableOpacity, 
-  Modal, 
-  ScrollView, 
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  Modal,
+  ScrollView,
   ActivityIndicator,
-  Animated 
+  Animated
 } from 'react-native';
 import { useTheme } from '@/contexts/ThemeContext';
 import { ActivityImpactService, EnhancedActivityImpact } from '@/services/analytics/activityImpact.service';
 import Svg, { Circle } from 'react-native-svg';
+import { Typography } from '@/constants/Typography';
 
 interface ActivityImpactCardProps {
   userId: string;
@@ -321,54 +322,32 @@ export default function ActivityImpactCard({ userId, period }: ActivityImpactCar
           return (
             <TouchableOpacity
               key={index}
-              style={styles.activityRow}
+              style={[
+                styles.activityPillButton,
+                {
+                  borderColor: impactColor,
+                  borderWidth: 2,
+                  backgroundColor: impactColor + '10'
+                }
+              ]}
               onPress={() => handleActivityPress(activity)}
               activeOpacity={0.7}
             >
-              <View style={styles.activityInfo}>
+              <View style={styles.activityPillContent}>
                 <Text style={styles.activityEmoji}>{activity.emoji}</Text>
-                <View style={styles.activityDetails}>
-                  <View style={styles.activityHeader}>
-                    <Text style={[styles.activityName, { color: theme.colors.text }]}>
-                      {activity.activityName}
-                    </Text>
-                    <View style={[styles.confidenceBadge, { backgroundColor: confidenceColor + '20' }]}>
-                      <Text style={[styles.confidenceText, { color: confidenceColor }]}>
-                        {activity.confidence}
-                      </Text>
-                    </View>
-                  </View>
-                  <View style={styles.activityMeta}>
-                    <Text style={[styles.activityFrequency, { color: theme.colors.textSecondary }]}>
-                      {activity.occurrences}x • {activity.frequencyPercent}%
-                    </Text>
-                    {activity.trend !== 'stable' && (
-                      <View style={[styles.trendBadge, { 
-                        backgroundColor: activity.trend === 'improving' 
-                          ? theme.colors.success + '20' 
-                          : theme.colors.error + '20'
-                      }]}>
-                        <Text style={[styles.trendText, { 
-                          color: activity.trend === 'improving' 
-                            ? theme.colors.success 
-                            : theme.colors.error
-                        }]}>
-                          {activity.trend === 'improving' ? '↑' : '↓'} {activity.trend}
-                        </Text>
-                      </View>
-                    )}
-                  </View>
+                <View style={styles.activityPillInfo}>
+                  <Text style={[styles.activityPillName, { color: theme.colors.text }]}>
+                    {activity.activityName}
+                  </Text>
+                  <Text style={[styles.activityPillMeta, { color: theme.colors.textSecondary }]}>
+                    {activity.occurrences}x • {activity.frequencyPercent}%
+                  </Text>
                 </View>
-              </View>
-              <View style={styles.activityImpact}>
-                <View style={[styles.impactBadge, { backgroundColor: impactColor + '20' }]}>
-                  <Text style={[styles.impactScore, { color: impactColor }]}>
+                <View style={[styles.activityPillScore, { backgroundColor: impactColor }]}>
+                  <Text style={styles.activityPillScoreText}>
                     {activity.overallBenefit}
                   </Text>
                 </View>
-                <Text style={[styles.impactLabel, { color: theme.colors.textSecondary }]}>
-                  /100
-                </Text>
               </View>
             </TouchableOpacity>
           );
@@ -704,13 +683,11 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   title: {
-    fontSize: 22,
-    fontWeight: '700',
+    ...Typography.analytics.cardTitle,
     marginBottom: 4,
   },
   subtitle: {
-    fontSize: 13,
-    fontWeight: '500',
+    ...Typography.analytics.caption,
   },
   loadingContainer: {
     alignItems: 'center',
@@ -805,8 +782,7 @@ const styles = StyleSheet.create({
     marginTop: 12,
   },
   sectionTitle: {
-    fontSize: 16,
-    fontWeight: '600',
+    ...Typography.analytics.sectionTitle,
     marginBottom: 12,
   },
   activityRow: {
@@ -816,6 +792,40 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(128, 128, 128, 0.1)',
+  },
+  // Pill-style activity buttons
+  activityPillButton: {
+    borderRadius: 100,
+    paddingVertical: 14,
+    paddingHorizontal: 18,
+    marginBottom: 12,
+  },
+  activityPillContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  activityPillInfo: {
+    flex: 1,
+  },
+  activityPillName: {
+    ...Typography.analytics.subsectionTitle,
+    marginBottom: 2,
+  },
+  activityPillMeta: {
+    ...Typography.analytics.caption,
+  },
+  activityPillScore: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  activityPillScoreText: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#FFFFFF',
   },
   activityInfo: {
     flexDirection: 'row',
@@ -995,8 +1005,7 @@ const styles = StyleSheet.create({
     fontSize: 28,
   },
   modalTitle: {
-    fontSize: 20,
-    fontWeight: '700',
+    ...Typography.analytics.modalTitle,
   },
   closeButton: {
     padding: 4,

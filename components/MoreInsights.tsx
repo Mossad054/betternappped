@@ -4,6 +4,7 @@ import { ChevronDown, ChevronUp, Brain, Target, BookOpen, TrendingUp, Zap, Heart
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { AnalyticsService } from '@/services/analytics.service';
+import { Typography } from '@/constants/Typography';
 
 interface InsightData {
   mentalClarity: {
@@ -378,8 +379,8 @@ export default function MoreInsights() {
               <View style={[styles.sectionCard, { backgroundColor: theme.colors.background }]}>
                 <View style={styles.wellnessScoreContainer}>
                   <View style={styles.wellnessScoreCircle}>
-                    <Text style={[styles.wellnessScoreValue, { color: getScoreColor(insightsData.overall.wellnessScore, 100) }]}>
-                      {insightsData.overall.wellnessScore}
+                    <Text style={[styles.wellnessScoreValue, { color: getScoreColor(Math.min(insightsData.overall.wellnessScore, 100), 100) }]}>
+                      {Math.min(Math.round(insightsData.overall.wellnessScore), 100)}
                     </Text>
                     <Text style={[styles.wellnessScoreLabel, { color: theme.colors.textSecondary }]}>
                       /100
@@ -444,11 +445,11 @@ export default function MoreInsights() {
                     </Text>
                   </View>
                 )}
-                {insightsData.overall.wellnessScore >= 80 && (
+                {Math.min(insightsData.overall.wellnessScore, 100) >= 80 && (
                   <View style={styles.highlightItem}>
                     <Text style={styles.highlightEmoji}>✨</Text>
                     <Text style={[styles.highlightText, { color: theme.colors.textSecondary }]}>
-                      Outstanding overall wellness score of {insightsData.overall.wellnessScore}/100
+                      Outstanding overall wellness score of {Math.min(Math.round(insightsData.overall.wellnessScore), 100)}/100
                     </Text>
                   </View>
                 )}
@@ -498,13 +499,11 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   title: {
-    fontSize: 20,
-    fontWeight: '700',
+    ...Typography.analytics.cardTitle,
     marginBottom: 4,
   },
   subtitle: {
-    fontSize: 13,
-    fontWeight: '400',
+    ...Typography.analytics.caption,
   },
   content: {
     overflow: 'hidden',
@@ -538,8 +537,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   sectionTitle: {
-    fontSize: 16,
-    fontWeight: '700',
+    ...Typography.analytics.sectionTitle,
     marginLeft: 8,
   },
   sectionCard: {
@@ -555,8 +553,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   metricValue: {
-    fontSize: 24,
-    fontWeight: '700',
+    ...Typography.analytics.statValue,
     marginBottom: 4,
   },
   metricLabel: {
@@ -645,8 +642,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   wellnessScoreValue: {
-    fontSize: 36,
-    fontWeight: '700',
+    ...Typography.analytics.kpiValue,
   },
   wellnessScoreLabel: {
     fontSize: 14,

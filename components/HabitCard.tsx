@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Switch, Modal, Alert, Animated } from 'react-native';
 import { Brain, Heart, Moon, Smile, Users, Shield, Trash2, Clock } from 'lucide-react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import ModernTimePicker, { TimeValue } from '@/components/ModernTimePicker';
 import { useTheme } from '@/contexts/ThemeContext';
 
 type HabitCategory = 'MentalClarity' | 'Health' | 'Sleep' | 'Mood' | 'Intimacy' | 'Anxiety';
@@ -298,15 +299,22 @@ export default function HabitCard({ habit, onToggleComplete, onFeedback, onToggl
         />
       </View>
 
-      {showTimePicker && (
-          <DateTimePicker
-            value={reminderTime}
-            mode="time"
-            is24Hour={true}
-            display="default"
-            onChange={handleTimeChange}
-          />
-        )}
+      <ModernTimePicker
+        visible={showTimePicker}
+        onClose={() => setShowTimePicker(false)}
+        onConfirm={(time) => {
+          const newTime = new Date(reminderTime);
+          newTime.setHours(time.hour, time.minute);
+          setReminderTime(newTime);
+          setShowTimePicker(false);
+        }}
+        initialTime={{
+          hour: reminderTime.getHours(),
+          minute: reminderTime.getMinutes(),
+        }}
+        is24Hour={false}
+        title="Set Habit Reminder"
+      />
       </Animated.View>
   );
 }

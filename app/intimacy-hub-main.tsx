@@ -22,6 +22,7 @@ import IntimacyHubService, {
 } from '@/services/intimacyHub.service';
 import IntimacyInsightsCard from '@/components/intimacy/IntimacyInsightsCard';
 import ProgramRecommendationsCard from '@/components/intimacy/ProgramRecommendationsCard';
+import IntimacyStreaksCard from '@/components/intimacy/IntimacyStreaksCard';
 
 const { width } = Dimensions.get('window');
 
@@ -179,6 +180,9 @@ export default function IntimacyHubScreen() {
 
       {/* Intimacy Insights Card */}
       <IntimacyInsightsCard />
+
+      {/* Intimacy Streaks */}
+      <IntimacyStreaksCard />
 
       {/* Program Recommendations */}
       <ProgramRecommendationsCard />

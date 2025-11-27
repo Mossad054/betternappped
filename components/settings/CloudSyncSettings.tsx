@@ -323,29 +323,38 @@ export function CloudSyncSettings({ onBack }: CloudSyncSettingsProps) {
             {!enabled && (
               <>
                 <Text style={[styles.sectionTitle, { color: colors.text }, typography.h4]}>
-                  Choose Cloud Provider
+                  Cloud Sync
                 </Text>
 
-                {Platform.OS === 'ios' && renderProviderCard(
-                  CloudProvider.ICLOUD,
-                  'iCloud',
-                  'Sync with Apple iCloud',
-                  false
-                )}
+                <View style={[styles.infoCard, { backgroundColor: colors.surfaceVariant, borderLeftColor: colors.info }]}>
+                  <Text style={[styles.infoTitle, { color: colors.text }, typography.h6]}>
+                    {Platform.OS === 'ios' ? '☁️ iCloud Sync' : Platform.OS === 'android' ? '☁️ Google Drive Sync' : '☁️ Cloud Sync'}
+                  </Text>
+                  <Text style={[styles.infoText, { color: colors.textSecondary }, typography.caption]}>
+                    {Platform.OS === 'ios'
+                      ? 'Your data will automatically sync with iCloud when this feature becomes available. All your wellness tracking data will be safely backed up and accessible across all your Apple devices.'
+                      : Platform.OS === 'android'
+                      ? 'Your data will automatically sync with Google Drive when this feature becomes available. All your wellness tracking data will be safely backed up and accessible across all your devices.'
+                      : 'Cloud sync will automatically backup your data when this feature becomes available.'}
+                  </Text>
+                </View>
 
-                {Platform.OS === 'android' && renderProviderCard(
-                  CloudProvider.GOOGLE_DRIVE,
-                  'Google Drive',
-                  'Sync with Google Drive',
-                  false
-                )}
-
-                {renderProviderCard(
-                  CloudProvider.SUPABASE,
-                  'Supabase Cloud',
-                  'Secure cloud storage (Default)',
-                  true
-                )}
+                <View style={[styles.statusCard, { backgroundColor: colors.surface }]}>
+                  <View style={[styles.iconContainer, { backgroundColor: `${colors.info}15`, alignSelf: 'center', marginBottom: 16 }]}>
+                    {(Lucide as any).Cloud
+                      ? React.createElement((Lucide as any).Cloud, { size: 32, color: colors.info })
+                      : <Feather name="cloud" size={32} color={colors.info} />}
+                  </View>
+                  <Text style={[styles.providerName, { color: colors.text, textAlign: 'center' }, typography.h4]}>
+                    {Platform.OS === 'ios' ? 'iCloud Sync' : Platform.OS === 'android' ? 'Google Drive Sync' : 'Cloud Sync'}
+                  </Text>
+                  <Text style={[styles.providerDescription, { color: colors.textSecondary, textAlign: 'center', marginBottom: 16 }, typography.body]}>
+                    Coming Soon
+                  </Text>
+                  <Text style={[styles.comingSoonMessage, { color: colors.textSecondary, textAlign: 'center' }, typography.caption]}>
+                    We're working on adding automatic cloud sync. Your data is currently stored securely on this device.
+                  </Text>
+                </View>
               </>
             )}
 
@@ -573,4 +582,7 @@ const styles = StyleSheet.create({
   },
   dangerButton: {},
   actionButtonText: {},
+  comingSoonMessage: {
+    lineHeight: 20,
+  },
 });

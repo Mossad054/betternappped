@@ -160,6 +160,9 @@ export type Database = {
           duration?: number;
           emoji?: string;
           follow_up_answer?: string;
+          notes?: string;
+          intensity?: number;
+          post_activity_feeling?: string;
           created_at: string;
         };
         Insert: {
@@ -171,6 +174,9 @@ export type Database = {
           duration?: number;
           emoji?: string;
           follow_up_answer?: string;
+          notes?: string;
+          intensity?: number;
+          post_activity_feeling?: string;
           created_at?: string;
         };
         Update: {
@@ -182,6 +188,9 @@ export type Database = {
           duration?: number;
           emoji?: string;
           follow_up_answer?: string;
+          notes?: string;
+          intensity?: number;
+          post_activity_feeling?: string;
           created_at?: string;
         };
       };
@@ -195,6 +204,7 @@ export type Database = {
           hours: number;
           quality: number;
           waking_feeling: string;
+          notes?: string;
           created_at: string;
         };
         Insert: {
@@ -206,6 +216,7 @@ export type Database = {
           hours: number;
           quality: number;
           waking_feeling: string;
+          notes?: string;
           created_at?: string;
         };
         Update: {
@@ -217,6 +228,7 @@ export type Database = {
           hours?: number;
           quality?: number;
           waking_feeling?: string;
+          notes?: string;
           created_at?: string;
         };
       };
@@ -297,6 +309,50 @@ export type Database = {
           completed?: boolean;
           feedback?: string;
           created_at?: string;
+        };
+      };
+      habits_library: {
+        Row: {
+          id: string;
+          name: string;
+          description: string;
+          category: string;
+          instructions?: string;
+          expected_outcome?: string;
+          emoji?: string;
+          difficulty?: string;
+          time_required?: string;
+          benefits?: string[];
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          name: string;
+          description: string;
+          category: string;
+          instructions?: string;
+          expected_outcome?: string;
+          emoji?: string;
+          difficulty?: string;
+          time_required?: string;
+          benefits?: string[];
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          name?: string;
+          description?: string;
+          category?: string;
+          instructions?: string;
+          expected_outcome?: string;
+          emoji?: string;
+          difficulty?: string;
+          time_required?: string;
+          benefits?: string[];
+          created_at?: string;
+          updated_at?: string;
         };
       };
       experiments: {

@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl, Modal, TextInput, Alert } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { ArrowLeft, FlaskConical, Plus, CheckCircle, Play, RotateCcw, X, TrendingUp, Moon, Brain, Zap, Heart, Shield } from 'lucide-react-native';
+import { ArrowLeft, FlaskConical, Plus, CheckCircle, Play, RotateCcw, X, TrendingUp, Moon, Brain, Zap, Heart, Shield, Sparkles, Smile } from 'lucide-react-native';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { ExperimentsService } from '@/services/experiments.service';
@@ -389,6 +389,29 @@ export default function ExperimentsHub() {
   // Use dynamic library data from database instead of hardcoded EXPERIMENT_LIBRARY
   const currentLibrary = libraryExperiments;
 
+  // Helper function to get icon component based on template category
+  const getTemplateIcon = (template: any) => {
+    const category = template.category?.toLowerCase() || '';
+    const iconSize = 20;
+    const iconColor = theme.colors.primary;
+
+    if (category.includes('sleep')) {
+      return <Moon size={iconSize} color={iconColor} />;
+    } else if (category.includes('mood')) {
+      return <Smile size={iconSize} color={iconColor} />;
+    } else if (category.includes('focus') || category.includes('mental')) {
+      return <Brain size={iconSize} color={iconColor} />;
+    } else if (category.includes('energy')) {
+      return <Zap size={iconSize} color={iconColor} />;
+    } else if (category.includes('stress') || category.includes('anxiety')) {
+      return <Shield size={iconSize} color={iconColor} />;
+    } else if (category.includes('performance') || category.includes('productivity')) {
+      return <TrendingUp size={iconSize} color={iconColor} />;
+    } else {
+      return <FlaskConical size={iconSize} color={iconColor} />;
+    }
+  };
+
   if (loading && !refreshing) {
     return (
       <View style={[styles.container, { backgroundColor: theme.colors.background, justifyContent: 'center', alignItems: 'center' }]}>
@@ -484,7 +507,8 @@ export default function ExperimentsHub() {
                 ]}
                 onPress={() => setSelectedCategory('popular')}
               >
-                <Text style={[styles.categoryPillText, { color: selectedCategory === 'popular' ? '#FFFFFF' : theme.colors.text }]}>
+                <Sparkles size={18} color={selectedCategory === 'popular' ? '#FFFFFF' : theme.colors.text} />
+                <Text style={[styles.categoryPillText, { color: selectedCategory === 'popular' ? '#FFFFFF' : theme.colors.text, marginLeft: 6 }]}>
                   Popular
                 </Text>
               </TouchableOpacity>
@@ -499,7 +523,8 @@ export default function ExperimentsHub() {
                 ]}
                 onPress={() => setSelectedCategory('sleep')}
               >
-                <Text style={[styles.categoryPillText, { color: selectedCategory === 'sleep' ? '#FFFFFF' : theme.colors.text }]}>
+                <Moon size={18} color={selectedCategory === 'sleep' ? '#FFFFFF' : theme.colors.text} />
+                <Text style={[styles.categoryPillText, { color: selectedCategory === 'sleep' ? '#FFFFFF' : theme.colors.text, marginLeft: 6 }]}>
                   Sleep
                 </Text>
               </TouchableOpacity>
@@ -514,7 +539,8 @@ export default function ExperimentsHub() {
                 ]}
                 onPress={() => setSelectedCategory('mood')}
               >
-                <Text style={[styles.categoryPillText, { color: selectedCategory === 'mood' ? '#FFFFFF' : theme.colors.text }]}>
+                <Smile size={18} color={selectedCategory === 'mood' ? '#FFFFFF' : theme.colors.text} />
+                <Text style={[styles.categoryPillText, { color: selectedCategory === 'mood' ? '#FFFFFF' : theme.colors.text, marginLeft: 6 }]}>
                   Mood
                 </Text>
               </TouchableOpacity>
@@ -529,7 +555,8 @@ export default function ExperimentsHub() {
                 ]}
                 onPress={() => setSelectedCategory('focus')}
               >
-                <Text style={[styles.categoryPillText, { color: selectedCategory === 'focus' ? '#FFFFFF' : theme.colors.text }]}>
+                <Brain size={18} color={selectedCategory === 'focus' ? '#FFFFFF' : theme.colors.text} />
+                <Text style={[styles.categoryPillText, { color: selectedCategory === 'focus' ? '#FFFFFF' : theme.colors.text, marginLeft: 6 }]}>
                   Focus
                 </Text>
               </TouchableOpacity>
@@ -544,7 +571,8 @@ export default function ExperimentsHub() {
                 ]}
                 onPress={() => setSelectedCategory('energy')}
               >
-                <Text style={[styles.categoryPillText, { color: selectedCategory === 'energy' ? '#FFFFFF' : theme.colors.text }]}>
+                <Zap size={18} color={selectedCategory === 'energy' ? '#FFFFFF' : theme.colors.text} />
+                <Text style={[styles.categoryPillText, { color: selectedCategory === 'energy' ? '#FFFFFF' : theme.colors.text, marginLeft: 6 }]}>
                   Energy
                 </Text>
               </TouchableOpacity>
@@ -578,7 +606,9 @@ export default function ExperimentsHub() {
                     ]}
                     onPress={() => openTemplateModal(template)}
                   >
-                    <Text style={styles.templateEmoji}>{template.emoji}</Text>
+                    <View style={styles.templateIconContainer}>
+                      {getTemplateIcon(template)}
+                    </View>
                     <Text style={[styles.templateTitle, { color: theme.colors.text }]}>{template.name}</Text>
                   </TouchableOpacity>
                 ))}
@@ -1657,15 +1687,18 @@ const createStyles = (theme: any) => StyleSheet.create({
   },
   categoryPill: {
     flexBasis: '30%',
-    paddingVertical: theme.spacing.sm,
-    paddingHorizontal: theme.spacing.md,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
     borderRadius: theme.borderRadius.full,
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
+    flexDirection: 'row',
+    minHeight: 48,
   },
   categoryPillText: {
     ...theme.typography.body,
+    fontSize: 15,
     fontWeight: '600' as const,
     textTransform: 'capitalize' as const,
   },
@@ -1688,14 +1721,17 @@ const createStyles = (theme: any) => StyleSheet.create({
     flexGrow: 0,
     flexShrink: 1,
   },
-  templateEmoji: {
-    fontSize: 14,
+  templateIconContainer: {
+    marginRight: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   templateTitle: {
     ...theme.typography.caption,
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: '600' as const,
     lineHeight: 16,
+    flex: 1,
   },
   durationBadge: {
     paddingVertical: theme.spacing.xs,

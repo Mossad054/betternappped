@@ -1,396 +1,299 @@
+/**
+ * Program Recommendation Service
+ * Data-driven recommendations based on user patterns and intimacy data
+ */
+
 import { SupabaseSafe } from '@/lib/supabaseSafe';
 
-// Pattern detection thresholds
-const THRESHOLDS = {
-  DECLINING_FREQUENCY: 0.2, // 20% decline triggers recommendation
-  LOW_MOOD_BEFORE: 5, // Average mood below 5 triggers recommendation
-  LOW_INITIATION_RATE: 0.2, // Initiation rate below 20% triggers recommendation
-  LOW_ORGASM_RATE: 0.3, // Orgasm rate below 30% triggers recommendation
-  LOW_CHECKIN_SCORE: 5, // Average checkin below 5 triggers recommendation
-  ANALYSIS_DAYS: 30, // Look back 30 days for analysis
-};
-
-// Pattern to program mappings
-const PATTERN_PROGRAM_MAP: Record<string, string[]> = {
-  'declining_frequency': [
-    'a1000005-0000-0000-0000-000000000001', // Desire Re-Ignition Bootcamp
-    'a1000003-0000-0000-0000-000000000001', // Touch & Affection
-    'a1000007-0000-0000-0000-000000000001', // Communication for Intimacy
-    'a1000023-0000-0000-0000-000000000001', // Low-Libido Support
-  ],
-  'low_mood_before': [
-    'a1000026-0000-0000-0000-000000000001', // Mood & Arousal Optimization
-    'a1000029-0000-0000-0000-000000000001', // Sexuality & Mental Health
-    'a1000006-0000-0000-0000-000000000001', // Slow Pleasure & Mindfulness
-  ],
-  'low_initiation': [
-    'a1000013-0000-0000-0000-000000000001', // Initiation Mastery
-    'a1000004-0000-0000-0000-000000000001', // Confidence & Body Positivity
-    'a1000007-0000-0000-0000-000000000001', // Communication for Intimacy
-  ],
-  'solo_insecurity': [
-    'a1000004-0000-0000-0000-000000000001', // Confidence & Body Positivity
-    'a1000002-0000-0000-0000-000000000001', // Solo Intimacy Journey
-    'a1000015-0000-0000-0000-000000000001', // Solo Healing From Shame
-  ],
-  'low_emotional_connection': [
-    'a1000001-0000-0000-0000-000000000001', // Emotional Connection Reset
-    'a1000014-0000-0000-0000-000000000001', // Emotional Safety & Security
-    'a1000008-0000-0000-0000-000000000001', // Healing Resentment
-  ],
-  'low_orgasm_rate': [
-    'a1000009-0000-0000-0000-000000000001', // Arousal Discovery Lab
-    'a1000021-0000-0000-0000-000000000001', // Solo Pleasure Expansion
-    'a1000006-0000-0000-0000-000000000001', // Slow Pleasure & Mindfulness
-  ],
-  'low_aftercare': [
-    'a1000017-0000-0000-0000-000000000001', // Improving After-Sex Connection
-    'a1000001-0000-0000-0000-000000000001', // Emotional Connection Reset
-  ],
-  'routine_stagnation': [
-    'a1000010-0000-0000-0000-000000000001', // Romance & Playfulness Reboot
-    'a1000019-0000-0000-0000-000000000001', // Passionate Marriage
-    'a1000024-0000-0000-0000-000000000001', // Intimacy Scheduling
-  ],
-  'busy_lifestyle': [
-    'a1000027-0000-0000-0000-000000000001', // Intimacy for Busy Professionals
-    'a1000024-0000-0000-0000-000000000001', // Intimacy Scheduling
-  ],
-  'new_parents': [
-    'a1000028-0000-0000-0000-000000000001', // Reconnecting After Kids
-  ],
-  'long_distance': [
-    'a1000030-0000-0000-0000-000000000001', // Long-Distance Intimacy
-  ],
-};
-
-// Reason messages for recommendations
-const PATTERN_REASONS: Record<string, string> = {
-  'declining_frequency': 'We noticed your intimacy frequency has declined recently. These programs can help reignite desire and connection.',
-  'low_mood_before': 'Your mood before intimacy has been lower than usual. These programs focus on mood optimization and mental wellness.',
-  'low_initiation': 'You might benefit from programs that build confidence around initiating intimacy.',
-  'solo_insecurity': 'Based on your patterns, these programs can help build confidence and self-acceptance.',
-  'low_emotional_connection': 'These programs focus on deepening emotional connection and safety with your partner.',
-  'low_orgasm_rate': 'Explore these programs to enhance arousal awareness and pleasure.',
-  'low_aftercare': 'These programs can help you build better post-intimacy connection rituals.',
-  'routine_stagnation': 'Bring some novelty and excitement back with these programs.',
-  'busy_lifestyle': 'Perfect for maintaining connection despite a demanding schedule.',
-  'new_parents': 'Designed specifically for reconnecting as partners after becoming parents.',
-  'long_distance': 'Stay connected and intimate despite physical distance.',
-};
-
-export interface IntimacyPattern {
-  pattern: string;
-  score: number;
-  confidence: number;
-  dataPoints: number;
+export interface ProgramRecommendation {
+  id: string;
+  user_id: string;
+  program_id: string;
+  reason: string;
+  pattern_detected: string;
+  confidence_score: number;
+  created_at: string;
+  dismissed: boolean;
+  acted_on: boolean;
+  program?: {
+    id: string;
+    title: string;
+    description: string;
+    duration_days: number;
+    difficulty: string;
+    category: string;
+    tags: string[];
+  };
 }
 
-export interface Recommendation {
-  programId: string;
-  reason: string;
-  pattern: string;
-  confidence: number;
+export interface RecommendationRule {
+  id: string;
+  rule_name: string;
+  pattern_criteria: Record<string, any>;
+  program_id: string;
+  reason_template: string;
+  min_confidence: number;
+  priority: number;
+  active: boolean;
 }
 
 export class ProgramRecommendationService {
   /**
-   * Analyze user's intimacy data and generate recommendations
+   * Analyze user data and generate personalized recommendations
    */
-  static async analyzeAndRecommend(userId: string): Promise<Recommendation[]> {
+  static async analyzeAndRecommend(userId: string): Promise<void> {
     try {
-      // Fetch user's intimacy data
-      const endDate = new Date();
-      const startDate = new Date();
-      startDate.setDate(startDate.getDate() - THRESHOLDS.ANALYSIS_DAYS);
-
-      const [logsResult, checkinsResult, previousLogsResult] = await Promise.all([
-        SupabaseSafe.select('intimacy_logs', {
-          eq: { user_id: userId },
-          gte: { date: startDate.toISOString().split('T')[0] },
-          lte: { date: endDate.toISOString().split('T')[0] },
-        }, userId),
+      // Get user's intimacy data, check-ins, and current patterns
+      const [checkinsResult, programsResult, rulesResult, existingRecs] = await Promise.all([
         SupabaseSafe.select('daily_checkins', {
-          eq: { user_id: userId },
-          gte: { checkin_date: startDate.toISOString().split('T')[0] },
+          eq: { user_id: userId }
         }, userId),
-        // Get previous period for comparison
-        SupabaseSafe.select('intimacy_logs', {
-          eq: { user_id: userId },
-          gte: { date: new Date(startDate.getTime() - THRESHOLDS.ANALYSIS_DAYS * 24 * 60 * 60 * 1000).toISOString().split('T')[0] },
-          lte: { date: startDate.toISOString().split('T')[0] },
+        SupabaseSafe.select('programs', {}, undefined),
+        SupabaseSafe.select('recommendation_rules', { eq: { active: true } }, undefined),
+        SupabaseSafe.select('program_recommendations', {
+          eq: { user_id: userId, dismissed: false }
         }, userId),
       ]);
 
-      const currentLogs = logsResult.data || [];
-      const previousLogs = previousLogsResult.data || [];
       const checkins = checkinsResult.data || [];
+      const programs = programsResult.data || [];
+      const rules = (rulesResult.data || []) as RecommendationRule[];
+      const existing = existingRecs.data || [];
 
-      // Detect patterns
-      const patterns = this.detectPatterns(currentLogs, previousLogs, checkins);
+      // Don't generate if we already have active recommendations
+      if (existing.length >= 3) {
+        return;
+      }
 
-      // Generate recommendations
-      const recommendations = this.generateRecommendations(patterns);
+      // Calculate user patterns
+      const patterns = this.calculateUserPatterns(checkins);
 
-      // Store recommendations in database
-      await this.storeRecommendations(userId, recommendations);
+      // Match patterns against recommendation rules
+      const newRecommendations = await this.matchPatternsToRules(
+        userId,
+        patterns,
+        rules,
+        programs,
+        existing
+      );
 
-      return recommendations;
+      // Save new recommendations
+      if (newRecommendations.length > 0) {
+        await SupabaseSafe.insert('program_recommendations', newRecommendations, userId);
+      }
     } catch (error) {
-      console.error('Error analyzing intimacy patterns:', error);
-      return [];
+      console.error('Error generating recommendations:', error);
     }
   }
 
   /**
-   * Detect patterns in user's intimacy data
+   * Calculate patterns from user check-in data
    */
-  private static detectPatterns(
-    currentLogs: any[],
-    previousLogs: any[],
-    checkins: any[]
-  ): IntimacyPattern[] {
-    const patterns: IntimacyPattern[] = [];
-
-    // Pattern 1: Declining frequency
-    if (previousLogs.length > 0) {
-      const frequencyChange = (currentLogs.length - previousLogs.length) / Math.max(previousLogs.length, 1);
-      if (frequencyChange < -THRESHOLDS.DECLINING_FREQUENCY) {
-        patterns.push({
-          pattern: 'declining_frequency',
-          score: Math.abs(frequencyChange),
-          confidence: Math.min(0.9, 0.5 + Math.abs(frequencyChange)),
-          dataPoints: currentLogs.length + previousLogs.length,
-        });
-      }
+  private static calculateUserPatterns(checkins: any[]): Record<string, any> {
+    if (checkins.length === 0) {
+      return {
+        hasData: false,
+        avgMood: 0,
+        avgIntimacy: 0,
+        avgCommunication: 0,
+        avgDesire: 0,
+        intimacyFrequency: 0,
+        stressLevel: 0,
+      };
     }
 
-    // Pattern 2: Low mood before intimacy
-    const logsWithMoodBefore = currentLogs.filter(log => log.mood_before != null);
-    if (logsWithMoodBefore.length > 0) {
-      const avgMoodBefore = logsWithMoodBefore.reduce((sum, log) => sum + log.mood_before, 0) / logsWithMoodBefore.length;
-      if (avgMoodBefore < THRESHOLDS.LOW_MOOD_BEFORE) {
-        patterns.push({
-          pattern: 'low_mood_before',
-          score: (THRESHOLDS.LOW_MOOD_BEFORE - avgMoodBefore) / THRESHOLDS.LOW_MOOD_BEFORE,
-          confidence: Math.min(0.9, 0.5 + (logsWithMoodBefore.length / 10)),
-          dataPoints: logsWithMoodBefore.length,
-        });
-      }
-    }
+    const recent = checkins.slice(-30); // Last 30 check-ins
 
-    // Pattern 3: Low initiation rate
-    const logsWithInitiation = currentLogs.filter(log => log.initiated != null);
-    if (logsWithInitiation.length > 2) {
-      const initiationRate = logsWithInitiation.filter(log => log.initiated === true).length / logsWithInitiation.length;
-      if (initiationRate < THRESHOLDS.LOW_INITIATION_RATE) {
-        patterns.push({
-          pattern: 'low_initiation',
-          score: (THRESHOLDS.LOW_INITIATION_RATE - initiationRate) / THRESHOLDS.LOW_INITIATION_RATE,
-          confidence: Math.min(0.85, 0.5 + (logsWithInitiation.length / 10)),
-          dataPoints: logsWithInitiation.length,
-        });
-      }
-    }
+    const avgMood = recent.reduce((sum, c) => sum + (c.mood || 0), 0) / recent.length;
+    const avgIntimacy = recent.reduce((sum, c) => sum + (c.intimacy_level || 0), 0) / recent.length;
+    const avgCommunication = recent.reduce((sum, c) => sum + (c.communication_quality || 0), 0) / recent.length;
+    const avgDesire = recent.reduce((sum, c) => sum + (c.desire_level || 0), 0) / recent.length;
+    const avgStress = recent.reduce((sum, c) => sum + (c.stress || 0), 0) / recent.length;
 
-    // Pattern 4: Low orgasm rate
-    const logsWithOrgasm = currentLogs.filter(log => log.orgasm != null);
-    if (logsWithOrgasm.length > 2) {
-      const orgasmRate = logsWithOrgasm.filter(log => log.orgasm === true).length / logsWithOrgasm.length;
-      if (orgasmRate < THRESHOLDS.LOW_ORGASM_RATE) {
-        patterns.push({
-          pattern: 'low_orgasm_rate',
-          score: (THRESHOLDS.LOW_ORGASM_RATE - orgasmRate) / THRESHOLDS.LOW_ORGASM_RATE,
-          confidence: Math.min(0.85, 0.5 + (logsWithOrgasm.length / 10)),
-          dataPoints: logsWithOrgasm.length,
-        });
-      }
-    }
+    const intimacyEvents = recent.filter(c => c.had_intimacy).length;
+    const intimacyFrequency = intimacyEvents / recent.length;
 
-    // Pattern 5: Low emotional connection (from checkins)
-    const intimacyCheckins = checkins.filter(c => c.intimacy_level != null);
-    if (intimacyCheckins.length > 0) {
-      const avgIntimacy = intimacyCheckins.reduce((sum, c) => sum + c.intimacy_level, 0) / intimacyCheckins.length;
-      if (avgIntimacy < THRESHOLDS.LOW_CHECKIN_SCORE) {
-        patterns.push({
-          pattern: 'low_emotional_connection',
-          score: (THRESHOLDS.LOW_CHECKIN_SCORE - avgIntimacy) / THRESHOLDS.LOW_CHECKIN_SCORE,
-          confidence: Math.min(0.85, 0.5 + (intimacyCheckins.length / 10)),
-          dataPoints: intimacyCheckins.length,
-        });
-      }
-    }
+    const preCheckins = checkins.filter(c => c.checkin_type === 'pre_intimacy').length;
+    const postCheckins = checkins.filter(c => c.checkin_type === 'post_intimacy').length;
 
-    // Pattern 6: Solo user with potential insecurity (based on solo logs and low confidence indicators)
-    const soloLogs = currentLogs.filter(log => log.type === 'solo');
-    if (soloLogs.length > currentLogs.length * 0.7 && currentLogs.length > 3) {
-      // Check for patterns indicating insecurity (low mood after, avoiding certain activities)
-      const avgMoodAfterSolo = soloLogs.filter(log => log.mood_after != null)
-        .reduce((sum, log, _, arr) => sum + log.mood_after / arr.length, 0);
-      if (avgMoodAfterSolo < 6) {
-        patterns.push({
-          pattern: 'solo_insecurity',
-          score: (6 - avgMoodAfterSolo) / 6,
-          confidence: 0.6,
-          dataPoints: soloLogs.length,
-        });
-      }
-    }
-
-    return patterns;
+    return {
+      hasData: true,
+      avgMood: Math.round(avgMood * 10) / 10,
+      avgIntimacy: Math.round(avgIntimacy * 10) / 10,
+      avgCommunication: Math.round(avgCommunication * 10) / 10,
+      avgDesire: Math.round(avgDesire * 10) / 10,
+      stressLevel: Math.round(avgStress * 10) / 10,
+      intimacyFrequency: Math.round(intimacyFrequency * 100) / 100,
+      hasPreCheckins: preCheckins > 0,
+      hasPostCheckins: postCheckins > 0,
+      totalCheckins: checkins.length,
+    };
   }
 
   /**
-   * Generate program recommendations from detected patterns
+   * Match user patterns to recommendation rules
    */
-  private static generateRecommendations(patterns: IntimacyPattern[]): Recommendation[] {
-    const recommendations: Recommendation[] = [];
-    const seenPrograms = new Set<string>();
-
-    // Sort patterns by confidence
-    patterns.sort((a, b) => b.confidence - a.confidence);
-
-    for (const pattern of patterns) {
-      const programIds = PATTERN_PROGRAM_MAP[pattern.pattern] || [];
-
-      for (const programId of programIds) {
-        if (!seenPrograms.has(programId)) {
-          seenPrograms.add(programId);
-          recommendations.push({
-            programId,
-            reason: PATTERN_REASONS[pattern.pattern],
-            pattern: pattern.pattern,
-            confidence: pattern.confidence,
-          });
-        }
-      }
-    }
-
-    // Return top 5 recommendations
-    return recommendations.slice(0, 5);
-  }
-
-  /**
-   * Store recommendations in database
-   */
-  private static async storeRecommendations(
+  private static async matchPatternsToRules(
     userId: string,
-    recommendations: Recommendation[]
-  ): Promise<void> {
-    for (const rec of recommendations) {
-      try {
-        // Check if recommendation already exists
-        const existing = await SupabaseSafe.select('program_recommendations', {
-          eq: {
-            user_id: userId,
-            program_id: rec.programId,
-            pattern_detected: rec.pattern,
-          },
-        }, userId);
+    patterns: Record<string, any>,
+    rules: RecommendationRule[],
+    programs: any[],
+    existingRecs: any[]
+  ): Promise<any[]> {
+    const recommendations: any[] = [];
+    const existingProgramIds = new Set(existingRecs.map(r => r.program_id));
 
-        if (!existing.data || existing.data.length === 0) {
-          // Insert new recommendation
-          await SupabaseSafe.insert('program_recommendations', {
+    // Sort rules by priority
+    rules.sort((a, b) => (b.priority || 0) - (a.priority || 0));
+
+    for (const rule of rules) {
+      // Skip if we already recommended this program
+      if (existingProgramIds.has(rule.program_id)) {
+        continue;
+      }
+
+      // Check if pattern matches criteria
+      const { matches, confidence } = this.evaluateRuleCriteria(patterns, rule.pattern_criteria);
+
+      if (matches && confidence >= (rule.min_confidence || 0.5)) {
+        const program = programs.find(p => p.id === rule.program_id);
+
+        if (program) {
+          recommendations.push({
             user_id: userId,
-            program_id: rec.programId,
-            reason: rec.reason,
-            pattern_detected: rec.pattern,
-            confidence_score: rec.confidence,
-            expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-          }, userId);
+            program_id: rule.program_id,
+            reason: this.populateReasonTemplate(rule.reason_template, patterns),
+            pattern_detected: JSON.stringify(rule.pattern_criteria),
+            confidence_score: confidence,
+            dismissed: false,
+            acted_on: false,
+          });
+
+          existingProgramIds.add(rule.program_id);
+
+          // Limit to 3 new recommendations per analysis
+          if (recommendations.length >= 3) {
+            break;
+          }
         }
-      } catch (error) {
-        console.error('Error storing recommendation:', error);
       }
     }
+
+    return recommendations;
+  }
+
+  /**
+   * Evaluate if user patterns match rule criteria
+   */
+  private static evaluateRuleCriteria(
+    patterns: Record<string, any>,
+    criteria: Record<string, any>
+  ): { matches: boolean; confidence: number } {
+    if (!patterns.hasData) {
+      return { matches: false, confidence: 0 };
+    }
+
+    let matchedCriteria = 0;
+    let totalCriteria = 0;
+    let confidenceSum = 0;
+
+    for (const [key, value] of Object.entries(criteria)) {
+      totalCriteria++;
+
+      if (typeof value === 'object' && value !== null) {
+        // Handle range criteria: { min, max }
+        if ('min' in value && patterns[key] !== undefined) {
+          if (patterns[key] >= value.min) {
+            matchedCriteria++;
+            const proximity = Math.min(1, (patterns[key] - value.min) / (value.max - value.min || 1));
+            confidenceSum += proximity;
+          }
+        } else if ('max' in value && patterns[key] !== undefined) {
+          if (patterns[key] <= value.max) {
+            matchedCriteria++;
+            const proximity = Math.min(1, (value.max - patterns[key]) / (value.max || 1));
+            confidenceSum += proximity;
+          }
+        }
+      } else {
+        // Handle exact match
+        if (patterns[key] === value) {
+          matchedCriteria++;
+          confidenceSum += 1;
+        }
+      }
+    }
+
+    const matches = matchedCriteria >= Math.ceil(totalCriteria * 0.6); // At least 60% criteria match
+    const confidence = totalCriteria > 0 ? confidenceSum / totalCriteria : 0;
+
+    return { matches, confidence: Math.min(1, confidence) };
+  }
+
+  /**
+   * Populate reason template with pattern data
+   */
+  private static populateReasonTemplate(template: string, patterns: Record<string, any>): string {
+    let reason = template;
+
+    // Replace placeholders
+    reason = reason.replace(/\{avgMood\}/g, patterns.avgMood?.toFixed(1) || '0');
+    reason = reason.replace(/\{avgIntimacy\}/g, patterns.avgIntimacy?.toFixed(1) || '0');
+    reason = reason.replace(/\{avgCommunication\}/g, patterns.avgCommunication?.toFixed(1) || '0');
+    reason = reason.replace(/\{avgDesire\}/g, patterns.avgDesire?.toFixed(1) || '0');
+    reason = reason.replace(/\{intimacyFrequency\}/g, Math.round((patterns.intimacyFrequency || 0) * 100) + '%');
+
+    return reason;
   }
 
   /**
    * Get user's active recommendations
    */
-  static async getRecommendations(userId: string): Promise<any[]> {
-    try {
-      const result = await SupabaseSafe.select('program_recommendations', {
-        eq: {
-          user_id: userId,
-          is_dismissed: false,
-          is_enrolled: false,
-        },
-        lte: { expires_at: new Date().toISOString() },
-        order: { column: 'confidence_score', ascending: false },
-      }, userId);
+  static async getRecommendations(userId: string): Promise<ProgramRecommendation[]> {
+    const result = await SupabaseSafe.select('program_recommendations', {
+      eq: { user_id: userId, dismissed: false }
+    }, userId);
 
-      if (result.error || !result.data) {
-        return [];
-      }
-
-      // Fetch program details for each recommendation
-      const programIds = result.data.map((r: any) => r.program_id);
-      const programsResult = await SupabaseSafe.select('programs', {}, userId);
-
-      if (programsResult.data) {
-        const programMap = new Map(programsResult.data.map((p: any) => [p.id, p]));
-        return result.data.map((rec: any) => ({
-          ...rec,
-          program: programMap.get(rec.program_id),
-        }));
-      }
-
-      return result.data;
-    } catch (error) {
-      console.error('Error fetching recommendations:', error);
+    if (result.error || !result.data) {
       return [];
     }
+
+    const recommendations = result.data as ProgramRecommendation[];
+
+    // Fetch program details for each recommendation
+    const programIds = [...new Set(recommendations.map(r => r.program_id))];
+    const programsResult = await SupabaseSafe.select('programs', {
+      in: { id: programIds }
+    }, undefined);
+
+    const programs = programsResult.data || [];
+
+    // Merge program data
+    return recommendations.map(rec => ({
+      ...rec,
+      program: programs.find((p: any) => p.id === rec.program_id),
+    })).sort((a, b) => b.confidence_score - a.confidence_score);
   }
 
   /**
    * Dismiss a recommendation
    */
   static async dismissRecommendation(userId: string, recommendationId: string): Promise<boolean> {
-    try {
-      const result = await SupabaseSafe.update(
-        'program_recommendations',
-        recommendationId,
-        { is_dismissed: true },
-        userId
-      );
-      return !result.error;
-    } catch (error) {
-      console.error('Error dismissing recommendation:', error);
-      return false;
-    }
+    const result = await SupabaseSafe.update('program_recommendations', recommendationId, {
+      dismissed: true,
+    }, userId);
+
+    return !result.error;
   }
 
   /**
-   * Mark recommendation as enrolled
+   * Mark recommendation as acted upon (user enrolled in program)
    */
-  static async markEnrolled(userId: string, recommendationId: string): Promise<boolean> {
-    try {
-      const result = await SupabaseSafe.update(
-        'program_recommendations',
-        recommendationId,
-        { is_enrolled: true },
-        userId
-      );
-      return !result.error;
-    } catch (error) {
-      console.error('Error marking recommendation as enrolled:', error);
-      return false;
-    }
-  }
+  static async markActedOn(userId: string, recommendationId: string): Promise<boolean> {
+    const result = await SupabaseSafe.update('program_recommendations', recommendationId, {
+      acted_on: true,
+    }, userId);
 
-  /**
-   * Run weekly analysis for all users (to be called by a cron job or background task)
-   */
-  static async runWeeklyAnalysis(): Promise<void> {
-    try {
-      // This would typically be called from a backend service or edge function
-      // For now, it analyzes the current user when called
-      console.log('Weekly intimacy analysis completed');
-    } catch (error) {
-      console.error('Error running weekly analysis:', error);
-    }
+    return !result.error;
   }
 }
-
-export default ProgramRecommendationService;

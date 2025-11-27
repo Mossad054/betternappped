@@ -12,6 +12,8 @@ import {
   BookOpen,
   FlaskConical,
   Info,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react-native';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -71,6 +73,7 @@ export default function IntimacyInsightsCard() {
   const { theme } = useTheme();
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
+  const [currentWeekOffset, setCurrentWeekOffset] = useState(0); // 0 = current week, -1 = last week, etc.
   const [insights, setInsights] = useState<InsightsData>({
     dayDataMap: new Map(),
     totalSessions: 0,
@@ -89,7 +92,7 @@ export default function IntimacyInsightsCard() {
 
   useEffect(() => {
     loadInsights();
-  }, [user]);
+  }, [user, currentWeekOffset]);
 
   const loadInsights = async () => {
     if (!user) {
@@ -99,9 +102,25 @@ export default function IntimacyInsightsCard() {
 
     setLoading(true);
     try {
+      // Calculate date range based on current week offset
       const now = new Date();
-      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-      const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+      const currentDayOfWeek = now.getDay();
+
+      // Calculate the start of the target week
+      const startOfTargetWeek = new Date(now);
+      startOfTargetWeek.setDate(now.getDate() - currentDayOfWeek + (currentWeekOffset * 7));
+      startOfTargetWeek.setHours(0, 0, 0, 0);
+
+      // Calculate the end of the target week
+      const endOfTargetWeek = new Date(startOfTargetWeek);
+      endOfTargetWeek.setDate(startOfTargetWeek.getDate() + 6);
+      endOfTargetWeek.setHours(23, 59, 59, 999);
+
+      // Also get monthly data for the month that contains the target week
+      const targetMonth = startOfTargetWeek.getMonth();
+      const targetYear = startOfTargetWeek.getFullYear();
+      const startOfMonth = new Date(targetYear, targetMonth, 1);
+      const endOfMonth = new Date(targetYear, targetMonth + 1, 0);
 
       // Fetch all data in parallel
       const [logsResult, checkins, activePrograms, goalsResult] = await Promise.all([
@@ -207,14 +226,15 @@ export default function IntimacyInsightsCard() {
     return streak;
   };
 
-  // Get current week days with detailed data
+  // Get week days with detailed data based on current offset
   const getWeekDays = (): DayData[] => {
     const today = new Date();
     const dayOfWeek = today.getDay();
     const startOfWeek = new Date(today);
-    startOfWeek.setDate(today.getDate() - dayOfWeek);
+    startOfWeek.setDate(today.getDate() - dayOfWeek + (currentWeekOffset * 7));
 
     const days: DayData[] = [];
+    const todayStr = today.toISOString().split('T')[0];
 
     for (let i = 0; i < 7; i++) {
       const date = new Date(startOfWeek);
@@ -225,7 +245,7 @@ export default function IntimacyInsightsCard() {
       days.push({
         date: date.getDate(),
         dateStr,
-        isToday: dateStr === today.toISOString().split('T')[0],
+        isToday: dateStr === todayStr,
         hasIntimacy: !!logData,
         orgasmed: logData?.orgasm || false,
         initiated: logData?.initiated === true,
@@ -235,6 +255,28 @@ export default function IntimacyInsightsCard() {
     }
     return days;
   };
+
+  // Function to get date range display text
+  const getDateRangeText = () => {
+    const today = new Date();
+    const dayOfWeek = today.getDay();
+    const startOfWeek = new Date(today);
+    startOfWeek.setDate(today.getDate() - dayOfWeek + (currentWeekOffset * 7));
+
+    const endOfWeek = new Date(startOfWeek);
+    endOfWeek.setDate(startOfWeek.getDate() + 6);
+
+    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+    if (startOfWeek.getMonth() === endOfWeek.getMonth()) {
+      return `${monthNames[startOfWeek.getMonth()]} ${startOfWeek.getDate()}–${endOfWeek.getDate()}`;
+    } else {
+      return `${monthNames[startOfWeek.getMonth()]} ${startOfWeek.getDate()}–${monthNames[endOfWeek.getMonth()]} ${endOfWeek.getDate()}`;
+    }
+  };
+
+  const canGoNext = () => currentWeekOffset < 0;
+  const canGoPrevious = () => currentWeekOffset > -12; // Limit to 12 weeks back
 
   const weekDays = getWeekDays();
   const dayNames = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
@@ -261,6 +303,20 @@ export default function IntimacyInsightsCard() {
       fontSize: 14,
       fontWeight: '600',
       color: theme.colors.textSecondary,
+    },
+    dateNavContainer: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+      marginTop: 4,
+    },
+    navButton: {
+      width: 28,
+      height: 28,
+      borderRadius: 14,
+      backgroundColor: theme.colors.primary + '15',
+      alignItems: 'center',
+      justifyContent: 'center',
     },
     // Weekly calendar
     weekRow: {
@@ -344,7 +400,7 @@ export default function IntimacyInsightsCard() {
     // Check-in buttons
     checkinRow: {
       flexDirection: 'row',
-      gap: 10,
+      gap: 12,
       marginBottom: 16,
     },
     checkinCard: {
@@ -353,16 +409,17 @@ export default function IntimacyInsightsCard() {
       alignItems: 'center',
       justifyContent: 'center',
       backgroundColor: theme.colors.primary + '15',
-      borderRadius: 24,
-      paddingVertical: 10,
-      paddingHorizontal: 12,
-      gap: 6,
+      borderRadius: 16,
+      paddingVertical: 16,
+      paddingHorizontal: 16,
+      gap: 8,
+      ...theme.shadows.small,
     },
     checkinEmoji: {
-      fontSize: 18,
+      fontSize: 24,
     },
     checkinLabel: {
-      fontSize: 14,
+      fontSize: 15,
       fontWeight: '800',
       color: theme.colors.primary,
     },
@@ -509,9 +566,25 @@ export default function IntimacyInsightsCard() {
     <View style={styles.card}>
       {/* Header */}
       <View style={styles.header}>
-        <View>
+        <View style={{ flex: 1 }}>
           <Text style={styles.title}>Intimacy Insights</Text>
-          <Text style={styles.subtitle}>This Month</Text>
+          <View style={styles.dateNavContainer}>
+            <TouchableOpacity
+              onPress={() => setCurrentWeekOffset(currentWeekOffset - 1)}
+              disabled={!canGoPrevious()}
+              style={[styles.navButton, !canGoPrevious() && { opacity: 0.3 }]}
+            >
+              <ChevronLeft size={18} color={theme.colors.primary} />
+            </TouchableOpacity>
+            <Text style={styles.subtitle}>{getDateRangeText()}</Text>
+            <TouchableOpacity
+              onPress={() => setCurrentWeekOffset(currentWeekOffset + 1)}
+              disabled={!canGoNext()}
+              style={[styles.navButton, !canGoNext() && { opacity: 0.3 }]}
+            >
+              <ChevronRight size={18} color={theme.colors.primary} />
+            </TouchableOpacity>
+          </View>
         </View>
         <TouchableOpacity>
           <Info size={18} color={theme.colors.textSecondary} />

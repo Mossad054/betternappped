@@ -379,8 +379,8 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   scaleEmoji: {
-    fontSize: 28,
-    marginBottom: 6,
+    fontSize: 32,
+    marginBottom: 8,
   },
   scaleLabel: {
     textAlign: 'center',

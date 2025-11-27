@@ -215,6 +215,7 @@ export default function CheckInScreen() {
                       backgroundColor: hadOrgasm
                         ? theme.colors.primaryLight
                         : theme.colors.surfaceVariant,
+                      ...theme.shadows?.small,
                     },
                   ]}
                   onPress={() => setHadOrgasm(!hadOrgasm)}
@@ -238,6 +239,7 @@ export default function CheckInScreen() {
                         ? theme.colors.primaryLight
                         : theme.colors.surfaceVariant,
                       marginTop: 12,
+                      ...theme.shadows?.small,
                     },
                   ]}
                   onPress={() => setInitiated(!initiated)}
@@ -355,6 +357,7 @@ export default function CheckInScreen() {
                   backgroundColor: hadIntimacy
                     ? theme.colors.primaryLight
                     : theme.colors.surfaceVariant,
+                  ...theme.shadows?.small,
                 },
               ]}
               onPress={() => setHadIntimacy(!hadIntimacy)}
@@ -419,60 +422,6 @@ export default function CheckInScreen() {
           </View>
           )}
 
-          {/* Reflection Notes (Optional) */}
-          <View style={[styles.card, { backgroundColor: theme.colors.surface }]}>
-            <Text style={[styles.cardTitle, { color: theme.colors.textPrimary }]}>
-              Reflections (Optional)
-            </Text>
-            
-            <Text style={[styles.inputLabel, { color: theme.colors.textSecondary }]}>
-              🙏 What are you grateful for today?
-            </Text>
-            <TextInput
-              style={[styles.textInput, { 
-                backgroundColor: theme.colors.surfaceVariant,
-                color: theme.colors.textPrimary 
-              }]}
-              placeholder="I'm grateful for..."
-              placeholderTextColor={theme.colors.textSecondary}
-              value={gratitudeNote}
-              onChangeText={setGratitudeNote}
-              multiline
-              numberOfLines={2}
-            />
-
-            <Text style={[styles.inputLabel, { color: theme.colors.textSecondary }]}>
-              💪 What was your win today?
-            </Text>
-            <TextInput
-              style={[styles.textInput, { 
-                backgroundColor: theme.colors.surfaceVariant,
-                color: theme.colors.textPrimary 
-              }]}
-              placeholder="Today I accomplished..."
-              placeholderTextColor={theme.colors.textSecondary}
-              value={winNote}
-              onChangeText={setWinNote}
-              multiline
-              numberOfLines={2}
-            />
-
-            <Text style={[styles.inputLabel, { color: theme.colors.textSecondary }]}>
-              🤔 What challenged you today?
-            </Text>
-            <TextInput
-              style={[styles.textInput, { 
-                backgroundColor: theme.colors.surfaceVariant,
-                color: theme.colors.textPrimary 
-              }]}
-              placeholder="I struggled with..."
-              placeholderTextColor={theme.colors.textSecondary}
-              value={challengeNote}
-              onChangeText={setChallengeNote}
-              multiline
-              numberOfLines={2}
-            />
-          </View>
 
           <TouchableOpacity
             style={[
@@ -573,13 +522,13 @@ const styles = StyleSheet.create({
     height: 40,
   },
   intimacyToggle: {
-    padding: 16,
-    borderRadius: 12,
+    padding: 20,
+    borderRadius: 16,
     marginBottom: 16,
   },
   intimacyToggleText: {
-    fontSize: 15,
-    fontWeight: '500',
+    fontSize: 16,
+    fontWeight: '600',
     textAlign: 'center',
   },
   sectionLabel: {

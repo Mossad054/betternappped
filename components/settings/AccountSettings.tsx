@@ -32,7 +32,6 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { ProfileService } from '@/services/profile.service';
 import { AuthService } from '@/services/auth.service';
-import { PINService } from '@/services/pin.service';
 
 
 interface AccountSettingsProps {
@@ -71,14 +70,6 @@ export function AccountSettings({ onBack }: AccountSettingsProps) {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [changingPassword, setChangingPassword] = useState(false);
 
-  // PIN modal
-  const [showPINModal, setShowPINModal] = useState(false);
-  const [pinMode, setPinMode] = useState<'setup' | 'change' | 'disable'>('setup');
-  const [currentPIN, setCurrentPIN] = useState('');
-  const [newPIN, setNewPIN] = useState('');
-  const [confirmPIN, setConfirmPIN] = useState('');
-  const [isPINEnabled, setIsPINEnabled] = useState(false);
-  const [processingPIN, setProcessingPIN] = useState(false);
 
   // Delete account modal
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -89,7 +80,6 @@ export function AccountSettings({ onBack }: AccountSettingsProps) {
   // Load profile data
   useEffect(() => {
     loadProfile();
-    checkPINStatus();
   }, []);
 
   const loadProfile = async () => {
@@ -112,15 +102,6 @@ export function AccountSettings({ onBack }: AccountSettingsProps) {
     }
   };
 
-  const checkPINStatus = async () => {
-    if (isGuest || !user) return;
-    try {
-      const enabled = await PINService.isPINEnabled(user.id);
-      setIsPINEnabled(enabled);
-    } catch (error) {
-      console.error('Failed to check PIN status:', error);
-    }
-  };
 
   const handleUploadAvatar = async () => {
     if (isGuest || !user) return;
@@ -229,60 +210,6 @@ export function AccountSettings({ onBack }: AccountSettingsProps) {
     }
   };
 
-  const handleOpenPINModal = (mode: 'setup' | 'change' | 'disable') => {
-    setPinMode(mode);
-    setCurrentPIN('');
-    setNewPIN('');
-    setConfirmPIN('');
-    setShowPINModal(true);
-  };
-
-  const handlePINAction = async () => {
-    if (!user) return;
-
-    setProcessingPIN(true);
-    try {
-      if (pinMode === 'setup') {
-        if (newPIN !== confirmPIN) {
-          Alert.alert('Error', 'PINs do not match');
-          return;
-        }
-        const result = await PINService.setupPIN(user.id, newPIN, confirmPIN);
-        if (result.success) {
-          setIsPINEnabled(true);
-          setShowPINModal(false);
-          Alert.alert('Success', 'PIN lock enabled successfully!');
-        } else {
-          Alert.alert('Error', result.error || 'Failed to setup PIN');
-        }
-      } else if (pinMode === 'change') {
-        if (newPIN !== confirmPIN) {
-          Alert.alert('Error', 'New PINs do not match');
-          return;
-        }
-        const result = await PINService.changePIN(user.id, currentPIN, newPIN, confirmPIN);
-        if (result.success) {
-          setShowPINModal(false);
-          Alert.alert('Success', 'PIN changed successfully!');
-        } else {
-          Alert.alert('Error', result.error || 'Failed to change PIN');
-        }
-      } else if (pinMode === 'disable') {
-        const result = await PINService.disablePIN(user.id, currentPIN);
-        if (result.success) {
-          setIsPINEnabled(false);
-          setShowPINModal(false);
-          Alert.alert('Success', 'PIN lock disabled successfully!');
-        } else {
-          Alert.alert('Error', result.error || 'Failed to disable PIN');
-        }
-      }
-    } catch (error) {
-      Alert.alert('Error', 'An unexpected error occurred');
-    } finally {
-      setProcessingPIN(false);
-    }
-  };
 
   const handleSignOut = async () => {
     Alert.alert(
@@ -546,22 +473,6 @@ export function AccountSettings({ onBack }: AccountSettingsProps) {
               colors.primary
             )}
 
-            {renderActionItem(
-              isPINEnabled ? 'Manage PIN Lock' : 'Enable PIN Lock',
-              isPINEnabled ? 'Change or disable your PIN' : 'Secure your app with a PIN',
-              () => handleOpenPINModal(isPINEnabled ? 'change' : 'setup'),
-              Shield,
-              colors.secondary
-            )}
-
-            {isPINEnabled && renderActionItem(
-              'Disable PIN Lock',
-              'Remove PIN protection',
-              () => handleOpenPINModal('disable'),
-              Shield,
-              colors.warning
-            )}
-
             <Text style={[styles.sectionTitle, { color: colors.text }, typography.h4]}>Account Actions</Text>
 
             {renderActionItem(
@@ -698,96 +609,6 @@ export function AccountSettings({ onBack }: AccountSettingsProps) {
                   <ActivityIndicator size="small" color={colors.surface} />
                 ) : (
                   <Text style={[styles.modalButtonText, { color: colors.surface }, typography.h6]}>Change Password</Text>
-                )}
-              </TouchableOpacity>
-            </ScrollView>
-          </View>
-        </View>
-      </Modal>
-
-      {/* PIN Modal */}
-      <Modal
-        visible={showPINModal}
-        animationType="slide"
-        transparent
-        onRequestClose={() => setShowPINModal(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, { backgroundColor: colors.surface }]}>
-            <View style={styles.modalHeader}>
-              <Text style={[styles.modalTitle, { color: colors.text }, typography.h3]}>
-                {pinMode === 'setup' ? 'Enable PIN Lock' : pinMode === 'change' ? 'Change PIN' : 'Disable PIN Lock'}
-              </Text>
-              <TouchableOpacity onPress={() => setShowPINModal(false)}>
-                <Text style={[styles.modalClose, { color: colors.textSecondary }]}>✕</Text>
-              </TouchableOpacity>
-            </View>
-
-            <ScrollView showsVerticalScrollIndicator={false}>
-              {(pinMode === 'change' || pinMode === 'disable') && (
-                <View style={styles.inputGroup}>
-                  <Text style={[styles.inputLabel, { color: colors.text }, typography.h6]}>Current PIN</Text>
-                  <TextInput
-                    style={[styles.textInput, { borderColor: colors.border, color: colors.text, backgroundColor: colors.background }]}
-                    value={currentPIN}
-                    onChangeText={setCurrentPIN}
-                    placeholder="Enter current PIN"
-                    placeholderTextColor={colors.textSecondary}
-                    keyboardType="numeric"
-                    maxLength={6}
-                    secureTextEntry
-                  />
-                </View>
-              )}
-
-              {pinMode !== 'disable' && (
-                <>
-                  <View style={styles.inputGroup}>
-                    <Text style={[styles.inputLabel, { color: colors.text }, typography.h6]}>
-                      {pinMode === 'setup' ? 'New PIN' : 'New PIN'}
-                    </Text>
-                    <TextInput
-                      style={[styles.textInput, { borderColor: colors.border, color: colors.text, backgroundColor: colors.background }]}
-                      value={newPIN}
-                      onChangeText={setNewPIN}
-                      placeholder="Enter 4-6 digit PIN"
-                      placeholderTextColor={colors.textSecondary}
-                      keyboardType="numeric"
-                      maxLength={6}
-                      secureTextEntry
-                    />
-                    <Text style={[styles.passwordHint, { color: colors.textSecondary }, typography.caption]}>
-                      4-6 digits
-                    </Text>
-                  </View>
-
-                  <View style={styles.inputGroup}>
-                    <Text style={[styles.inputLabel, { color: colors.text }, typography.h6]}>Confirm PIN</Text>
-                    <TextInput
-                      style={[styles.textInput, { borderColor: colors.border, color: colors.text, backgroundColor: colors.background }]}
-                      value={confirmPIN}
-                      onChangeText={setConfirmPIN}
-                      placeholder="Confirm PIN"
-                      placeholderTextColor={colors.textSecondary}
-                      keyboardType="numeric"
-                      maxLength={6}
-                      secureTextEntry
-                    />
-                  </View>
-                </>
-              )}
-
-              <TouchableOpacity
-                style={[styles.modalButton, { backgroundColor: pinMode === 'disable' ? colors.error : colors.primary }]}
-                onPress={handlePINAction}
-                disabled={processingPIN}
-              >
-                {processingPIN ? (
-                  <ActivityIndicator size="small" color={colors.surface} />
-                ) : (
-                  <Text style={[styles.modalButtonText, { color: colors.surface }, typography.h6]}>
-                    {pinMode === 'setup' ? 'Enable PIN' : pinMode === 'change' ? 'Change PIN' : 'Disable PIN'}
-                  </Text>
                 )}
               </TouchableOpacity>
             </ScrollView>

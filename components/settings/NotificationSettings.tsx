@@ -12,13 +12,13 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import DateTimePicker from '@react-native-community/datetimepicker';
-import { 
-  ArrowLeft, 
-  Clock, 
-  Bell, 
-  Zap, 
-  Target, 
+import ModernTimePicker, { TimeValue } from '@/components/ModernTimePicker';
+import {
+  ArrowLeft,
+  Clock,
+  Bell,
+  Zap,
+  Target,
   Moon,
   TrendingUp,
   Lightbulb,
@@ -26,7 +26,6 @@ import {
   ChevronRight,
   Check,
   X,
-  Send,
 } from 'lucide-react-native';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -88,17 +87,15 @@ export function NotificationSettings({ onBack }: NotificationSettingsProps) {
   const [showFrequencyModal, setShowFrequencyModal] = useState(false);
   const [showTimePickerModal, setShowTimePickerModal] = useState(false);
   const [showQuietHoursModal, setShowQuietHoursModal] = useState(false);
-  const [showTestModal, setShowTestModal] = useState(false);
   
   // Modal context
   const [selectedType, setSelectedType] = useState<NotificationType | null>(null);
   const [tempChannels, setTempChannels] = useState<NotificationChannel[]>([]);
   const [tempFrequency, setTempFrequency] = useState<NotificationFrequency>(NotificationFrequency.IMMEDIATE);
-  const [tempTime, setTempTime] = useState<Date>(new Date());
-  
-  // Time pickers for quiet hours
-  const [showQuietStartPicker, setShowQuietStartPicker] = useState(false);
-  const [showQuietEndPicker, setShowQuietEndPicker] = useState(false);
+  const [tempTime, setTempTime] = useState<TimeValue>({ hour: 9, minute: 0 });
+
+  // Time pickers for quiet hours - using new modern picker
+  const [quietHoursEditMode, setQuietHoursEditMode] = useState<'start' | 'end' | null>(null);
 
   // Notification type configurations
   const notificationTypes: NotificationTypeConfig[] = [
@@ -311,31 +308,6 @@ export function NotificationSettings({ onBack }: NotificationSettingsProps) {
     }
   };
 
-  // ============================================================
-  // Test Notification
-  // ============================================================
-
-  const sendTestNotification = async (type: NotificationType) => {
-    setSaving(true);
-    try {
-      const result = await NotificationService.sendTestNotification(
-        userId,
-        type,
-        NotificationChannel.IN_APP
-      );
-      if (result.success) {
-        Alert.alert('Test Sent', 'Test notification queued successfully!');
-      } else {
-        Alert.alert('Test Failed', 'Failed to send test notification');
-      }
-    } catch (error) {
-      console.error('Error sending test:', error);
-      Alert.alert('Error', 'An unexpected error occurred');
-    } finally {
-      setSaving(false);
-      setShowTestModal(false);
-    }
-  };
 
   // ============================================================
   // Render Methods
@@ -448,9 +420,7 @@ export function NotificationSettings({ onBack }: NotificationSettingsProps) {
                 onPress={() => {
                   setSelectedType(config.type);
                   const time = parseTimeString(timeOfDay);
-                  const date = new Date();
-                  date.setHours(time.hour, time.minute);
-                  setTempTime(date);
+                  setTempTime({ hour: time.hour, minute: time.minute });
                   setShowTimePickerModal(true);
                 }}
                 disabled={saving}
@@ -568,41 +538,6 @@ export function NotificationSettings({ onBack }: NotificationSettingsProps) {
     </View>
   );
 
-  const renderTestSection = () => (
-    <View style={[styles.section, { marginTop: theme.spacing.xl }]}>
-      <TouchableOpacity
-        style={[
-          styles.testButton,
-          {
-            backgroundColor: theme.colors.primary,
-            borderRadius: theme.borderRadius.base,
-            padding: theme.spacing.base,
-            alignItems: 'center',
-          },
-        ]}
-        onPress={() => setShowTestModal(true)}
-        disabled={saving}
-      >
-        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-          <View style={{ marginRight: 8 }}>
-            <Send size={18} color="#FFFFFF" />
-          </View>
-          <Text
-            style={[
-              styles.testButtonText,
-              {
-                color: '#FFFFFF',
-                fontSize: theme.typography.fontSize.md,
-                fontWeight: theme.typography.fontWeight.semibold,
-              },
-            ]}
-          >
-            Send Test Notification
-          </Text>
-        </View>
-      </TouchableOpacity>
-    </View>
-  );
 
   // ============================================================
   // Modal Renders
@@ -776,73 +711,20 @@ export function NotificationSettings({ onBack }: NotificationSettingsProps) {
   );
 
   const renderTimePickerModal = () => (
-    <Modal
+    <ModernTimePicker
       visible={showTimePickerModal}
-      animationType="slide"
-      transparent
-      onRequestClose={() => setShowTimePickerModal(false)}
-    >
-      <View style={styles.modalOverlay}>
-        <View style={[styles.modalContent, { backgroundColor: theme.colors.card }]}>
-          <View style={styles.modalHeader}>
-            <Text
-              style={[
-                styles.modalTitle,
-                {
-                  color: theme.colors.text,
-                  fontSize: theme.typography.fontSize.lg,
-                  fontWeight: theme.typography.fontWeight.semibold,
-                },
-              ]}
-            >
-              Select Time
-            </Text>
-            <TouchableOpacity onPress={() => setShowTimePickerModal(false)}>
-              <X size={24} color={theme.colors.text} />
-            </TouchableOpacity>
-          </View>
-
-          <DateTimePicker
-            value={tempTime}
-            mode="time"
-            is24Hour={false}
-            display="spinner"
-            onChange={(event, selectedTime) => {
-              if (selectedTime) {
-                setTempTime(selectedTime);
-              }
-            }}
-            style={{ width: '100%' }}
-          />
-
-          <TouchableOpacity
-            style={[
-              styles.modalButton,
-              { backgroundColor: theme.colors.primary, marginTop: theme.spacing.base },
-            ]}
-            onPress={() => {
-              if (selectedType) {
-                const timeStr = formatTimeString({
-                  hour: tempTime.getHours(),
-                  minute: tempTime.getMinutes(),
-                });
-                updateTime(selectedType, timeStr);
-              }
-              setShowTimePickerModal(false);
-            }}
-          >
-            <Text
-              style={[
-                styles.modalButtonText,
-                { color: '#FFFFFF', fontWeight: theme.typography.fontWeight.semibold },
-              ]}
-            >
-              Save
-            </Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-    </Modal>
+      onClose={() => setShowTimePickerModal(false)}
+      onConfirm={(time) => {
+        if (selectedType) {
+          const timeStr = formatTimeString(time);
+          updateTime(selectedType, timeStr);
+        }
+        setShowTimePickerModal(false);
+      }}
+      initialTime={tempTime}
+      is24Hour={false}
+      title="Select Notification Time"
+    />
   );
 
   const renderQuietHoursModal = () => (
@@ -875,7 +757,7 @@ export function NotificationSettings({ onBack }: NotificationSettingsProps) {
           {/* Start Time */}
           <TouchableOpacity
             style={[styles.modalOption, { borderBottomWidth: 1, borderBottomColor: theme.colors.border }]}
-            onPress={() => setShowQuietStartPicker(!showQuietStartPicker)}
+            onPress={() => setQuietHoursEditMode('start')}
           >
             <Text style={[styles.modalOptionText, { color: theme.colors.text }]}>Start Time</Text>
             <Text style={[styles.modalOptionValue, { color: theme.colors.textSecondary }]}>
@@ -883,52 +765,16 @@ export function NotificationSettings({ onBack }: NotificationSettingsProps) {
             </Text>
           </TouchableOpacity>
 
-          {showQuietStartPicker && (
-            <DateTimePicker
-              value={new Date(2024, 0, 1, quietHoursStart.hour, quietHoursStart.minute)}
-              mode="time"
-              is24Hour={false}
-              display="spinner"
-              onChange={(event, selectedTime) => {
-                if (selectedTime) {
-                  setQuietHoursStart({
-                    hour: selectedTime.getHours(),
-                    minute: selectedTime.getMinutes(),
-                  });
-                }
-              }}
-              style={{ width: '100%', marginBottom: theme.spacing.base }}
-            />
-          )}
-
           {/* End Time */}
           <TouchableOpacity
             style={[styles.modalOption, { borderBottomWidth: 1, borderBottomColor: theme.colors.border }]}
-            onPress={() => setShowQuietEndPicker(!showQuietEndPicker)}
+            onPress={() => setQuietHoursEditMode('end')}
           >
             <Text style={[styles.modalOptionText, { color: theme.colors.text }]}>End Time</Text>
             <Text style={[styles.modalOptionValue, { color: theme.colors.textSecondary }]}>
               {formatTimeLabel(quietHoursEnd)}
             </Text>
           </TouchableOpacity>
-
-          {showQuietEndPicker && (
-            <DateTimePicker
-              value={new Date(2024, 0, 1, quietHoursEnd.hour, quietHoursEnd.minute)}
-              mode="time"
-              is24Hour={false}
-              display="spinner"
-              onChange={(event, selectedTime) => {
-                if (selectedTime) {
-                  setQuietHoursEnd({
-                    hour: selectedTime.getHours(),
-                    minute: selectedTime.getMinutes(),
-                  });
-                }
-              }}
-              style={{ width: '100%', marginBottom: theme.spacing.base }}
-            />
-          )}
 
           <TouchableOpacity
             style={[
@@ -955,71 +801,6 @@ export function NotificationSettings({ onBack }: NotificationSettingsProps) {
     </Modal>
   );
 
-  const renderTestModal = () => (
-    <Modal
-      visible={showTestModal}
-      animationType="slide"
-      transparent
-      onRequestClose={() => setShowTestModal(false)}
-    >
-      <View style={styles.modalOverlay}>
-        <View style={[styles.modalContent, { backgroundColor: theme.colors.card }]}>
-          <View style={styles.modalHeader}>
-            <Text
-              style={[
-                styles.modalTitle,
-                {
-                  color: theme.colors.text,
-                  fontSize: theme.typography.fontSize.lg,
-                  fontWeight: theme.typography.fontWeight.semibold,
-                },
-              ]}
-            >
-              Test Notification
-            </Text>
-            <TouchableOpacity onPress={() => setShowTestModal(false)}>
-              <X size={24} color={theme.colors.text} />
-            </TouchableOpacity>
-          </View>
-
-          <Text
-            style={[
-              styles.modalDescription,
-              {
-                color: theme.colors.textSecondary,
-                fontSize: theme.typography.fontSize.sm,
-                marginBottom: theme.spacing.lg,
-              },
-            ]}
-          >
-            Select a notification type to test:
-          </Text>
-
-          {notificationTypes.map((config) => {
-            const IconComponent = config.icon;
-            return (
-              <TouchableOpacity
-                key={config.type}
-                style={[
-                  styles.modalOption,
-                  { borderBottomWidth: 1, borderBottomColor: theme.colors.border },
-                ]}
-                onPress={() => sendTestNotification(config.type)}
-                disabled={saving}
-              >
-                <View style={[styles.iconContainer, { backgroundColor: `${config.color}15`, marginRight: 12 }]}>
-                  <IconComponent size={20} color={config.color} />
-                </View>
-                <Text style={[styles.modalOptionText, { color: theme.colors.text }]}>
-                  {NOTIFICATION_TYPE_LABELS[config.type]}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
-      </View>
-    </Modal>
-  );
 
   // ============================================================
   // Main Render
@@ -1108,9 +889,6 @@ export function NotificationSettings({ onBack }: NotificationSettingsProps) {
         {/* Quiet Hours */}
         {renderQuietHoursSection()}
 
-        {/* Test Button */}
-        {renderTestSection()}
-
         {/* Footer Info */}
         <View style={[styles.infoCard, { backgroundColor: theme.colors.warning + '15', borderLeftColor: theme.colors.warning, marginTop: theme.spacing.xl }]}>
           <Text style={[styles.infoTitle, { color: theme.colors.warning }]}>⚙️ Advanced Settings</Text>
@@ -1127,7 +905,31 @@ export function NotificationSettings({ onBack }: NotificationSettingsProps) {
       {renderFrequencyModal()}
       {renderTimePickerModal()}
       {renderQuietHoursModal()}
-      {renderTestModal()}
+
+      {/* Modern Time Pickers for Quiet Hours */}
+      <ModernTimePicker
+        visible={quietHoursEditMode === 'start'}
+        onClose={() => setQuietHoursEditMode(null)}
+        onConfirm={(time) => {
+          setQuietHoursStart(time);
+          setQuietHoursEditMode(null);
+        }}
+        initialTime={quietHoursStart}
+        is24Hour={false}
+        title="Quiet Hours Start Time"
+      />
+
+      <ModernTimePicker
+        visible={quietHoursEditMode === 'end'}
+        onClose={() => setQuietHoursEditMode(null)}
+        onConfirm={(time) => {
+          setQuietHoursEnd(time);
+          setQuietHoursEditMode(null);
+        }}
+        initialTime={quietHoursEnd}
+        is24Hour={false}
+        title="Quiet Hours End Time"
+      />
     </View>
   );
 }

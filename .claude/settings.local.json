@@ -31,9 +31,14 @@
       "Bash(npx expo start:*)",
       "Bash(timeout:*)",
       "Bash(powershell -Command \"(Get-Content ''c:\\Users\\ROLSS_IWCF TC 6\\projects\\Betternapped\\services\\experiments.service.ts'' | Measure-Object -Line).Lines\")",
-      "Bash(find:*)"
+      "Bash(find:*)",
+      "Bash(ping:*)",
+      "Bash(test:*)",
+      "Bash(wc:*)"
     ],
-    "deny": [],
+    "deny": [
+      "Write(**/*.md)"
+    ],
     "ask": []
   }
 }

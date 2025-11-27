@@ -1,7 +1,8 @@
 import { SupabaseSafe } from '@/lib/supabaseSafe';
-import { Database } from '@/lib/supabase';
+import { Database, supabase } from '@/lib/supabase';
 import { isGuestMode, guestDataStore } from '@/lib/guestDataStore';
 import { NotificationTriggerService } from './notificationTrigger.service';
+import { NotificationEngineService } from './notificationEngine.service';
 
 type Habit = Database['public']['Tables']['habits']['Row'];
 type HabitInsert = Database['public']['Tables']['habits']['Insert'];
@@ -9,8 +10,30 @@ type HabitUpdate = Database['public']['Tables']['habits']['Update'];
 type HabitLog = Database['public']['Tables']['habit_logs']['Row'];
 type HabitLogInsert = Database['public']['Tables']['habit_logs']['Insert'];
 type HabitLogUpdate = Database['public']['Tables']['habit_logs']['Update'];
+type HabitLibrary = Database['public']['Tables']['habits_library']['Row'];
 
 export class HabitsService {
+  // Habits Library operations
+  static async getHabitsLibrary(): Promise<{ data: HabitLibrary[] | null; error: any }> {
+    try {
+      const { data, error } = await supabase
+        .from('habits_library')
+        .select('*')
+        .order('category', { ascending: true })
+        .order('name', { ascending: true });
+
+      if (error) {
+        console.error('Error fetching habits library:', error);
+        return { data: null, error };
+      }
+
+      return { data: data || [], error: null };
+    } catch (error) {
+      console.error('Error fetching habits library:', error);
+      return { data: null, error };
+    }
+  }
+
   // Habit CRUD operations
   static async create(data: Omit<HabitInsert, 'user_id'>, userId: string): Promise<{ data: Habit | null; error: any }> {
     if (await isGuestMode()) {
@@ -52,6 +75,10 @@ export class HabitsService {
     if (await isGuestMode()) {
       return guestDataStore.delete('habits', id);
     }
+
+    // Cancel all scheduled notifications for this habit
+    await NotificationEngineService.cancelAllForItem(userId, id, 'habit');
+
     const result = await SupabaseSafe.delete('habits', id, userId);
     return { error: result.error };
   }
@@ -118,6 +145,7 @@ export class HabitsService {
           
           await NotificationTriggerService.onHabitCompleted(
             userId,
+            habitId,
             habit.name,
             habit.streak || 0,
             currentDay,
@@ -403,7 +431,7 @@ export class HabitsService {
 
     try {
       const { supabase } = await import('@/lib/supabase');
-
+      
       // Call the database function to bulk log habits
       const { data, error } = await supabase
         .rpc('bulk_log_habits_for_date', {
@@ -420,51 +448,6 @@ export class HabitsService {
       return { data, error: null };
     } catch (error) {
       console.error('Error in bulkLogHabitsForDate:', error);
-      return { data: null, error };
-    }
-  }
-
-  /**
-   * Get all habits from the habits_library table
-   * Returns the complete library of available habits for users to browse
-   */
-  static async getHabitsLibrary(category?: string): Promise<{ data: any[] | null; error: any }> {
-    try {
-      const { supabase } = await import('@/lib/supabase');
-
-      let query = supabase
-        .from('habits_library')
-        .select('*')
-        .order('name', { ascending: true });
-
-      // Filter by category if provided
-      if (category && category !== 'All') {
-        query = query.eq('category', category);
-      }
-
-      const { data, error } = await query;
-
-      if (error) {
-        console.error('Error fetching habits library:', error);
-        return { data: null, error: error.message };
-      }
-
-      // Transform database format to match HabitLibraryItem interface
-      const habits = (data || []).map(habit => ({
-        id: habit.id,
-        name: habit.name,
-        description: habit.description,
-        expectedOutcome: habit.expected_outcome,
-        emoji: habit.emoji,
-        category: habit.category,
-        difficulty: habit.difficulty,
-        timeRequired: habit.time_required,
-        benefits: habit.benefits || []
-      }));
-
-      return { data: habits, error: null };
-    } catch (error) {
-      console.error('Error in getHabitsLibrary:', error);
       return { data: null, error };
     }
   }

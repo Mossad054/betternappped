@@ -2,25 +2,18 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ActivityIndicator, Animated } from 'react-native';
 import { useTheme } from '@/contexts/ThemeContext';
 import { AnalyticsService, MoodScoreAnalysis } from '@/services/analytics.service';
-import { BaselineService } from '@/services/analytics/baseline.service';
 import Svg, { Circle, G, Text as SvgText, Path } from 'react-native-svg';
+import { Typography } from '@/constants/Typography';
 
 interface MoodScoreCardProps {
   userId: string;
   period: 'today' | 'week' | 'month' | 'year';
 }
 
-interface PersonalizedContext {
-  normalizedScore: number;
-  percentileRank: number;
-  context: string;
-}
-
 export default function MoodScoreCard({ userId, period }: MoodScoreCardProps) {
   const { theme } = useTheme();
   const [loading, setLoading] = useState(true);
   const [analysis, setAnalysis] = useState<MoodScoreAnalysis | null>(null);
-  const [personalContext, setPersonalContext] = useState<PersonalizedContext | null>(null);
   const [fadeAnim] = useState(new Animated.Value(0));
 
   useEffect(() => {
@@ -32,27 +25,10 @@ export default function MoodScoreCard({ userId, period }: MoodScoreCardProps) {
     try {
       console.log('🔄 Loading mood analysis...');
       const result = await AnalyticsService.getMoodScoreAnalysis(userId, period);
-      
+
       if (result.data) {
         setAnalysis(result.data);
-        
-        // Load personalized baseline context
-        try {
-          const normalized = await BaselineService.normalizeScore(
-            userId,
-            'mood',
-            result.data.averageMood
-          );
-          setPersonalContext({
-            normalizedScore: normalized.normalizedScore,
-            percentileRank: normalized.percentileRank,
-            context: normalized.context
-          });
-        } catch (error) {
-          console.warn('⚠️ Could not load baseline context:', error);
-          setPersonalContext(null);
-        }
-        
+
         // Fade in animation
         Animated.timing(fadeAnim, {
           toValue: 1,
@@ -228,63 +204,6 @@ export default function MoodScoreCard({ userId, period }: MoodScoreCardProps) {
             / 5.0
           </Text>
         </View>
-        
-        {/* Personalized Context */}
-        {personalContext && (
-          <View style={styles.personalContextContainer}>
-            <View style={styles.normalizedScoreBar}>
-              <View style={styles.normalizedScoreTrack}>
-                <View 
-                  style={[
-                    styles.normalizedScoreFill,
-                    { 
-                      width: `${personalContext.normalizedScore}%`,
-                      backgroundColor: personalContext.normalizedScore >= 70 
-                        ? theme.colors.success 
-                        : personalContext.normalizedScore >= 40 
-                        ? theme.colors.warning 
-                        : theme.colors.error
-                    }
-                  ]} 
-                />
-                <View 
-                  style={[
-                    styles.normalizedScoreMarker,
-                    { 
-                      left: `${personalContext.normalizedScore}%`,
-                      backgroundColor: personalContext.normalizedScore >= 70 
-                        ? theme.colors.success 
-                        : personalContext.normalizedScore >= 40 
-                        ? theme.colors.warning 
-                        : theme.colors.error
-                    }
-                  ]}
-                >
-                  <Text style={styles.normalizedScoreValue}>
-                    {Math.round(personalContext.normalizedScore)}
-                  </Text>
-                </View>
-              </View>
-              <View style={styles.normalizedScoreLabels}>
-                <Text style={[styles.normalizedScoreLabel, { color: theme.colors.textSecondary }]}>
-                  Your Low
-                </Text>
-                <Text style={[styles.normalizedScoreLabel, { color: theme.colors.textSecondary }]}>
-                  Your Average
-                </Text>
-                <Text style={[styles.normalizedScoreLabel, { color: theme.colors.textSecondary }]}>
-                  Your High
-                </Text>
-              </View>
-            </View>
-            <View style={[styles.contextBox, { backgroundColor: theme.colors.primary + '10' }]}>
-              <Text style={[styles.contextIcon]}>💡</Text>
-              <Text style={[styles.contextText, { color: theme.colors.text }]}>
-                {personalContext.context}
-              </Text>
-            </View>
-          </View>
-        )}
       </View>
     );
   };
@@ -433,13 +352,14 @@ export default function MoodScoreCard({ userId, period }: MoodScoreCardProps) {
               </Text>
             </View>
           )}
-          {analysis.bestMoodDay && (
+          {analysis.bestMoodDay && period !== 'today' && (
             <View style={styles.statItem}>
-              <Text style={[styles.statValue]}>
-                {analysis.bestMoodDay.emoji}
+              <Text style={[styles.statValue, { color: theme.colors.success }]}>
+                {analysis.bestMoodDay.score.toFixed(1)}
               </Text>
               <Text style={[styles.statLabel, { color: theme.colors.textSecondary }]}>
-                Best Day
+                Best Day{'\n'}
+                {new Date(analysis.bestMoodDay.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
               </Text>
             </View>
           )}
@@ -481,13 +401,11 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   title: {
-    fontSize: 22,
-    fontWeight: '700',
+    ...Typography.analytics.cardTitle,
     marginBottom: 4,
   },
   period: {
-    fontSize: 13,
-    fontWeight: '500',
+    ...Typography.analytics.caption,
   },
   trendBadge: {
     flexDirection: 'row',
@@ -541,12 +459,10 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   scoreValue: {
-    fontSize: 36,
-    fontWeight: '700',
+    ...Typography.analytics.kpiValue,
   },
   scoreLabel: {
-    fontSize: 18,
-    fontWeight: '500',
+    ...Typography.analytics.kpiLabel,
   },
   personalContextContainer: {
     gap: 12,
@@ -626,13 +542,12 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   statValue: {
-    fontSize: 20,
-    fontWeight: '700',
+    ...Typography.analytics.statValue,
   },
   statLabel: {
-    fontSize: 11,
-    fontWeight: '500',
+    ...Typography.analytics.statLabel,
     textTransform: 'uppercase',
+    textAlign: 'center',
   },
   insightsContainer: {
     gap: 8,
@@ -642,8 +557,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
   },
   insightText: {
-    fontSize: 13,
-    lineHeight: 18,
+    ...Typography.analytics.bodyText,
   },
   distributionContainer: {
     gap: 12,
@@ -673,13 +587,11 @@ const styles = StyleSheet.create({
     width: 28,
   },
   barLabel: {
-    fontSize: 14,
-    fontWeight: '600',
+    ...Typography.analytics.subsectionTitle,
     marginBottom: 2,
   },
   barDescription: {
-    fontSize: 11,
-    fontWeight: '500',
+    ...Typography.analytics.caption,
   },
   barChartContainer: {
     flexDirection: 'row',
